@@ -33,11 +33,19 @@ export class InsightsService {
       nome: p.nome,
       ...(p.emoji !== undefined ? { emoji: p.emoji } : {}),
     }));
-    const mercados: MercadoRef[] = this.seed.mercados.map((m) => ({ id: m.id, nome: m.nome }));
 
     // A Nina analisa apenas dados REAIS (preços reportados por usuários), nunca o
     // seed de demonstração. Sem dados reais → nenhum insight (não inventa).
     const observations = this.prices.all().filter((o) => o.reporterId !== 'seed');
+
+    // Nomes de mercado: seed + os mercados REAIS (OSM) presentes nas observações,
+    // pelo nome denormalizado — assim a Nina consegue dizer "mais barato no X"
+    // mesmo para mercados que não estão no seed.
+    const nomePorId = new Map<string, string>(this.seed.mercados.map((m) => [m.id, m.nome]));
+    for (const o of observations) {
+      if (o.mercadoNome && !nomePorId.has(o.mercadoId)) nomePorId.set(o.mercadoId, o.mercadoNome);
+    }
+    const mercados: MercadoRef[] = [...nomePorId].map(([id, nome]) => ({ id, nome }));
 
     const context: InsightContext = {
       asOf,

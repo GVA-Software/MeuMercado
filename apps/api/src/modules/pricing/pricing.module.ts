@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module.js';
+import { CatalogModule } from '../catalog/catalog.module.js';
 import { PricingController } from './pricing.controller.js';
 import { PricingService } from './pricing.service.js';
 import {
@@ -7,6 +9,9 @@ import {
 } from './price-observation.repository.js';
 
 @Module({
+  // AuthModule → JwtAuthGuard/TokenService (protege o POST); CatalogModule →
+  // PRODUTO_REPOSITORY (para montar a tabela de preços).
+  imports: [AuthModule, CatalogModule],
   controllers: [PricingController],
   providers: [
     PricingService,

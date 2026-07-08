@@ -1,0 +1,713 @@
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import type {
+  MercadoDTO,
+  PriceHistoryDTO,
+  PriceHistoryPointDTO,
+  PriceTableRowDTO,
+  ProdutoDTO,
+  TrendDTO,
+} from '@meumercado/contracts';
+import { api, formatBRL } from '../../api/client';
+import { useTheme, type Theme } from '../../theme/theme';
+import { AppLogo, Btn, EmptyState, SLabel } from '../../ui/kit';
+
+function fmtData(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
+function slug(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
+export function PrecosScreen() {
+  const { T } = useTheme();
+  const [rows, setRows] = useState<PriceTableRowDTO[] | null>(null);
+  const [produtos, setProdutos] = useState<ProdutoDTO[]>([]);
+  const [erro, setErro] = useState<string | null>(null);
+  const [busca, setBusca] = useState('');
+  const [entry, setEntry] = useState<{ open: boolean; produto?: ProdutoDTO }>({ open: false });
+  const [detalhe, setDetalhe] = useState<PriceTableRowDTO | null>(null);
+
+  async function carregar() {
+    try {
+      setRows(await api.tabelaPrecos());
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  useEffect(() => {
+    void carregar();
+    void api
+      .listarProdutos()
+      .then(setProdutos)
+      .catch(() => {});
+  }, []);
+
+  const filtradas = useMemo(() => {
+    if (!rows) return null;
+    const t = busca.trim().toLowerCase();
+    return t ? rows.filter((r) => r.produto.nome.toLowerCase().includes(t)) : rows;
+  }, [rows, busca]);
+
+  function abrirCadastro(produto?: ProdutoDTO) {
+    setDetalhe(null);
+    setEntry({ open: true, ...(produto ? { produto } : {}) });
+  }
+
+  return (
+    <div style={{ paddingBottom: 100 }}>
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+          background: T.surface,
+          padding: '20px 20px 16px',
+          borderBottom: `1px solid ${T.border}`,
+        }}
+      >
+        <AppLogo size={16} />
+        <p style={{ color: T.text, fontSize: 20, fontWeight: 800, margin: '12px 0 2px' }}>Preços</p>
+        <p style={{ color: T.muted, fontSize: 13, margin: 0 }}>
+          Preços colaborativos e histórico dos mercados
+        </p>
+      </div>
+
+      <div style={{ padding: '14px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <Btn full onClick={() => abrirCadastro()}>
+          ＋ Registrar preço
+        </Btn>
+
+        {erro && <EmptyState emoji="⚠️" titulo="Não consegui carregar" sub={erro} />}
+
+        {rows && rows.length > 0 && (
+          <input
+            placeholder="Buscar produto…"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            style={{
+              border: `1.5px solid ${T.border}`,
+              borderRadius: 12,
+              padding: '11px 14px',
+              background: T.card,
+              color: T.text,
+              fontSize: 15,
+            }}
+          />
+        )}
+
+        {!erro && rows === null && <p style={{ color: T.muted }}>Carregando…</p>}
+
+        {rows && rows.length === 0 && (
+          <EmptyState
+            emoji="🏷️"
+            titulo="Nenhum preço ainda"
+            sub="Seja o primeiro a registrar um preço. Assim que houver dados, a Nina começa a comparar e avisar as melhores ofertas."
+          />
+        )}
+
+        {filtradas && filtradas.length > 0 && (
+          <>
+            <SLabel>
+              {filtradas.length} {filtradas.length === 1 ? 'produto' : 'produtos'}
+            </SLabel>
+            {filtradas.map((r) => (
+              <TabelaRow key={r.produto.id} row={r} onClick={() => setDetalhe(r)} />
+            ))}
+          </>
+        )}
+      </div>
+
+      {entry.open && (
+        <PriceEntrySheet
+          produtos={produtos}
+          {...(entry.produto ? { preselect: entry.produto } : {})}
+          onClose={() => setEntry({ open: false })}
+          onDone={() => {
+            setEntry({ open: false });
+            void carregar();
+          }}
+        />
+      )}
+
+      {detalhe && (
+        <DetailSheet
+          row={detalhe}
+          onClose={() => setDetalhe(null)}
+          onRegistrar={(p) => abrirCadastro(p)}
+        />
+      )}
+    </div>
+  );
+}
+
+function TrendBadge({ trend, pct }: { trend: TrendDTO | null; pct: number | null }) {
+  const { T } = useTheme();
+  if (!trend) return null;
+  const cfg: Record<TrendDTO, { color: string; label: string }> = {
+    subiu: { color: T.danger, label: `▲ +${Math.round(pct ?? 0)}%` },
+    caiu: { color: T.green, label: `▼ ${Math.round(pct ?? 0)}%` },
+    estavel: { color: T.muted, label: '— estável' },
+  };
+  const c = cfg[trend];
+  return (
+    <span
+      style={{
+        background: `${c.color}1e`,
+        color: c.color,
+        fontSize: 11,
+        fontWeight: 800,
+        padding: '3px 8px',
+        borderRadius: 99,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {c.label}
+    </span>
+  );
+}
+
+function TabelaRow({ row, onClick }: { row: PriceTableRowDTO; onClick: () => void }) {
+  const { T } = useTheme();
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        background: T.surface,
+        border: `1px solid ${T.border}`,
+        borderRadius: 14,
+        padding: '12px 14px',
+        cursor: 'pointer',
+        textAlign: 'left',
+        boxShadow: `0 1px 4px ${T.shadow}`,
+      }}
+    >
+      <div
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: 12,
+          background: T.primaryBg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 22,
+        }}
+      >
+        {row.produto.emoji ?? '📦'}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p
+          style={{
+            color: T.text,
+            fontSize: 14,
+            fontWeight: 700,
+            margin: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {row.produto.nome}
+        </p>
+        <p style={{ color: T.muted, fontSize: 12, margin: '2px 0 0' }}>
+          {row.amostras} {row.amostras === 1 ? 'preço' : 'preços'}
+          {row.menorPrecoMercado ? ` · menor no ${row.menorPrecoMercado}` : ''}
+        </p>
+      </div>
+      <div style={{ textAlign: 'right' }}>
+        <p style={{ color: T.text, fontSize: 15, fontWeight: 800, margin: 0 }}>
+          {row.mediaCents !== null ? formatBRL(row.mediaCents) : '—'}
+        </p>
+        <div style={{ marginTop: 3 }}>
+          <TrendBadge trend={row.trend} pct={row.trendPct} />
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/** Gráfico de linha simples (SVG) da evolução do preço. */
+function Sparkline({ pontos, color }: { pontos: PriceHistoryPointDTO[]; color: string }) {
+  const { T } = useTheme();
+  const W = 320;
+  const H = 110;
+  const pad = 14;
+  if (pontos.length === 0) return null;
+
+  const vals = pontos.map((p) => p.priceCents);
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const span = max - min || 1;
+  const n = pontos.length;
+  const coords = pontos.map((p, i) => {
+    const x = n === 1 ? W / 2 : pad + (i / (n - 1)) * (W - 2 * pad);
+    const y = pad + (1 - (p.priceCents - min) / span) * (H - 2 * pad);
+    return [x, y] as const;
+  });
+  const linha = coords.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const area = `${coords[0]![0].toFixed(1)},${H - pad} ${linha} ${coords[n - 1]![0].toFixed(1)},${
+    H - pad
+  }`;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+      <polygon points={area} fill={`${color}22`} stroke="none" />
+      {n > 1 && (
+        <polyline
+          points={linha}
+          fill="none"
+          stroke={color}
+          strokeWidth={2.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      )}
+      {coords.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r={3.2} fill={color} stroke={T.surface} strokeWidth={1.5} />
+      ))}
+    </svg>
+  );
+}
+
+function StatChip({ label, valorCents }: { label: string; valorCents: number | null }) {
+  const { T } = useTheme();
+  return (
+    <div
+      style={{
+        flex: 1,
+        background: T.card,
+        borderRadius: 12,
+        padding: '10px 12px',
+        textAlign: 'center',
+      }}
+    >
+      <p style={{ color: T.muted, fontSize: 11, margin: '0 0 3px', fontWeight: 700 }}>{label}</p>
+      <p style={{ color: T.text, fontSize: 15, fontWeight: 800, margin: 0 }}>
+        {valorCents !== null ? formatBRL(valorCents) : '—'}
+      </p>
+    </div>
+  );
+}
+
+function BottomSheet({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  const { T } = useTheme();
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.55)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: 430,
+          background: T.surface,
+          borderRadius: '24px 24px 0 0',
+          padding: '18px 20px calc(28px + env(safe-area-inset-bottom))',
+          maxHeight: '88vh',
+          overflowY: 'auto',
+        }}
+      >
+        <div
+          style={{
+            width: 40,
+            height: 4,
+            background: T.border,
+            borderRadius: 99,
+            margin: '0 auto 16px',
+          }}
+        />
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function DetailSheet({
+  row,
+  onClose,
+  onRegistrar,
+}: {
+  row: PriceTableRowDTO;
+  onClose: () => void;
+  onRegistrar: (p: ProdutoDTO) => void;
+}) {
+  const { T }: { T: Theme } = useTheme();
+  const [hist, setHist] = useState<PriceHistoryDTO | null>(null);
+
+  useEffect(() => {
+    void api
+      .historicoPreco(row.produto.id)
+      .then(setHist)
+      .catch(() => setHist({ produtoId: row.produto.id, pontos: [] }));
+  }, [row.produto.id]);
+
+  const recentes = hist ? [...hist.pontos].reverse().slice(0, 8) : [];
+
+  return (
+    <BottomSheet onClose={onClose}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14 }}>
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 14,
+            background: T.primaryBg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 26,
+          }}
+        >
+          {row.produto.emoji ?? '📦'}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ color: T.text, fontSize: 17, fontWeight: 800, margin: 0 }}>
+            {row.produto.nome}
+          </p>
+          <p style={{ color: T.muted, fontSize: 13, margin: '2px 0 0' }}>
+            {row.amostras} {row.amostras === 1 ? 'preço reportado' : 'preços reportados'}
+          </p>
+        </div>
+        <TrendBadge trend={row.trend} pct={row.trendPct} />
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        <StatChip label="MENOR" valorCents={row.minCents} />
+        <StatChip label="MÉDIA" valorCents={row.mediaCents} />
+        <StatChip label="MAIOR" valorCents={row.maxCents} />
+      </div>
+
+      <SLabel>Evolução do preço</SLabel>
+      {hist === null ? (
+        <p style={{ color: T.muted, fontSize: 13 }}>Carregando…</p>
+      ) : hist.pontos.length < 2 ? (
+        <p style={{ color: T.muted, fontSize: 13, margin: '0 0 14px' }}>
+          Poucos dados ainda — registre mais preços para ver a tendência no gráfico.
+        </p>
+      ) : (
+        <div style={{ margin: '4px 0 16px' }}>
+          <Sparkline pontos={hist.pontos} color={T.primary} />
+        </div>
+      )}
+
+      {recentes.length > 0 && (
+        <>
+          <SLabel>Reportes recentes</SLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+            {recentes.map((p, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: T.card,
+                  borderRadius: 10,
+                  padding: '10px 12px',
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <p
+                    style={{
+                      color: T.text,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      margin: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {p.mercadoNome ?? 'Mercado'}
+                  </p>
+                  <p style={{ color: T.muted, fontSize: 11, margin: '2px 0 0' }}>
+                    {fmtData(p.observedAt)}
+                  </p>
+                </div>
+                <span style={{ color: T.primary, fontSize: 14, fontWeight: 800 }}>
+                  {formatBRL(p.priceCents)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <Btn full onClick={() => onRegistrar(row.produto)}>
+        ＋ Registrar preço deste produto
+      </Btn>
+    </BottomSheet>
+  );
+}
+
+function PriceEntrySheet({
+  produtos,
+  preselect,
+  onClose,
+  onDone,
+}: {
+  produtos: ProdutoDTO[];
+  preselect?: ProdutoDTO;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { T } = useTheme();
+  const [produto, setProduto] = useState<ProdutoDTO | null>(preselect ?? null);
+  const [buscaProd, setBuscaProd] = useState('');
+  const [mercadoNome, setMercadoNome] = useState('');
+  const [mercadoId, setMercadoId] = useState<string | null>(null);
+  const [nearby, setNearby] = useState<MercadoDTO[] | null>(null);
+  const [localizando, setLocalizando] = useState(false);
+  const [preco, setPreco] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const filtrados = useMemo(
+    () =>
+      buscaProd.trim().length > 0
+        ? produtos.filter((p) => p.nome.toLowerCase().includes(buscaProd.toLowerCase())).slice(0, 6)
+        : [],
+    [buscaProd, produtos],
+  );
+  const precoCents = Math.round((parseFloat(preco.replace(',', '.')) || 0) * 100);
+  const podeEnviar = !!produto && mercadoNome.trim().length > 0 && precoCents > 0 && !enviando;
+
+  function buscarPerto() {
+    if (!navigator.geolocation) {
+      setErro('Geolocalização não suportada.');
+      return;
+    }
+    setLocalizando(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        api
+          .mercadosProximos(pos.coords.latitude, pos.coords.longitude, 5000)
+          .then((m) => setNearby(m.slice(0, 12)))
+          .catch(() => setNearby([]))
+          .finally(() => setLocalizando(false));
+      },
+      () => {
+        setErro('Não consegui sua localização — digite o mercado manualmente.');
+        setLocalizando(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  }
+
+  async function enviar() {
+    if (!produto) return;
+    setEnviando(true);
+    setErro(null);
+    try {
+      await api.reportarPreco({
+        produtoId: produto.id,
+        mercadoId: mercadoId ?? `manual:${slug(mercadoNome) || 'mercado'}`,
+        mercadoNome: mercadoNome.trim(),
+        priceCents: precoCents,
+        source: 'manual',
+      });
+      onDone();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+      setEnviando(false);
+    }
+  }
+
+  const inputStyle = {
+    border: `1.5px solid ${T.border}`,
+    borderRadius: 12,
+    padding: '12px 14px',
+    background: T.card,
+    color: T.text,
+    fontSize: 15,
+    width: '100%',
+    boxSizing: 'border-box' as const,
+  };
+
+  return (
+    <BottomSheet onClose={onClose}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <strong style={{ color: T.text, fontSize: 17 }}>Registrar preço</strong>
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: T.muted,
+            fontSize: 20,
+            cursor: 'pointer',
+          }}
+        >
+          ✕
+        </button>
+      </div>
+      <p style={{ color: T.muted, fontSize: 13, margin: '4px 0 14px' }}>
+        Ajude a comunidade: quanto custou e onde. Isso alimenta a Nina.
+      </p>
+
+      {/* Produto */}
+      <SLabel>Produto</SLabel>
+      {produto ? (
+        <button
+          onClick={() => {
+            setProduto(null);
+            setBuscaProd('');
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            width: '100%',
+            background: T.primaryBg,
+            border: `1px solid ${T.primary}55`,
+            borderRadius: 12,
+            padding: '11px 14px',
+            cursor: 'pointer',
+            marginBottom: 14,
+          }}
+        >
+          <span style={{ fontSize: 20 }}>{produto.emoji ?? '📦'}</span>
+          <span
+            style={{ color: T.text, fontSize: 14, fontWeight: 700, flex: 1, textAlign: 'left' }}
+          >
+            {produto.nome}
+          </span>
+          <span style={{ color: T.primary, fontSize: 12, fontWeight: 700 }}>trocar</span>
+        </button>
+      ) : (
+        <>
+          <input
+            autoFocus
+            placeholder="Buscar produto…"
+            value={buscaProd}
+            onChange={(e) => setBuscaProd(e.target.value)}
+            style={{ ...inputStyle, marginBottom: 8 }}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+            {filtrados.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setProduto(p)}
+                style={{
+                  display: 'flex',
+                  gap: 10,
+                  alignItems: 'center',
+                  background: T.card,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 12,
+                  padding: '10px 12px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <span style={{ fontSize: 20 }}>{p.emoji ?? '📦'}</span>
+                <span style={{ color: T.text, fontSize: 14 }}>{p.nome}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Mercado */}
+      <SLabel>Mercado</SLabel>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+        <input
+          placeholder="Nome do mercado"
+          value={mercadoNome}
+          onChange={(e) => {
+            setMercadoNome(e.target.value);
+            setMercadoId(null);
+          }}
+          style={inputStyle}
+        />
+        <button
+          onClick={buscarPerto}
+          disabled={localizando}
+          title="Buscar mercados perto de mim"
+          style={{
+            flexShrink: 0,
+            background: T.primaryBg,
+            color: T.primary,
+            border: 'none',
+            borderRadius: 12,
+            padding: '0 14px',
+            fontSize: 18,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          {localizando ? '…' : '📍'}
+        </button>
+      </div>
+      {nearby && nearby.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+          {nearby.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => {
+                setMercadoNome(m.nome);
+                setMercadoId(m.id);
+                setNearby(null);
+              }}
+              style={{
+                background: mercadoId === m.id ? T.primary : T.card,
+                color: mercadoId === m.id ? '#FFF' : T.sub,
+                border: `1px solid ${T.border}`,
+                borderRadius: 99,
+                padding: '7px 12px',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {m.nome}
+            </button>
+          ))}
+        </div>
+      )}
+      {(!nearby || nearby.length === 0) && <div style={{ height: 6 }} />}
+
+      {/* Preço */}
+      <SLabel>Preço</SLabel>
+      <input
+        type="number"
+        inputMode="decimal"
+        placeholder="0,00"
+        value={preco}
+        onChange={(e) => setPreco(e.target.value)}
+        style={{ ...inputStyle, marginBottom: 16 }}
+      />
+
+      {erro && <p style={{ color: T.danger, fontSize: 13, margin: '0 0 12px' }}>{erro}</p>}
+
+      <Btn full disabled={!podeEnviar} onClick={() => void enviar()}>
+        {enviando ? 'Enviando…' : `Registrar ${precoCents > 0 ? formatBRL(precoCents) : 'preço'}`}
+      </Btn>
+      <p style={{ color: T.muted, fontSize: 11, textAlign: 'center', margin: '10px 0 0' }}>
+        📷 Nota fiscal (QR) e foto do preço chegam em breve.
+      </p>
+    </BottomSheet>
+  );
+}

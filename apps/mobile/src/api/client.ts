@@ -6,7 +6,9 @@ import type {
   LoginInput,
   MercadoDTO,
   Periodo,
+  PriceHistoryDTO,
   PriceSummaryDTO,
+  PriceTableRowDTO,
   ProdutoDTO,
   RegisterInput,
   ReportPriceInput,
@@ -79,6 +81,12 @@ export class ApiClient {
   }
   reportarPreco(input: ReportPriceInput): Promise<PriceSummaryDTO> {
     return this.request('/prices', { method: 'POST', body: JSON.stringify(input) });
+  }
+  tabelaPrecos(q?: string): Promise<PriceTableRowDTO[]> {
+    return this.request(`/prices/table${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+  }
+  historicoPreco(produtoId: string): Promise<PriceHistoryDTO> {
+    return this.request(`/prices/${encodeURIComponent(produtoId)}/history`);
   }
 
   // ---- Carrinho ----

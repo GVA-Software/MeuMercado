@@ -8,6 +8,7 @@ export interface PriceObservationJSON {
   readonly id: string;
   readonly produtoId: string;
   readonly mercadoId: string;
+  readonly mercadoNome?: string;
   readonly price: MoneyJSON;
   readonly source: PriceSource;
   readonly reporterId: string;
@@ -23,6 +24,8 @@ export class PriceObservation {
   readonly id: string;
   readonly produtoId: string;
   readonly mercadoId: string;
+  /** Nome do mercado (denormalizado) — mercados reais do OSM não estão no seed. */
+  readonly mercadoNome: string | undefined;
   readonly price: Money;
   readonly source: PriceSource;
   /** Quem reportou (para reputação/anti-fraude). */
@@ -33,6 +36,7 @@ export class PriceObservation {
     id: string;
     produtoId: string;
     mercadoId: string;
+    mercadoNome?: string;
     price: Money;
     source: PriceSource;
     reporterId: string;
@@ -47,6 +51,7 @@ export class PriceObservation {
     this.id = params.id;
     this.produtoId = params.produtoId;
     this.mercadoId = params.mercadoId;
+    this.mercadoNome = params.mercadoNome;
     this.price = params.price;
     this.source = params.source;
     this.reporterId = params.reporterId;
@@ -59,6 +64,7 @@ export class PriceObservation {
       id: this.id,
       produtoId: this.produtoId,
       mercadoId: this.mercadoId,
+      ...(this.mercadoNome !== undefined ? { mercadoNome: this.mercadoNome } : {}),
       price: this.price.toJSON(),
       source: this.source,
       reporterId: this.reporterId,

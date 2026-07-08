@@ -1,25 +1,41 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ReportPriceSchema,
+  type PriceHistoryDTO,
   type PriceSummaryDTO,
+  type PriceTableRowDTO,
   type ReportPriceInput,
 } from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
+import { JwtAuthGuard, type AuthedUser } from '../auth/jwt-auth.guard.js';
+import { CurrentUser } from '../auth/current-user.decorator.js';
 import { PricingService } from './pricing.service.js';
 
 @Controller('prices')
 export class PricingController {
   constructor(private readonly service: PricingService) {}
 
-  /** Envio colaborativo de preço (manual/QR/foto). */
+  /** Envio colaborativo de preço (manual/QR/foto). Exige usuário autenticado. */
   @Post()
   @HttpCode(201)
+  @UseGuards(JwtAuthGuard)
   reportar(
     @Body(new ZodValidationPipe(ReportPriceSchema)) body: ReportPriceInput,
-    // TODO(auth): substituir por id do usuário autenticado (JWT).
-    @Headers('x-user-id') reporterId?: string,
+    @CurrentUser() user: AuthedUser,
   ): PriceSummaryDTO {
-    return this.service.reportar(body, reporterId ?? 'anon');
+    return this.service.reportar(body, user.id);
+  }
+
+  /** Tabela de preços colaborativa (produtos com preço reportado). */
+  @Get('table')
+  tabela(@Query('q') q?: string): PriceTableRowDTO[] {
+    return this.service.tabela(q);
+  }
+
+  /** Série histórica de um produto (para o gráfico). */
+  @Get(':produtoId/history')
+  historico(@Param('produtoId') produtoId: string): PriceHistoryDTO {
+    return this.service.historico(produtoId);
   }
 
   /** Resumo (média regional / tendência) de um produto. */

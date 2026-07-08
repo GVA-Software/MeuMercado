@@ -6,7 +6,7 @@ const TABS: Array<{ id: Tab; icon: string; label: string }> = [
   { id: 'compra', icon: '🛒', label: 'Compra' },
   { id: 'mapa', icon: '📍', label: 'Mapa' },
   { id: 'nina', icon: '✨', label: 'Nina IA' },
-  { id: 'historico', icon: '📊', label: 'Histórico' },
+  { id: 'historico', icon: '🏷️', label: 'Preços' },
   { id: 'perfil', icon: '👤', label: 'Perfil' },
 ];
 

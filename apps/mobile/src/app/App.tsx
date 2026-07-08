@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import { BottomNav, type Tab } from '../components/BottomNav';
 import { CompraScreen } from '../features/compra/CompraScreen';
 import { NinaScreen } from '../features/nina/NinaScreen';
-import { HistoricoScreen } from '../features/historico/HistoricoScreen';
+import { PrecosScreen } from '../features/precos/PrecosScreen';
 import { PerfilScreen } from '../features/perfil/PerfilScreen';
 import { AuthScreen } from '../features/auth/AuthScreen';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
@@ -51,7 +51,7 @@ export function App() {
           </Suspense>
         )}
         {tab === 'nina' && <NinaScreen />}
-        {tab === 'historico' && <HistoricoScreen />}
+        {tab === 'historico' && <PrecosScreen />}
         {tab === 'perfil' && <PerfilScreen />}
       </div>
       <BottomNav tab={tab} setTab={setTab} />

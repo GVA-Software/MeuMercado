@@ -15,7 +15,17 @@ describe('contratos zod', () => {
     expect(MoneySchema.safeParse({ cents: 28.9, currency: 'BRL' }).success).toBe(false);
   });
 
-  it('ReportPrice rejeita preço não positivo e data futura', () => {
+  it('ReportPrice exige mercadoNome e rejeita preço não positivo e data futura', () => {
+    expect(
+      ReportPriceSchema.safeParse({
+        produtoId: 'p1',
+        mercadoId: 'm1',
+        mercadoNome: 'Assaí',
+        priceCents: 2890,
+        source: 'manual',
+      }).success,
+    ).toBe(true);
+    // sem mercadoNome → inválido
     expect(
       ReportPriceSchema.safeParse({
         produtoId: 'p1',
@@ -23,11 +33,12 @@ describe('contratos zod', () => {
         priceCents: 2890,
         source: 'manual',
       }).success,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       ReportPriceSchema.safeParse({
         produtoId: 'p1',
         mercadoId: 'm1',
+        mercadoNome: 'Assaí',
         priceCents: 0,
         source: 'manual',
       }).success,
@@ -37,6 +48,7 @@ describe('contratos zod', () => {
       ReportPriceSchema.safeParse({
         produtoId: 'p1',
         mercadoId: 'm1',
+        mercadoNome: 'Assaí',
         priceCents: 100,
         source: 'qr',
         observedAt: futuro,
