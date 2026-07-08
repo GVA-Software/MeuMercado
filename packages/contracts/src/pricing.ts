@@ -19,6 +19,10 @@ export const ReportPriceSchema = z.object({
   /** Nome do mercado (denormalizado) — permite exibir/atribuir mercados reais do
    * OSM, cujos ids não estão no seed. */
   mercadoNome: z.string().min(1).max(120),
+  /** Endereço + coordenadas do mercado (denormalizados) — exibição e "ver no mapa". */
+  mercadoEndereco: z.string().max(240).optional(),
+  mercadoLat: z.number().min(-90).max(90).optional(),
+  mercadoLng: z.number().min(-180).max(180).optional(),
   priceCents: z.number().int().positive().max(100_000_00, 'Preço acima do limite plausível'),
   source: PriceSourceSchema,
   observedAt: z
@@ -63,7 +67,11 @@ export type PriceTableRowDTO = z.infer<typeof PriceTableRowSchema>;
 export const PriceHistoryPointSchema = z.object({
   observedAt: z.string().datetime(),
   priceCents: z.number().int().positive(),
+  mercadoId: z.string(),
   mercadoNome: z.string().nullable(),
+  mercadoEndereco: z.string().nullable(),
+  mercadoLat: z.number().nullable(),
+  mercadoLng: z.number().nullable(),
   source: PriceSourceSchema,
 });
 export type PriceHistoryPointDTO = z.infer<typeof PriceHistoryPointSchema>;

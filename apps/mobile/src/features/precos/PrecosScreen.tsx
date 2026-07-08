@@ -12,6 +12,7 @@ import { api, formatBRL } from '../../api/client';
 import { useTheme, type Theme } from '../../theme/theme';
 import { AppLogo, Btn, CurrencyInput, EmptyState, SLabel } from '../../ui/kit';
 import { MarketTag } from '../../ui/market';
+import { useNav } from '../../app/nav';
 import { NfceFlow } from '../nfce/NfceFlow';
 
 function fmtData(iso: string): string {
@@ -372,6 +373,7 @@ function DetailSheet({
   onRegistrar: (p: ProdutoDTO) => void;
 }) {
   const { T }: { T: Theme } = useTheme();
+  const { irParaMapa } = useNav();
   const [hist, setHist] = useState<PriceHistoryDTO | null>(null);
 
   useEffect(() => {
@@ -435,30 +437,62 @@ function DetailSheet({
           <SLabel>Reportes recentes</SLabel>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
             {recentes.map((p, i) => (
-              <div
-                key={i}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  background: T.card,
-                  borderRadius: 10,
-                  padding: '10px 12px',
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
+              <div key={i} style={{ background: T.card, borderRadius: 10, padding: '10px 12px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
                   {p.mercadoNome ? (
                     <MarketTag nome={p.mercadoNome} />
                   ) : (
                     <span style={{ color: T.text, fontSize: 13, fontWeight: 600 }}>Mercado</span>
                   )}
-                  <p style={{ color: T.muted, fontSize: 11, margin: '4px 0 0' }}>
-                    {fmtData(p.observedAt)}
-                  </p>
+                  <span style={{ color: T.primary, fontSize: 14, fontWeight: 800 }}>
+                    {formatBRL(p.priceCents)}
+                  </span>
                 </div>
-                <span style={{ color: T.primary, fontSize: 14, fontWeight: 800 }}>
-                  {formatBRL(p.priceCents)}
-                </span>
+                {p.mercadoEndereco && (
+                  <p style={{ color: T.muted, fontSize: 11, margin: '6px 0 0', lineHeight: 1.4 }}>
+                    📍 {p.mercadoEndereco}
+                  </p>
+                )}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginTop: 6,
+                  }}
+                >
+                  <span style={{ color: T.muted, fontSize: 11 }}>{fmtData(p.observedAt)}</span>
+                  {p.mercadoLat !== null && p.mercadoLng !== null && (
+                    <button
+                      onClick={() =>
+                        irParaMapa({
+                          lat: p.mercadoLat!,
+                          lng: p.mercadoLng!,
+                          nome: p.mercadoNome ?? 'Mercado',
+                          ...(p.mercadoEndereco ? { endereco: p.mercadoEndereco } : {}),
+                        })
+                      }
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: T.primary,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                    >
+                      🗺️ Ver no mapa
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -489,6 +523,11 @@ function PriceEntrySheet({
   const [criando, setCriando] = useState(false);
   const [mercadoNome, setMercadoNome] = useState('');
   const [mercadoId, setMercadoId] = useState<string | null>(null);
+  const [mercadoDados, setMercadoDados] = useState<{
+    endereco?: string;
+    lat?: number;
+    lng?: number;
+  }>({});
   const [nearby, setNearby] = useState<MercadoDTO[] | null>(null);
   const [localizando, setLocalizando] = useState(false);
   const [precoCents, setPrecoCents] = useState(0);
@@ -551,6 +590,9 @@ function PriceEntrySheet({
         produtoId: produto.id,
         mercadoId: mercadoId ?? `manual:${slug(mercadoNome) || 'mercado'}`,
         mercadoNome: mercadoNome.trim(),
+        ...(mercadoDados.endereco ? { mercadoEndereco: mercadoDados.endereco } : {}),
+        ...(mercadoDados.lat !== undefined ? { mercadoLat: mercadoDados.lat } : {}),
+        ...(mercadoDados.lng !== undefined ? { mercadoLng: mercadoDados.lng } : {}),
         priceCents: precoCents,
         source: 'manual',
       });
@@ -688,6 +730,7 @@ function PriceEntrySheet({
           onChange={(e) => {
             setMercadoNome(e.target.value);
             setMercadoId(null);
+            setMercadoDados({});
           }}
           style={inputStyle}
         />
@@ -718,6 +761,11 @@ function PriceEntrySheet({
               onClick={() => {
                 setMercadoNome(m.nome);
                 setMercadoId(m.id);
+                setMercadoDados({
+                  ...(m.endereco ? { endereco: m.endereco } : {}),
+                  lat: m.localizacao.lat,
+                  lng: m.localizacao.lng,
+                });
                 setNearby(null);
               }}
               style={{

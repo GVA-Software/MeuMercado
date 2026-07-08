@@ -23,6 +23,9 @@ export class TypeOrmPriceObservationRepository implements PriceObservationReposi
       reporterId: row.reporterId,
       observedAt: row.observedAt,
       ...(row.mercadoNome !== null ? { mercadoNome: row.mercadoNome } : {}),
+      ...(row.mercadoEndereco !== null ? { mercadoEndereco: row.mercadoEndereco } : {}),
+      ...(row.mercadoLat !== null ? { mercadoLat: row.mercadoLat } : {}),
+      ...(row.mercadoLng !== null ? { mercadoLng: row.mercadoLng } : {}),
     });
   }
 
@@ -32,6 +35,9 @@ export class TypeOrmPriceObservationRepository implements PriceObservationReposi
       produtoId: obs.produtoId,
       mercadoId: obs.mercadoId,
       mercadoNome: obs.mercadoNome ?? null,
+      mercadoEndereco: obs.mercadoEndereco ?? null,
+      mercadoLat: obs.mercadoLat ?? null,
+      mercadoLng: obs.mercadoLng ?? null,
       priceCents: obs.price.cents,
       source: obs.source,
       reporterId: obs.reporterId,

@@ -19,6 +19,15 @@ export class PriceObservationEntity {
   @Column({ name: 'mercado_nome', type: 'varchar', nullable: true })
   mercadoNome!: string | null;
 
+  @Column({ name: 'mercado_endereco', type: 'varchar', nullable: true })
+  mercadoEndereco!: string | null;
+
+  @Column({ name: 'mercado_lat', type: 'double precision', nullable: true })
+  mercadoLat!: number | null;
+
+  @Column({ name: 'mercado_lng', type: 'double precision', nullable: true })
+  mercadoLng!: number | null;
+
   @Column({ name: 'price_cents', type: 'int' })
   priceCents!: number;
 

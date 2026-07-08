@@ -59,6 +59,9 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
         ...(draft.mercadoCnpj
           ? { mercadoId: `nfce:cnpj:${draft.mercadoCnpj.replace(/\D/g, '')}` }
           : {}),
+        ...(draft.mercadoEndereco ? { mercadoEndereco: draft.mercadoEndereco } : {}),
+        ...(draft.mercadoLat !== undefined ? { mercadoLat: draft.mercadoLat } : {}),
+        ...(draft.mercadoLng !== undefined ? { mercadoLng: draft.mercadoLng } : {}),
         ...(draft.dataEmissao ? { dataEmissao: draft.dataEmissao } : {}),
         itens,
       });

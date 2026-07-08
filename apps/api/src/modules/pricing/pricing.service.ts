@@ -43,6 +43,9 @@ export class PricingService {
       produtoId: input.produtoId,
       mercadoId: input.mercadoId,
       mercadoNome: input.mercadoNome,
+      ...(input.mercadoEndereco ? { mercadoEndereco: input.mercadoEndereco } : {}),
+      ...(input.mercadoLat !== undefined ? { mercadoLat: input.mercadoLat } : {}),
+      ...(input.mercadoLng !== undefined ? { mercadoLng: input.mercadoLng } : {}),
       price: Money.fromCents(input.priceCents),
       source: input.source,
       reporterId,
@@ -118,7 +121,11 @@ export class PricingService {
       .map((o) => ({
         observedAt: o.observedAt.toISOString(),
         priceCents: o.price.cents,
+        mercadoId: o.mercadoId,
         mercadoNome: o.mercadoNome ?? null,
+        mercadoEndereco: o.mercadoEndereco ?? null,
+        mercadoLat: o.mercadoLat ?? null,
+        mercadoLng: o.mercadoLng ?? null,
         source: o.source,
       }));
     return { produtoId, pontos };

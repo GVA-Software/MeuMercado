@@ -21,8 +21,12 @@ export type NfceItemDraftDTO = z.infer<typeof NfceItemDraftSchema>;
 /** Rascunho do cupom lido: mercado, data e itens. */
 export const NfceDraftSchema = z.object({
   uf: z.string().length(2),
+  /** Nome exibível — nome fantasia (via CNPJ) se encontrado, senão razão social. */
   mercadoNome: z.string().min(1).max(160),
   mercadoCnpj: z.string().max(20).optional(),
+  mercadoEndereco: z.string().max(240).optional(),
+  mercadoLat: z.number().min(-90).max(90).optional(),
+  mercadoLng: z.number().min(-180).max(180).optional(),
   /** ISO da emissão (se conseguimos extrair). */
   dataEmissao: z.string().datetime().optional(),
   itens: z.array(NfceItemDraftSchema),
@@ -47,6 +51,9 @@ export type NfceImportItem = z.infer<typeof NfceImportItemSchema>;
 export const NfceImportRequestSchema = z.object({
   mercadoNome: z.string().min(1).max(160),
   mercadoId: z.string().max(120).optional(),
+  mercadoEndereco: z.string().max(240).optional(),
+  mercadoLat: z.number().min(-90).max(90).optional(),
+  mercadoLng: z.number().min(-180).max(180).optional(),
   dataEmissao: z.string().datetime().optional(),
   itens: z.array(NfceImportItemSchema).min(1).max(200),
 });

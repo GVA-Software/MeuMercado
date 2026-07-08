@@ -6,6 +6,7 @@ import type { MercadoDTO } from '@meumercado/contracts';
 import { api } from '../../api/client';
 import { useTheme } from '../../theme/theme';
 import { AppLogo, Btn, EmptyState } from '../../ui/kit';
+import type { MapFocus } from '../../app/nav';
 
 // Estilo raster sobre OpenStreetMap — sem chave/API paga ("nosso Maps").
 const OSM_STYLE: maplibregl.StyleSpecification = {
@@ -38,12 +39,13 @@ interface UserSheet {
   loading: boolean;
 }
 
-export function MapaScreen() {
+export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
   const { T } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<{ id: string; marker: maplibregl.Marker }[]>([]);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const focusMarkerRef = useRef<maplibregl.Marker | null>(null);
   const [ready, setReady] = useState(false);
   const [mercados, setMercados] = useState<MercadoDTO[]>([]);
   const [buscando, setBuscando] = useState(false);
@@ -119,6 +121,28 @@ export function MapaScreen() {
       }
     });
   }, [selMercado, mercados]);
+
+  // Foco vindo de outra aba ("Ver no mapa" nos Preços): fixa um pin dourado no
+  // mercado e abre o cartão com endereço + navegação.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || !focus) return;
+    focusMarkerRef.current?.remove();
+    const fm = new maplibregl.Marker({ color: '#FFB300' })
+      .setLngLat([focus.lng, focus.lat])
+      .addTo(map);
+    const el = fm.getElement();
+    el.style.filter = 'drop-shadow(0 0 4px #FFD400) drop-shadow(0 0 8px #FFD400)';
+    el.style.zIndex = '6';
+    focusMarkerRef.current = fm;
+    map.flyTo({ center: [focus.lng, focus.lat], zoom: 16, duration: 800 });
+    setSelMercado({
+      id: 'focus',
+      nome: focus.nome,
+      localizacao: { lat: focus.lat, lng: focus.lng },
+      ...(focus.endereco ? { endereco: focus.endereco } : {}),
+    });
+  }, [ready, focus]);
 
   function buscarPerto() {
     if (!navigator.geolocation) {

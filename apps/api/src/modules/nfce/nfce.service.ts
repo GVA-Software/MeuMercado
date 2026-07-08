@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { Money, PriceObservation, Produto } from '@meumercado/domain';
 import type { NfceDraftDTO, NfceImportRequest, NfceImportResult } from '@meumercado/contracts';
+import { GeocodeService } from '../geocode/geocode.service.js';
 import { PRODUTO_REPOSITORY, type ProdutoRepository } from '../catalog/produtos.repository.js';
 import {
   PRICE_OBSERVATION_REPOSITORY,
@@ -48,10 +49,12 @@ function slug(s: string): string {
 export class NfceService {
   private readonly logger = new Logger(NfceService.name);
   private readonly parsers: Record<string, SpNfceParser> = { SP: new SpNfceParser() };
+  private readonly fantasiaCache = new Map<string, string | null>();
 
   constructor(
     @Inject(PRODUTO_REPOSITORY) private readonly produtos: ProdutoRepository,
     @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly obs: PriceObservationRepository,
+    private readonly geocode: GeocodeService,
   ) {}
 
   /** Lê a página pública da SEFAZ apontada pelo QR e extrai um rascunho de itens. */
@@ -75,10 +78,19 @@ export class NfceService {
       );
     }
 
+    // Enriquece o mercado: nome fantasia (CNPJ) e coordenada (geocode do endereço).
+    // Best-effort e em paralelo — se falhar, seguimos com o que temos.
+    const [fantasia, coord] = await Promise.all([
+      parsed.mercadoCnpj ? this.nomeFantasia(parsed.mercadoCnpj) : Promise.resolve(null),
+      parsed.mercadoEndereco ? this.geocode.geocode(parsed.mercadoEndereco) : Promise.resolve(null),
+    ]);
+
     return {
       uf,
-      mercadoNome: parsed.mercadoNome,
+      mercadoNome: fantasia || parsed.mercadoNome,
       ...(parsed.mercadoCnpj ? { mercadoCnpj: parsed.mercadoCnpj } : {}),
+      ...(parsed.mercadoEndereco ? { mercadoEndereco: parsed.mercadoEndereco } : {}),
+      ...(coord ? { mercadoLat: coord.lat, mercadoLng: coord.lng } : {}),
       ...(parsed.dataEmissao ? { dataEmissao: parsed.dataEmissao.toISOString() } : {}),
       itens: parsed.itens.map((i) => ({
         descricao: i.descricao,
@@ -138,6 +150,9 @@ export class NfceService {
           produtoId: produto.id,
           mercadoId,
           mercadoNome: req.mercadoNome,
+          ...(req.mercadoEndereco ? { mercadoEndereco: req.mercadoEndereco } : {}),
+          ...(req.mercadoLat !== undefined ? { mercadoLat: req.mercadoLat } : {}),
+          ...(req.mercadoLng !== undefined ? { mercadoLng: req.mercadoLng } : {}),
           price: Money.fromCents(item.priceCents),
           source: 'qr',
           reporterId,
@@ -147,6 +162,31 @@ export class NfceService {
     }
 
     return { importados: itens.length, produtosCriados };
+  }
+
+  /** Nome fantasia do estabelecimento via BrasilAPI (grátis). Best-effort + cache. */
+  private async nomeFantasia(cnpj: string): Promise<string | null> {
+    const digits = cnpj.replace(/\D/g, '');
+    if (digits.length !== 14) return null;
+    const cached = this.fantasiaCache.get(digits);
+    if (cached !== undefined) return cached;
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`, {
+        headers: { 'user-agent': 'MeuMercado/1.0 (app de compras)' },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!res.ok) {
+        this.fantasiaCache.set(digits, null);
+        return null;
+      }
+      const data = (await res.json()) as { nome_fantasia?: string };
+      const fantasia = (data.nome_fantasia ?? '').trim() || null;
+      this.fantasiaCache.set(digits, fantasia);
+      return fantasia;
+    } catch (e) {
+      this.logger.warn(`CNPJ fantasia falhou: ${String(e)}`);
+      return null;
+    }
   }
 
   private detectarUf(url: string): string {

@@ -9,6 +9,9 @@ export interface PriceObservationJSON {
   readonly produtoId: string;
   readonly mercadoId: string;
   readonly mercadoNome?: string;
+  readonly mercadoEndereco?: string;
+  readonly mercadoLat?: number;
+  readonly mercadoLng?: number;
   readonly price: MoneyJSON;
   readonly source: PriceSource;
   readonly reporterId: string;
@@ -26,6 +29,10 @@ export class PriceObservation {
   readonly mercadoId: string;
   /** Nome do mercado (denormalizado) — mercados reais do OSM não estão no seed. */
   readonly mercadoNome: string | undefined;
+  /** Endereço + coordenadas do mercado (denormalizados) — para exibir e "ver no mapa". */
+  readonly mercadoEndereco: string | undefined;
+  readonly mercadoLat: number | undefined;
+  readonly mercadoLng: number | undefined;
   readonly price: Money;
   readonly source: PriceSource;
   /** Quem reportou (para reputação/anti-fraude). */
@@ -37,6 +44,9 @@ export class PriceObservation {
     produtoId: string;
     mercadoId: string;
     mercadoNome?: string;
+    mercadoEndereco?: string;
+    mercadoLat?: number;
+    mercadoLng?: number;
     price: Money;
     source: PriceSource;
     reporterId: string;
@@ -52,6 +62,9 @@ export class PriceObservation {
     this.produtoId = params.produtoId;
     this.mercadoId = params.mercadoId;
     this.mercadoNome = params.mercadoNome;
+    this.mercadoEndereco = params.mercadoEndereco;
+    this.mercadoLat = params.mercadoLat;
+    this.mercadoLng = params.mercadoLng;
     this.price = params.price;
     this.source = params.source;
     this.reporterId = params.reporterId;
@@ -65,6 +78,9 @@ export class PriceObservation {
       produtoId: this.produtoId,
       mercadoId: this.mercadoId,
       ...(this.mercadoNome !== undefined ? { mercadoNome: this.mercadoNome } : {}),
+      ...(this.mercadoEndereco !== undefined ? { mercadoEndereco: this.mercadoEndereco } : {}),
+      ...(this.mercadoLat !== undefined ? { mercadoLat: this.mercadoLat } : {}),
+      ...(this.mercadoLng !== undefined ? { mercadoLng: this.mercadoLng } : {}),
       price: this.price.toJSON(),
       source: this.source,
       reporterId: this.reporterId,

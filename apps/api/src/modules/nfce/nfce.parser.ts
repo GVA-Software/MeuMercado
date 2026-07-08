@@ -12,6 +12,7 @@ export interface ParsedItem {
 export interface ParsedNfce {
   mercadoNome: string;
   mercadoCnpj?: string;
+  mercadoEndereco?: string;
   dataEmissao?: Date;
   itens: ParsedItem[];
 }
@@ -56,6 +57,19 @@ export class SpNfceParser implements NfceParser {
     const dataStr = corpo.match(/\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}/)?.[0];
     const dataEmissao = dataStr ? parseDataBr(dataStr) : undefined;
 
+    // Endereço: a `.text` que não é a do CNPJ e parece um endereço (tem vírgulas).
+    const textos = $('.text')
+      .map((_, el) => texto($(el)))
+      .get();
+    const enderecoRaw = textos.find((t) => !/cnpj/i.test(t) && /,/.test(t) && t.length > 8);
+    const mercadoEndereco = enderecoRaw
+      ? enderecoRaw
+          .replace(/\s*,(\s*,)+/g, ',')
+          .replace(/\s*,\s*/g, ', ')
+          .replace(/(^,\s*|,\s*$)/g, '')
+          .trim()
+      : undefined;
+
     const itens: ParsedItem[] = [];
     $('#tabResult tr').each((_, tr) => {
       const $tr = $(tr);
@@ -81,6 +95,7 @@ export class SpNfceParser implements NfceParser {
     return {
       mercadoNome,
       ...(cnpj ? { mercadoCnpj: cnpj } : {}),
+      ...(mercadoEndereco ? { mercadoEndereco } : {}),
       ...(dataEmissao ? { dataEmissao } : {}),
       itens,
     };
