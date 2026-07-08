@@ -34,6 +34,8 @@ export function PrecosScreen() {
   const [produtos, setProdutos] = useState<ProdutoDTO[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
+  const [ordem, setOrdem] = useState<'populares' | 'menor' | 'maior' | 'az'>('populares');
+  const [visiveis, setVisiveis] = useState(20);
   const [entry, setEntry] = useState<{ open: boolean; produto?: ProdutoDTO }>({ open: false });
   const [detalhe, setDetalhe] = useState<PriceTableRowDTO | null>(null);
   const [nfceOpen, setNfceOpen] = useState(false);
@@ -57,8 +59,21 @@ export function PrecosScreen() {
   const filtradas = useMemo(() => {
     if (!rows) return null;
     const t = busca.trim().toLowerCase();
-    return t ? rows.filter((r) => r.produto.nome.toLowerCase().includes(t)) : rows;
-  }, [rows, busca]);
+    const base = t ? rows.filter((r) => r.produto.nome.toLowerCase().includes(t)) : rows;
+    const arr = [...base];
+    if (ordem === 'menor')
+      arr.sort((a, b) => (a.mediaCents ?? Infinity) - (b.mediaCents ?? Infinity));
+    else if (ordem === 'maior') arr.sort((a, b) => (b.mediaCents ?? -1) - (a.mediaCents ?? -1));
+    else if (ordem === 'az')
+      arr.sort((a, b) => a.produto.nome.localeCompare(b.produto.nome, 'pt-BR'));
+    // 'populares' = já vem por nº de reportes (backend)
+    return arr;
+  }, [rows, busca, ordem]);
+
+  // Volta pro topo da paginação quando muda a busca/ordem.
+  useEffect(() => {
+    setVisiveis(20);
+  }, [busca, ordem]);
 
   function abrirCadastro(produto?: ProdutoDTO) {
     setDetalhe(null);
@@ -112,6 +127,41 @@ export function PrecosScreen() {
           />
         )}
 
+        {rows && rows.length > 0 && (
+          <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
+            {(
+              [
+                ['populares', 'Populares'],
+                ['menor', 'Menor preço'],
+                ['maior', 'Maior preço'],
+                ['az', 'A→Z'],
+              ] as const
+            ).map(([k, label]) => {
+              const sel = ordem === k;
+              return (
+                <button
+                  key={k}
+                  onClick={() => setOrdem(k)}
+                  style={{
+                    flexShrink: 0,
+                    background: sel ? T.primaryBg : T.card,
+                    color: sel ? T.primary : T.sub,
+                    border: `1px solid ${sel ? T.primary : T.border}`,
+                    borderRadius: 99,
+                    padding: '7px 13px',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {!erro && rows === null && <p style={{ color: T.muted }}>Carregando…</p>}
 
         {rows && rows.length === 0 && (
@@ -127,9 +177,14 @@ export function PrecosScreen() {
             <SLabel>
               {filtradas.length} {filtradas.length === 1 ? 'produto' : 'produtos'}
             </SLabel>
-            {filtradas.map((r) => (
+            {filtradas.slice(0, visiveis).map((r) => (
               <TabelaRow key={r.produto.id} row={r} onClick={() => setDetalhe(r)} />
             ))}
+            {filtradas.length > visiveis && (
+              <Btn full variant="ghost" onClick={() => setVisiveis((v) => v + 20)}>
+                Mostrar mais {Math.min(20, filtradas.length - visiveis)} de {filtradas.length}
+              </Btn>
+            )}
           </>
         )}
       </div>

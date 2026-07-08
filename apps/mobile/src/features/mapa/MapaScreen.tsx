@@ -23,9 +23,9 @@ const OSM_STYLE: maplibregl.StyleSpecification = {
 };
 
 const DEFAULT_CENTER: [number, number] = [-46.63, -23.55];
-// Raio de "perto de mim" (metros). Só traz mercados realmente próximos.
-const RAIO_METROS = 5000;
-const RAIO_KM = RAIO_METROS / 1000;
+// Raios disponíveis (metros) — o usuário escolhe; 5 km é o padrão.
+const RAIOS = [1000, 2000, 5000, 7000, 10000];
+const RAIO_PADRAO = 5000;
 
 function formatDist(m?: number): string | null {
   if (m === undefined) return null;
@@ -46,10 +46,12 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
   const markersRef = useRef<{ id: string; marker: maplibregl.Marker }[]>([]);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const focusMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const posRef = useRef<{ lat: number; lng: number } | null>(null);
   const [ready, setReady] = useState(false);
   const [mercados, setMercados] = useState<MercadoDTO[]>([]);
   const [buscando, setBuscando] = useState(false);
   const [buscou, setBuscou] = useState(false);
+  const [raioMetros, setRaioMetros] = useState(RAIO_PADRAO);
   const [selMercado, setSelMercado] = useState<MercadoDTO | null>(null);
   const [selUser, setSelUser] = useState<UserSheet | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -151,6 +153,36 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
     setSelMercado(sintetico);
   }, [ready, focus]);
 
+  function buscarMercados(lat: number, lng: number, raio: number) {
+    setBuscando(true);
+    setErro(null);
+    // Nova busca: some o pin dourado de foco e fecha o cartão — o mapa volta ao
+    // normal (o mercado, se estiver por perto, vira um pin comum).
+    focusMarkerRef.current?.remove();
+    focusMarkerRef.current = null;
+    setSelMercado(null);
+    const map = mapRef.current;
+    if (map) {
+      userMarkerRef.current?.remove();
+      const um = new maplibregl.Marker({ color: T.nina }).setLngLat([lng, lat]).addTo(map);
+      um.getElement().style.cursor = 'pointer';
+      um.getElement().addEventListener('click', (e) => {
+        e.stopPropagation();
+        void abrirMinhaLoc(lat, lng);
+      });
+      userMarkerRef.current = um;
+      map.flyTo({ center: [lng, lat], zoom: 12 });
+    }
+    api
+      .mercadosProximos(lat, lng, raio)
+      .then((near) => {
+        setMercados(near);
+        setBuscou(true);
+      })
+      .catch((e: unknown) => setErro(e instanceof Error ? e.message : String(e)))
+      .finally(() => setBuscando(false));
+  }
+
   function buscarPerto() {
     if (!navigator.geolocation) {
       setErro('Geolocalização não suportada neste navegador.');
@@ -158,36 +190,10 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
     }
     setBuscando(true);
     setErro(null);
-    // Nova busca "perto de mim": some o pin dourado de foco e fecha o cartão —
-    // o mapa volta ao normal (se o mercado estiver por perto, vira um pin comum).
-    focusMarkerRef.current?.remove();
-    focusMarkerRef.current = null;
-    setSelMercado(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const map = mapRef.current;
-        if (map) {
-          userMarkerRef.current?.remove();
-          const um = new maplibregl.Marker({ color: T.nina })
-            .setLngLat([longitude, latitude])
-            .addTo(map);
-          um.getElement().style.cursor = 'pointer';
-          um.getElement().addEventListener('click', (e) => {
-            e.stopPropagation();
-            void abrirMinhaLoc(latitude, longitude);
-          });
-          userMarkerRef.current = um;
-          map.flyTo({ center: [longitude, latitude], zoom: 12 });
-        }
-        api
-          .mercadosProximos(latitude, longitude, RAIO_METROS)
-          .then((near) => {
-            setMercados(near);
-            setBuscou(true);
-          })
-          .catch((e: unknown) => setErro(e instanceof Error ? e.message : String(e)))
-          .finally(() => setBuscando(false));
+        posRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        buscarMercados(pos.coords.latitude, pos.coords.longitude, raioMetros);
       },
       () => {
         setErro('Não consegui obter sua localização (permissão negada?).');
@@ -195,6 +201,12 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
       },
       { enableHighAccuracy: true, timeout: 8000 },
     );
+  }
+
+  // Troca o raio: re-busca na hora se já temos a localização.
+  function mudarRaio(r: number) {
+    setRaioMetros(r);
+    if (posRef.current) buscarMercados(posRef.current.lat, posRef.current.lng, r);
   }
 
   async function abrirMinhaLoc(lat: number, lng: number) {
@@ -258,8 +270,35 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
       </div>
 
       <div style={{ padding: '14px 16px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Régua de raio */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {RAIOS.map((r) => {
+            const sel = raioMetros === r;
+            return (
+              <button
+                key={r}
+                onClick={() => mudarRaio(r)}
+                disabled={buscando}
+                style={{
+                  flex: 1,
+                  background: sel ? T.primary : T.card,
+                  color: sel ? '#FFF' : T.sub,
+                  border: `1px solid ${sel ? T.primary : T.border}`,
+                  borderRadius: 99,
+                  padding: '8px 0',
+                  fontSize: 13,
+                  fontWeight: 800,
+                  cursor: buscando ? 'default' : 'pointer',
+                }}
+              >
+                {r / 1000} km
+              </button>
+            );
+          })}
+        </div>
+
         <Btn full onClick={buscarPerto} disabled={buscando}>
-          {buscando ? 'Localizando…' : '📍 Mercados perto de mim'}
+          {buscando ? 'Localizando…' : `📍 Mercados num raio de ${raioMetros / 1000} km`}
         </Btn>
 
         {erro && <p style={{ color: T.danger, fontSize: 13, margin: 0 }}>{erro}</p>}
@@ -274,7 +313,7 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
           <EmptyState
             emoji="🔍"
             titulo="Nenhum mercado por perto"
-            sub={`Não há mercados cadastrados num raio de ${RAIO_KM} km de você.`}
+            sub={`Nenhum mercado num raio de ${raioMetros / 1000} km. Tente aumentar o raio acima.`}
           />
         )}
 
