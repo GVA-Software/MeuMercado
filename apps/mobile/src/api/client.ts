@@ -4,6 +4,7 @@ import type {
   CartDTO,
   InsightsResponse,
   LoginInput,
+  MercadoDTO,
   Periodo,
   PriceSummaryDTO,
   ProdutoDTO,
@@ -104,6 +105,14 @@ export class ApiClient {
       method: 'PUT',
       body: JSON.stringify({ limiteCents }),
     });
+  }
+
+  // ---- Mercados (aba Mapa) ----
+  mercados(): Promise<MercadoDTO[]> {
+    return this.request('/markets');
+  }
+  mercadosProximos(lat: number, lng: number, raioMetros = 50000): Promise<MercadoDTO[]> {
+    return this.request(`/markets/nearby?lat=${lat}&lng=${lng}&raioMetros=${raioMetros}&limit=50`);
   }
 
   // ---- Nina ----

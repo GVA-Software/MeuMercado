@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
+import { helmetOptions } from './common/security/helmet.config.js';
 
 type NodeHandler = (req: IncomingMessage, res: ServerResponse) => void;
 
@@ -23,7 +24,7 @@ export async function getServerlessHandler(): Promise<NodeHandler> {
     logger: ['error', 'warn'],
   });
   app.set('trust proxy', 1);
-  app.use(helmet());
+  app.use(helmet(helmetOptions));
   app.use(cookieParser());
   app.enableCors({ origin: true, credentials: true });
   app.useGlobalFilters(new AllExceptionsFilter());

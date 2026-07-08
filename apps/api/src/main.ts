@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
+import { helmetOptions } from './common/security/helmet.config.js';
 import type { Env } from './config/env.schema.js';
 
 async function bootstrap(): Promise<void> {
@@ -18,7 +19,7 @@ async function bootstrap(): Promise<void> {
   app.set('trust proxy', 1);
 
   // Cabeçalhos de segurança (CSP, HSTS, no-sniff, etc.)
-  app.use(helmet());
+  app.use(helmet(helmetOptions));
   // Lê cookies (refresh token httpOnly).
   app.use(cookieParser());
 
