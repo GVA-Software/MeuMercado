@@ -5,6 +5,7 @@ import { CompraScreen } from '../features/compra/CompraScreen';
 import { NinaScreen } from '../features/nina/NinaScreen';
 import { HistoricoScreen } from '../features/historico/HistoricoScreen';
 import { PerfilScreen } from '../features/perfil/PerfilScreen';
+import { UpdatePrompt } from '../pwa/UpdatePrompt';
 
 // Mapa em chunk separado (carrega o MapLibre só ao abrir a aba Mapa).
 const MapaScreen = lazy(() =>
@@ -27,6 +28,7 @@ export function App() {
       {tab === 'historico' && <HistoricoScreen />}
       {tab === 'perfil' && <PerfilScreen />}
       <BottomNav tab={tab} setTab={setTab} />
+      <UpdatePrompt />
     </div>
   );
 }
