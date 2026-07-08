@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import jsQR from 'jsqr';
 import type { NfceDraftDTO } from '@meumercado/contracts';
@@ -14,6 +14,7 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
   const [step, setStep] = useState<Step>('scan');
   const [draft, setDraft] = useState<NfceDraftDTO | null>(null);
   const [incluidos, setIncluidos] = useState<boolean[]>([]);
+  const [nomes, setNomes] = useState<string[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
   const [ultimaUrl, setUltimaUrl] = useState<string | null>(null);
@@ -31,6 +32,7 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
       .then((d) => {
         setDraft(d);
         setIncluidos(d.itens.map(() => true));
+        setNomes(d.itens.map((it) => it.descricao));
         setStep('review');
       })
       .catch((e: unknown) => {
@@ -45,9 +47,10 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
     setErro(null);
     try {
       const itens = draft.itens
-        .filter((_, i) => incluidos[i])
-        .map((it) => ({
-          nome: it.descricao,
+        .map((it, i) => ({ it, i }))
+        .filter(({ i }) => incluidos[i])
+        .map(({ it, i }) => ({
+          nome: (nomes[i] ?? it.descricao).trim() || it.descricao,
           priceCents: it.unitPriceCents,
           ...(it.codigo ? { codigo: it.codigo } : {}),
         }));
@@ -70,6 +73,14 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
   }
 
   const nIncluidos = incluidos.filter(Boolean).length;
+
+  // Descrições que aparecem mais de uma vez (tamanhos diferentes com mesmo nome
+  // na NFC-e) — destacadas para o usuário diferenciar (ex.: "125g" / "75g").
+  const dupDescricoes = useMemo(() => {
+    const count = new Map<string, number>();
+    draft?.itens.forEach((it) => count.set(it.descricao, (count.get(it.descricao) ?? 0) + 1));
+    return new Set([...count].filter(([, n]) => n > 1).map(([d]) => d));
+  }, [draft]);
 
   return createPortal(
     <div
@@ -127,51 +138,85 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
           <p style={{ color: T.text, fontSize: 17, fontWeight: 800, margin: '0 0 2px' }}>
             {draft.mercadoNome}
           </p>
-          <p style={{ color: T.muted, fontSize: 13, margin: '0 0 14px' }}>
+          <p style={{ color: T.muted, fontSize: 13, margin: '0 0 4px' }}>
             {draft.itens.length} {draft.itens.length === 1 ? 'item' : 'itens'} lidos
             {draft.dataEmissao
               ? ` · ${new Date(draft.dataEmissao).toLocaleDateString('pt-BR')}`
               : ''}
           </p>
+          <p style={{ color: T.muted, fontSize: 12, margin: '0 0 12px' }}>
+            Toque no nome para editar (ex.: adicionar o tamanho). Os nomes repetidos estão em
+            amarelo.
+          </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
-            {draft.itens.map((it, i) => (
-              <button
-                key={i}
-                onClick={() => setIncluidos((prev) => prev.map((v, j) => (j === i ? !v : v)))}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  background: incluidos[i] ? T.surface : T.card,
-                  border: `1px solid ${incluidos[i] ? T.primary : T.border}`,
-                  borderRadius: 12,
-                  padding: '10px 12px',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  opacity: incluidos[i] ? 1 : 0.55,
-                }}
-              >
-                <span style={{ fontSize: 16 }}>{incluidos[i] ? '☑️' : '⬜'}</span>
-                <span
+            {draft.itens.map((it, i) => {
+              const dup = dupDescricoes.has(it.descricao);
+              return (
+                <div
+                  key={i}
                   style={{
-                    flex: 1,
-                    minWidth: 0,
-                    color: T.text,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: incluidos[i] ? T.surface : T.card,
+                    border: `1px solid ${incluidos[i] ? (dup ? T.yellow : T.primary) : T.border}`,
+                    borderRadius: 12,
+                    padding: '8px 10px',
+                    opacity: incluidos[i] ? 1 : 0.5,
                   }}
                 >
-                  {it.descricao}
-                </span>
-                <span style={{ color: T.primary, fontSize: 14, fontWeight: 800 }}>
-                  {formatBRL(it.unitPriceCents)}
-                </span>
-              </button>
-            ))}
+                  <button
+                    onClick={() => setIncluidos((prev) => prev.map((v, j) => (j === i ? !v : v)))}
+                    aria-label="incluir ou remover item"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: 16,
+                      padding: 0,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {incluidos[i] ? '☑️' : '⬜'}
+                  </button>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <input
+                      value={nomes[i] ?? it.descricao}
+                      onChange={(e) =>
+                        setNomes((prev) => prev.map((n, j) => (j === i ? e.target.value : n)))
+                      }
+                      style={{
+                        width: '100%',
+                        background: 'transparent',
+                        border: 'none',
+                        borderBottom: `1px dashed ${T.border}`,
+                        color: T.text,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        padding: '2px 0',
+                        outline: 'none',
+                      }}
+                    />
+                    {dup && (
+                      <span style={{ color: T.yellow, fontSize: 10, fontWeight: 700 }}>
+                        ⚠ nome repetido — diferencie o tamanho
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    style={{
+                      color: T.primary,
+                      fontSize: 14,
+                      fontWeight: 800,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {formatBRL(it.unitPriceCents)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
           {erro && <p style={{ color: T.danger, fontSize: 13, margin: '0 0 10px' }}>{erro}</p>}
