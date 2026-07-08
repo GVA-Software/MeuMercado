@@ -128,20 +128,27 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
     const map = mapRef.current;
     if (!ready || !map || !focus) return;
     focusMarkerRef.current?.remove();
+    const sintetico: MercadoDTO = {
+      id: 'focus',
+      nome: focus.nome,
+      localizacao: { lat: focus.lat, lng: focus.lng },
+      ...(focus.endereco ? { endereco: focus.endereco } : {}),
+    };
     const fm = new maplibregl.Marker({ color: '#FFB300' })
       .setLngLat([focus.lng, focus.lat])
       .addTo(map);
     const el = fm.getElement();
     el.style.filter = 'drop-shadow(0 0 4px #FFD400) drop-shadow(0 0 8px #FFD400)';
     el.style.zIndex = '6';
+    el.style.cursor = 'pointer';
+    // Clicar no pin amarelo reabre o cartão do mercado.
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setSelMercado(sintetico);
+    });
     focusMarkerRef.current = fm;
     map.flyTo({ center: [focus.lng, focus.lat], zoom: 16, duration: 800 });
-    setSelMercado({
-      id: 'focus',
-      nome: focus.nome,
-      localizacao: { lat: focus.lat, lng: focus.lng },
-      ...(focus.endereco ? { endereco: focus.endereco } : {}),
-    });
+    setSelMercado(sintetico);
   }, [ready, focus]);
 
   function buscarPerto() {
@@ -151,6 +158,11 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
     }
     setBuscando(true);
     setErro(null);
+    // Nova busca "perto de mim": some o pin dourado de foco e fecha o cartão —
+    // o mapa volta ao normal (se o mercado estiver por perto, vira um pin comum).
+    focusMarkerRef.current?.remove();
+    focusMarkerRef.current = null;
+    setSelMercado(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
