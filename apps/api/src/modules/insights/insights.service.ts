@@ -28,7 +28,7 @@ export class InsightsService {
 
   async gerar(cesta?: readonly BasketLine[]): Promise<InsightsResponse> {
     const asOf = new Date();
-    const produtosDeInteresse: ProdutoRef[] = this.produtos.findAll().map((p) => ({
+    const produtosDeInteresse: ProdutoRef[] = (await this.produtos.findAll()).map((p) => ({
       id: p.id,
       nome: p.nome,
       ...(p.emoji !== undefined ? { emoji: p.emoji } : {}),

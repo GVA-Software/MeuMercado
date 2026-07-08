@@ -476,6 +476,7 @@ function PriceEntrySheet({
   const { T } = useTheme();
   const [produto, setProduto] = useState<ProdutoDTO | null>(preselect ?? null);
   const [buscaProd, setBuscaProd] = useState('');
+  const [criando, setCriando] = useState(false);
   const [mercadoNome, setMercadoNome] = useState('');
   const [mercadoId, setMercadoId] = useState<string | null>(null);
   const [nearby, setNearby] = useState<MercadoDTO[] | null>(null);
@@ -493,6 +494,22 @@ function PriceEntrySheet({
   );
   const precoCents = Math.round((parseFloat(preco.replace(',', '.')) || 0) * 100);
   const podeEnviar = !!produto && mercadoNome.trim().length > 0 && precoCents > 0 && !enviando;
+  const buscaTrim = buscaProd.trim();
+  const podeCriar =
+    buscaTrim.length >= 2 &&
+    !filtrados.some((p) => p.nome.toLowerCase() === buscaTrim.toLowerCase());
+
+  async function criarProdutoNovo() {
+    setCriando(true);
+    setErro(null);
+    try {
+      setProduto(await api.criarProduto({ nome: buscaTrim }));
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCriando(false);
+    }
+  }
 
   function buscarPerto() {
     if (!navigator.geolocation) {
@@ -626,6 +643,29 @@ function PriceEntrySheet({
                 <span style={{ color: T.text, fontSize: 14 }}>{p.nome}</span>
               </button>
             ))}
+            {podeCriar && (
+              <button
+                onClick={() => void criarProdutoNovo()}
+                disabled={criando}
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  alignItems: 'center',
+                  background: T.primaryBg,
+                  border: `1px dashed ${T.primary}`,
+                  borderRadius: 12,
+                  padding: '10px 12px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  color: T.primary,
+                  fontWeight: 700,
+                  fontSize: 14,
+                }}
+              >
+                <span style={{ fontSize: 18 }}>＋</span>
+                {criando ? 'Criando…' : `Criar "${buscaTrim}"`}
+              </button>
+            )}
           </div>
         </>
       )}

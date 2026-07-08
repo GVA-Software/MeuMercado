@@ -7,15 +7,21 @@ import {
 } from '../../modules/billing/subscription.repository.js';
 import { CART_STORE, InMemoryCartStore } from '../../modules/cart/cart.store.js';
 import {
+  InMemoryProdutoRepository,
+  PRODUTO_REPOSITORY,
+} from '../../modules/catalog/produtos.repository.js';
+import {
   InMemoryPriceObservationRepository,
   PRICE_OBSERVATION_REPOSITORY,
 } from '../../modules/pricing/price-observation.repository.js';
 import { CartEntity, CartItemEntity } from './entities/cart.entity.js';
 import { PriceObservationEntity } from './entities/price-observation.entity.js';
+import { ProdutoEntity } from './entities/produto.entity.js';
 import { SubscriptionEntity } from './entities/subscription.entity.js';
 import { UserEntity } from './entities/user.entity.js';
 import { TypeOrmCartRepository } from './repositories/typeorm-cart.repository.js';
 import { TypeOrmPriceObservationRepository } from './repositories/typeorm-price-observation.repository.js';
+import { TypeOrmProdutoRepository } from './repositories/typeorm-produto.repository.js';
 import { TypeOrmSubscriptionRepository } from './repositories/typeorm-subscription.repository.js';
 import { TypeOrmUserRepository } from './repositories/typeorm-user.repository.js';
 
@@ -25,8 +31,15 @@ const ENTITIES = [
   CartEntity,
   CartItemEntity,
   PriceObservationEntity,
+  ProdutoEntity,
 ];
-const TOKENS = [USER_REPOSITORY, SUBSCRIPTION_REPOSITORY, CART_STORE, PRICE_OBSERVATION_REPOSITORY];
+const TOKENS = [
+  USER_REPOSITORY,
+  SUBSCRIPTION_REPOSITORY,
+  CART_STORE,
+  PRICE_OBSERVATION_REPOSITORY,
+  PRODUTO_REPOSITORY,
+];
 
 /**
  * Fornece (globalmente) os repositórios de estado mutável — usuários,
@@ -48,6 +61,7 @@ export class PersistenceModule {
           { provide: SUBSCRIPTION_REPOSITORY, useClass: InMemorySubscriptionRepository },
           { provide: CART_STORE, useClass: InMemoryCartStore },
           { provide: PRICE_OBSERVATION_REPOSITORY, useClass: InMemoryPriceObservationRepository },
+          { provide: PRODUTO_REPOSITORY, useClass: InMemoryProdutoRepository },
         ],
         exports: TOKENS,
       };
@@ -80,6 +94,7 @@ export class PersistenceModule {
         { provide: SUBSCRIPTION_REPOSITORY, useClass: TypeOrmSubscriptionRepository },
         { provide: CART_STORE, useClass: TypeOrmCartRepository },
         { provide: PRICE_OBSERVATION_REPOSITORY, useClass: TypeOrmPriceObservationRepository },
+        { provide: PRODUTO_REPOSITORY, useClass: TypeOrmProdutoRepository },
       ],
       exports: TOKENS,
     };

@@ -35,6 +35,15 @@ export const ProdutoSchema = z.object({
 });
 export type ProdutoDTO = z.infer<typeof ProdutoSchema>;
 
-/** Entrada para cadastrar um produto que não existe no catálogo. */
-export const CreateProdutoSchema = ProdutoSchema.omit({ id: true });
+/**
+ * Entrada para cadastrar um produto que não existe no catálogo. Só o nome é
+ * obrigatório — categoria/unidade têm default para não criar atrito no cadastro
+ * rápido (o usuário pode refinar depois).
+ */
+export const CreateProdutoSchema = z.object({
+  nome: z.string().min(1).max(120),
+  categoria: CategoriaSchema.optional(),
+  unidade: UnidadeSchema.optional(),
+  emoji: z.string().max(8).optional(),
+});
 export type CreateProdutoInput = z.infer<typeof CreateProdutoSchema>;

@@ -1,7 +1,6 @@
 import {
   GeoPoint,
   Mercado,
-  Money,
   PriceObservation,
   Produto,
   type Categoria,
@@ -13,8 +12,6 @@ export interface SeedData {
   mercados: Mercado[];
   observations: PriceObservation[];
 }
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 const PRODUTOS: Array<{
   id: string;
@@ -68,39 +65,11 @@ const MERCADOS: Array<{
 ];
 
 /**
- * Preços por produto/mercado. Alguns com "história" para a Nina detectar:
- * café sobe no tempo; arroz mais barato no Atacadão.
+ * Monta os dados relativos a `now` (padrão: agora). O catálogo traz alguns
+ * itens básicos como ponto de partida (o usuário adiciona os demais). NENHUM
+ * preço é chumbado — os preços são 100% alimentados pelos usuários (manual/NF).
  */
-const PRECOS: Array<{ produtoId: string; mercadoId: string; reais: number; daysAgo: number }> = [
-  // café subindo (12,90 → 14,90) no Assaí
-  { produtoId: 'cafe', mercadoId: 'assai', reais: 12.9, daysAgo: 55 },
-  { produtoId: 'cafe', mercadoId: 'assai', reais: 13.2, daysAgo: 40 },
-  { produtoId: 'cafe', mercadoId: 'assai', reais: 15.5, daysAgo: 12 },
-  { produtoId: 'cafe', mercadoId: 'assai', reais: 15.9, daysAgo: 3 },
-  { produtoId: 'cafe', mercadoId: 'carrefour', reais: 14.5, daysAgo: 8 },
-  // arroz mais barato no Atacadão
-  { produtoId: 'arroz', mercadoId: 'assai', reais: 31.5, daysAgo: 10 },
-  { produtoId: 'arroz', mercadoId: 'assai', reais: 31.2, daysAgo: 4 },
-  { produtoId: 'arroz', mercadoId: 'carrefour', reais: 30.9, daysAgo: 6 },
-  { produtoId: 'arroz', mercadoId: 'atacadao', reais: 27.2, daysAgo: 9 },
-  { produtoId: 'arroz', mercadoId: 'atacadao', reais: 26.9, daysAgo: 2 },
-  // óleo — Carrefour mais barato
-  { produtoId: 'oleo', mercadoId: 'assai', reais: 7.9, daysAgo: 7 },
-  { produtoId: 'oleo', mercadoId: 'carrefour', reais: 7.2, daysAgo: 5 },
-  { produtoId: 'oleo', mercadoId: 'atacadao', reais: 7.6, daysAgo: 6 },
-  // leite
-  { produtoId: 'leite', mercadoId: 'assai', reais: 6.2, daysAgo: 5 },
-  { produtoId: 'leite', mercadoId: 'carrefour', reais: 5.9, daysAgo: 4 },
-  // ovos
-  { produtoId: 'ovos', mercadoId: 'carrefour', reais: 12.8, daysAgo: 3 },
-  { produtoId: 'ovos', mercadoId: 'assai', reais: 13.5, daysAgo: 6 },
-  // feijão
-  { produtoId: 'feijao', mercadoId: 'assai', reais: 8.5, daysAgo: 5 },
-  { produtoId: 'feijao', mercadoId: 'carrefour', reais: 7.9, daysAgo: 4 },
-];
-
-/** Monta os dados de demonstração relativos a `now` (padrão: agora). */
-export function buildSeed(now: Date = new Date()): SeedData {
+export function buildSeed(_now: Date = new Date()): SeedData {
   const produtos = PRODUTOS.map((p) => new Produto(p));
   const mercados = MERCADOS.map(
     (m) =>
@@ -112,17 +81,6 @@ export function buildSeed(now: Date = new Date()): SeedData {
         localizacao: new GeoPoint(m.lat, m.lng),
       }),
   );
-  const observations = PRECOS.map(
-    (o, i) =>
-      new PriceObservation({
-        id: `seed-${i}`,
-        produtoId: o.produtoId,
-        mercadoId: o.mercadoId,
-        price: Money.fromReais(o.reais),
-        source: 'manual',
-        reporterId: 'seed',
-        observedAt: new Date(now.getTime() - o.daysAgo * DAY_MS),
-      }),
-  );
+  const observations: PriceObservation[] = [];
   return { produtos, mercados, observations };
 }

@@ -1,14 +1,13 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module.js';
 import { ProdutosController } from './produtos.controller.js';
 import { ProdutosService } from './produtos.service.js';
-import { InMemoryProdutoRepository, PRODUTO_REPOSITORY } from './produtos.repository.js';
 
 @Module({
+  // AuthModule → JwtAuthGuard (protege a criação de produto). O PRODUTO_REPOSITORY
+  // vem (global) do PersistenceModule — memória ou Postgres.
+  imports: [AuthModule],
   controllers: [ProdutosController],
-  providers: [
-    ProdutosService,
-    { provide: PRODUTO_REPOSITORY, useClass: InMemoryProdutoRepository },
-  ],
-  exports: [PRODUTO_REPOSITORY],
+  providers: [ProdutosService],
 })
 export class CatalogModule {}

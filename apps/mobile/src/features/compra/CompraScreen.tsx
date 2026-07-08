@@ -339,18 +339,48 @@ function LimiteEditor({
   const [valor, setValor] = useState('');
 
   if (!editing) {
+    const temLimite = limiteCents !== null;
     return (
       <button
         onClick={() => {
           setEditing(true);
           setValor(limiteCents ? (limiteCents / 100).toFixed(2) : '');
         }}
-        style={{ background: 'none', border: 'none', textAlign: 'right', cursor: 'pointer' }}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          gap: 5,
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          cursor: 'pointer',
+        }}
       >
-        <p style={{ color: T.muted, fontSize: 12, margin: '0 0 2px' }}>Limite</p>
-        <p style={{ color: T.sub, fontSize: 18, fontWeight: 700, margin: 0 }}>
-          {limiteCents ? formatBRL(limiteCents) : 'definir'}
-        </p>
+        <span style={{ color: T.muted, fontSize: 12 }}>Limite</span>
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            background: temLimite ? T.card : T.primary,
+            color: temLimite ? T.text : '#FFF',
+            border: temLimite ? `1px solid ${T.border}` : 'none',
+            borderRadius: 99,
+            padding: '7px 14px',
+            fontSize: 14,
+            fontWeight: 800,
+            boxShadow: temLimite ? 'none' : '0 2px 8px rgba(255,107,43,0.35)',
+          }}
+        >
+          {temLimite ? (
+            <>
+              {formatBRL(limiteCents)} <span style={{ fontSize: 12 }}>✏️</span>
+            </>
+          ) : (
+            <>+ Definir limite</>
+          )}
+        </span>
       </button>
     );
   }

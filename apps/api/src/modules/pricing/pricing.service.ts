@@ -80,8 +80,7 @@ export class PricingService {
     }
 
     const termo = q?.trim().toLowerCase();
-    const rows = this.produtos
-      .findAll()
+    const rows = (await this.produtos.findAll())
       .map((p): PriceTableRowDTO | null => {
         const obs = porProduto.get(p.id);
         if (!obs || obs.length === 0) return null;

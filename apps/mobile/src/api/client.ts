@@ -2,6 +2,7 @@ import type {
   AddCartItemInput,
   AuthResponse,
   CartDTO,
+  CreateProdutoInput,
   InsightsResponse,
   LoginInput,
   MercadoDTO,
@@ -43,7 +44,9 @@ export class ApiClient {
     this.token = token;
   }
 
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+  private refreshInFlight: Promise<boolean> | null = null;
+
+  private async request<T>(path: string, init?: RequestInit, retryOn401 = true): Promise<T> {
     const res = await fetch(this.base + path, {
       ...init,
       // envia/recebe o cookie httpOnly de refresh
@@ -54,6 +57,12 @@ export class ApiClient {
         ...(init?.headers ?? {}),
       },
     });
+    // Access token expirou? Renova pelo refresh cookie e tenta de novo (1x).
+    if (res.status === 401 && retryOn401 && !path.startsWith('/auth/')) {
+      if (await this.tryRefresh()) {
+        return this.request<T>(path, init, false);
+      }
+    }
     if (!res.ok) {
       let msg = res.statusText;
       try {
@@ -67,12 +76,40 @@ export class ApiClient {
     return (res.status === 204 ? undefined : await res.json()) as T;
   }
 
+  /** Renova o access token via cookie de refresh. Compartilha 1 requisição concorrente. */
+  private tryRefresh(): Promise<boolean> {
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = (async () => {
+        try {
+          const res = await fetch(this.base + '/auth/refresh', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'content-type': 'application/json' },
+          });
+          if (!res.ok) return false;
+          const body = (await res.json()) as AuthResponse;
+          this.setToken(body.accessToken);
+          return true;
+        } catch {
+          return false;
+        }
+      })();
+      void this.refreshInFlight.finally(() => {
+        this.refreshInFlight = null;
+      });
+    }
+    return this.refreshInFlight;
+  }
+
   // ---- Catálogo ----
   listarProdutos(): Promise<ProdutoDTO[]> {
     return this.request('/produtos');
   }
   buscarProdutos(q: string): Promise<ProdutoDTO[]> {
     return this.request(`/produtos/search?q=${encodeURIComponent(q)}`);
+  }
+  criarProduto(input: CreateProdutoInput): Promise<ProdutoDTO> {
+    return this.request('/produtos', { method: 'POST', body: JSON.stringify(input) });
   }
 
   // ---- Preços ----
@@ -145,6 +182,10 @@ export class ApiClient {
   }
   login(input: LoginInput): Promise<AuthResponse> {
     return this.request('/auth/login', { method: 'POST', body: JSON.stringify(input) });
+  }
+  /** Renova a sessão a partir do cookie httpOnly de refresh (mantém logado). */
+  refresh(): Promise<AuthResponse> {
+    return this.request('/auth/refresh', { method: 'POST' });
   }
   logout(): Promise<{ ok: true }> {
     return this.request('/auth/logout', { method: 'POST' });

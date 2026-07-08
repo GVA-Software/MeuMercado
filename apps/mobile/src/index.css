@@ -40,6 +40,19 @@ button {
   font-family: inherit;
 }
 
+/* Autofill do navegador: sem o fundo amarelo/branco padrão — mantém o fundo e a
+   cor do próprio input (o truque do transition longo evita o flash amarelo). */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: inherit !important;
+  caret-color: inherit;
+  transition:
+    background-color 600000s 0s,
+    color 600000s 0s;
+}
+
 /* Esconde a scrollbar horizontal dos carrosséis de categoria. */
 .no-scrollbar {
   scrollbar-width: none;

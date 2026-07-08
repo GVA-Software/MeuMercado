@@ -21,19 +21,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [subscription, setSubscription] = useState<SubscriptionDTO | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Restaura a sessão a partir do token salvo.
+  const applyAuth = useCallback(async (accessToken: string, u: UserDTO) => {
+    localStorage.setItem(TOKEN_KEY, accessToken);
+    api.setToken(accessToken);
+    setUser(u);
+    setSubscription(await api.billingMe());
+  }, []);
+
+  // Mantém a sessão ativa: no boot, renova pelo cookie httpOnly de refresh (14
+  // dias, renovado a cada abertura). Só desloga quando o usuário clica em "Sair"
+  // — sem pedir login toda vez que reabre o app.
   useEffect(() => {
     void (async () => {
-      const token = localStorage.getItem(TOKEN_KEY);
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-      api.setToken(token);
       try {
-        const [u, s] = await Promise.all([api.me(), api.billingMe()]);
-        setUser(u);
-        setSubscription(s);
+        const r = await api.refresh();
+        await applyAuth(r.accessToken, r.user);
       } catch {
         localStorage.removeItem(TOKEN_KEY);
         api.setToken(null);
@@ -41,14 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     })();
-  }, []);
-
-  const applyAuth = useCallback(async (accessToken: string, u: UserDTO) => {
-    localStorage.setItem(TOKEN_KEY, accessToken);
-    api.setToken(accessToken);
-    setUser(u);
-    setSubscription(await api.billingMe());
-  }, []);
+  }, [applyAuth]);
 
   const login = useCallback(
     async (email: string, senha: string) => {
