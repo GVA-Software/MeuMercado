@@ -42,7 +42,7 @@ export function MapaScreen() {
   const { T } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<maplibregl.Marker[]>([]);
+  const markersRef = useRef<{ id: string; marker: maplibregl.Marker }[]>([]);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const [ready, setReady] = useState(false);
   const [mercados, setMercados] = useState<MercadoDTO[]>([]);
@@ -85,22 +85,40 @@ export function MapaScreen() {
     const map = mapRef.current;
     if (!ready || !map) return;
 
-    markersRef.current.forEach((m) => m.remove());
+    markersRef.current.forEach(({ marker }) => marker.remove());
     markersRef.current = mercados.map((merc) => {
       const marker = new maplibregl.Marker({ color: T.primary })
         .setLngLat([merc.localizacao.lng, merc.localizacao.lat])
         .addTo(map);
       const el = marker.getElement();
       el.style.cursor = 'pointer';
+      el.style.transition = 'filter 0.15s';
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         setSelMercado(merc);
       });
-      return marker;
+      return { id: merc.id, marker };
     });
 
     fitAll();
   }, [ready, mercados, T.primary, fitAll]);
+
+  // Destaca o pin do mercado selecionado (glow + escala) para não se perder entre
+  // pins próximos.
+  useEffect(() => {
+    markersRef.current.forEach(({ id, marker }) => {
+      const el = marker.getElement();
+      const sel = selMercado?.id === id;
+      el.style.filter = sel ? 'drop-shadow(0 0 3px #FFD400) drop-shadow(0 0 7px #FFD400)' : '';
+      el.style.zIndex = sel ? '5' : '';
+      const svg = el.querySelector('svg');
+      if (svg) {
+        svg.style.transformOrigin = 'bottom center';
+        svg.style.transform = sel ? 'scale(1.35)' : '';
+        svg.style.transition = 'transform 0.15s';
+      }
+    });
+  }, [selMercado, mercados]);
 
   function buscarPerto() {
     if (!navigator.geolocation) {

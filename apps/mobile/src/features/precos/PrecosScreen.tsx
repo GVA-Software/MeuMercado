@@ -10,7 +10,8 @@ import type {
 } from '@meumercado/contracts';
 import { api, formatBRL } from '../../api/client';
 import { useTheme, type Theme } from '../../theme/theme';
-import { AppLogo, Btn, EmptyState, SLabel } from '../../ui/kit';
+import { AppLogo, Btn, CurrencyInput, EmptyState, SLabel } from '../../ui/kit';
+import { MarketTag } from '../../ui/market';
 import { NfceFlow } from '../nfce/NfceFlow';
 
 function fmtData(iso: string): string {
@@ -236,10 +237,11 @@ function TabelaRow({ row, onClick }: { row: PriceTableRowDTO; onClick: () => voi
         >
           {row.produto.nome}
         </p>
-        <p style={{ color: T.muted, fontSize: 12, margin: '2px 0 0' }}>
+        <p style={{ color: T.muted, fontSize: 12, margin: '2px 0 5px' }}>
           {row.amostras} {row.amostras === 1 ? 'preço' : 'preços'}
-          {row.menorPrecoMercado ? ` · menor no ${row.menorPrecoMercado}` : ''}
+          {row.menorPrecoMercado ? ' · menor em' : ''}
         </p>
+        {row.menorPrecoMercado && <MarketTag nome={row.menorPrecoMercado} />}
       </div>
       <div style={{ textAlign: 'right' }}>
         <p style={{ color: T.text, fontSize: 15, fontWeight: 800, margin: 0 }}>
@@ -445,20 +447,12 @@ function DetailSheet({
                 }}
               >
                 <div style={{ minWidth: 0 }}>
-                  <p
-                    style={{
-                      color: T.text,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      margin: 0,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {p.mercadoNome ?? 'Mercado'}
-                  </p>
-                  <p style={{ color: T.muted, fontSize: 11, margin: '2px 0 0' }}>
+                  {p.mercadoNome ? (
+                    <MarketTag nome={p.mercadoNome} />
+                  ) : (
+                    <span style={{ color: T.text, fontSize: 13, fontWeight: 600 }}>Mercado</span>
+                  )}
+                  <p style={{ color: T.muted, fontSize: 11, margin: '4px 0 0' }}>
                     {fmtData(p.observedAt)}
                   </p>
                 </div>
@@ -497,7 +491,7 @@ function PriceEntrySheet({
   const [mercadoId, setMercadoId] = useState<string | null>(null);
   const [nearby, setNearby] = useState<MercadoDTO[] | null>(null);
   const [localizando, setLocalizando] = useState(false);
-  const [preco, setPreco] = useState('');
+  const [precoCents, setPrecoCents] = useState(0);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -508,7 +502,6 @@ function PriceEntrySheet({
         : [],
     [buscaProd, produtos],
   );
-  const precoCents = Math.round((parseFloat(preco.replace(',', '.')) || 0) * 100);
   const podeEnviar = !!produto && mercadoNome.trim().length > 0 && precoCents > 0 && !enviando;
   const buscaTrim = buscaProd.trim();
   const podeCriar =
@@ -746,13 +739,10 @@ function PriceEntrySheet({
       {(!nearby || nearby.length === 0) && <div style={{ height: 6 }} />}
 
       {/* Preço */}
-      <SLabel>Preço</SLabel>
-      <input
-        type="number"
-        inputMode="decimal"
-        placeholder="0,00"
-        value={preco}
-        onChange={(e) => setPreco(e.target.value)}
+      <SLabel>Preço (R$)</SLabel>
+      <CurrencyInput
+        cents={precoCents}
+        onCents={setPrecoCents}
         style={{ ...inputStyle, marginBottom: 16 }}
       />
 

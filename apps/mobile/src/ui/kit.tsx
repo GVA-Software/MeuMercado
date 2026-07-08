@@ -101,6 +101,58 @@ export function Btn({
   );
 }
 
+/**
+ * Campo de dinheiro: abre o teclado numérico (inputMode) e aplica a máscara de
+ * moeda automaticamente — cada dígito entra pelos centavos ("1500" → 15,00;
+ * "150000" → 1.500,00). Emite o valor em centavos.
+ */
+export function CurrencyInput({
+  cents,
+  onCents,
+  placeholder = '0,00',
+  autoFocus = false,
+  onBlur,
+  onEnter,
+  style,
+}: {
+  cents: number;
+  onCents: (cents: number) => void;
+  placeholder?: string;
+  autoFocus?: boolean;
+  onBlur?: () => void;
+  onEnter?: () => void;
+  style?: CSSProperties;
+}) {
+  const { T } = useTheme();
+  const display =
+    cents > 0 ? (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '';
+  return (
+    <input
+      autoFocus={autoFocus}
+      inputMode="numeric"
+      value={display}
+      placeholder={placeholder}
+      onChange={(e) => onCents(parseInt(e.target.value.replace(/\D/g, '').slice(0, 9) || '0', 10))}
+      onBlur={onBlur}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
+      onKeyUp={(e) => {
+        if (e.key === 'Enter') onEnter?.();
+      }}
+      style={{
+        border: `1.5px solid ${T.border}`,
+        borderRadius: 12,
+        padding: '12px 14px',
+        background: T.card,
+        color: T.text,
+        fontSize: 15,
+        ...style,
+      }}
+    />
+  );
+}
+
 export function SLabel({ children }: { children: ReactNode }) {
   const { T } = useTheme();
   return (

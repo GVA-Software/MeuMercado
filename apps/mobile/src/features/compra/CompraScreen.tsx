@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { CartDTO, ProdutoDTO } from '@meumercado/contracts';
 import { api, formatBRL } from '../../api/client';
 import { useTheme } from '../../theme/theme';
-import { AppLogo, Btn, Card, EmptyState, SLabel, ThemeToggle } from '../../ui/kit';
+import { AppLogo, Btn, Card, CurrencyInput, EmptyState, SLabel, ThemeToggle } from '../../ui/kit';
 
 export function CompraScreen() {
   const { T } = useTheme();
@@ -336,7 +336,12 @@ function LimiteEditor({
 }) {
   const { T } = useTheme();
   const [editing, setEditing] = useState(false);
-  const [valor, setValor] = useState('');
+  const [cents, setCents] = useState(0);
+
+  function salvar() {
+    onChange(cents > 0 ? cents : null);
+    setEditing(false);
+  }
 
   if (!editing) {
     const temLimite = limiteCents !== null;
@@ -344,7 +349,7 @@ function LimiteEditor({
       <button
         onClick={() => {
           setEditing(true);
-          setValor(limiteCents ? (limiteCents / 100).toFixed(2) : '');
+          setCents(limiteCents ?? 0);
         }}
         style={{
           display: 'flex',
@@ -386,27 +391,14 @@ function LimiteEditor({
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-      <input
+      <span style={{ color: T.muted, fontSize: 12 }}>Limite (R$)</span>
+      <CurrencyInput
         autoFocus
-        type="number"
-        value={valor}
-        placeholder="0,00"
-        onChange={(e) => setValor(e.target.value)}
-        onBlur={() => {
-          const n = parseFloat(valor.replace(',', '.'));
-          onChange(Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null);
-          setEditing(false);
-        }}
-        style={{
-          width: 90,
-          textAlign: 'right',
-          border: `1.5px solid ${T.border}`,
-          borderRadius: 10,
-          padding: '6px 8px',
-          background: T.card,
-          color: T.text,
-          fontSize: 15,
-        }}
+        cents={cents}
+        onCents={setCents}
+        onBlur={salvar}
+        onEnter={salvar}
+        style={{ width: 110, textAlign: 'right', padding: '6px 10px' }}
       />
     </div>
   );
