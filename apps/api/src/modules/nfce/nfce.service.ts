@@ -73,8 +73,13 @@ export class NfceService {
     if (parsed.itens.length === 0) {
       const titulo = html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim() ?? '';
       this.logger.warn(`NFC-e ${uf}: 0 itens extraídos (html ${html.length}b, título "${titulo}")`);
+      // Nota emitida em contingência / recém-emitida pode ainda não estar
+      // autorizada na SEFAZ (sem itens para consultar).
+      const pendente = /conting[êe]ncia|n[ãa]o autorizada|pendente|aguardando/i.test(html);
       throw new UnprocessableEntityException(
-        'Não consegui ler os itens deste cupom. Tente novamente ou cadastre manualmente.',
+        pendente
+          ? 'Esta nota ainda não foi autorizada pela SEFAZ (emitida em contingência). Tente de novo mais tarde ou cadastre os preços manualmente.'
+          : 'Não consegui ler os itens. Se a nota é recente, pode ainda não estar autorizada na SEFAZ — tente mais tarde. Você também pode cadastrar manualmente.',
       );
     }
 

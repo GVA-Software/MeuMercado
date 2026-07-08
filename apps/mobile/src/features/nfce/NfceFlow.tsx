@@ -6,7 +6,7 @@ import { api, formatBRL } from '../../api/client';
 import { useTheme } from '../../theme/theme';
 import { Btn } from '../../ui/kit';
 
-type Step = 'scan' | 'loading' | 'review' | 'erro' | 'done';
+type Step = 'scan' | 'loading' | 'review' | 'erro' | 'done' | 'colar';
 
 /** Fluxo completo de importar preços pelo QR Code da nota fiscal (NFC-e). */
 export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
@@ -17,6 +17,7 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
   const [nomes, setNomes] = useState<string[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
+  const [colarTexto, setColarTexto] = useState('');
   const [ultimaUrl, setUltimaUrl] = useState<string | null>(null);
   const [resultado, setResultado] = useState<{
     importados: number;
@@ -40,6 +41,25 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
         setStep('erro');
       });
   }, []);
+
+  // Fallback: decodifica o QR de uma foto do cupom (quando o vídeo ao vivo falha).
+  async function escolherFoto(file: File | null | undefined) {
+    if (!file) return;
+    setStep('loading');
+    const txt = await decodeQrDeImagem(file);
+    if (txt && /^https?:\/\//i.test(txt)) rodarPreview(txt);
+    else {
+      setErro('Não achei um QR nessa foto. Tente uma foto bem enquadrada do QR — ou cole o link.');
+      setStep('erro');
+    }
+  }
+
+  function buscarColado() {
+    const t = colarTexto.trim();
+    if (/^https?:\/\//i.test(t)) rodarPreview(t);
+    else
+      setErro('Cole o link completo (começa com https://…) que aparece ao abrir o QR na câmera.');
+  }
 
   async function importar() {
     if (!draft) return;
@@ -98,7 +118,55 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
         justifyContent: step === 'scan' ? 'stretch' : 'flex-end',
       }}
     >
-      {step === 'scan' && <QrScanner onDecode={rodarPreview} onClose={onClose} />}
+      {step === 'scan' && (
+        <QrScanner
+          onDecode={rodarPreview}
+          onClose={onClose}
+          onFoto={escolherFoto}
+          onColar={() => {
+            setErro(null);
+            setStep('colar');
+          }}
+        />
+      )}
+
+      {step === 'colar' && (
+        <div style={sheet(T)}>
+          <Handle T={T} />
+          <p style={{ color: T.text, fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>
+            Colar link do QR
+          </p>
+          <p style={{ color: T.muted, fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>
+            Abra a <strong>câmera do celular</strong> e aponte para o QR do cupom. Toque no link que
+            aparece, copie o endereço (começa com <code>https://</code>) e cole aqui.
+          </p>
+          <textarea
+            value={colarTexto}
+            onChange={(e) => setColarTexto(e.target.value)}
+            placeholder="https://www.nfce.fazenda.sp.gov.br/…"
+            rows={3}
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              border: `1.5px solid ${T.border}`,
+              borderRadius: 12,
+              padding: '12px 14px',
+              background: T.card,
+              color: T.text,
+              fontSize: 14,
+              marginBottom: 12,
+              resize: 'none',
+            }}
+          />
+          {erro && <p style={{ color: T.danger, fontSize: 13, margin: '0 0 10px' }}>{erro}</p>}
+          <Btn full disabled={colarTexto.trim().length < 8} onClick={buscarColado}>
+            Buscar itens
+          </Btn>
+          <Btn full variant="ghost" onClick={() => setStep('scan')}>
+            Voltar
+          </Btn>
+        </div>
+      )}
 
       {step === 'loading' && (
         <div style={sheet(T)}>
@@ -125,8 +193,19 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
                 🔄 Tentar de novo
               </Btn>
             )}
-            <Btn full variant={ultimaUrl ? 'soft' : 'primary'} onClick={() => setStep('scan')}>
+            <Btn full variant="soft" onClick={() => setStep('scan')}>
               📷 Escanear de novo
+            </Btn>
+            <Btn
+              full
+              variant="soft"
+              onClick={() => {
+                setErro(null);
+                setColarTexto('');
+                setStep('colar');
+              }}
+            >
+              ✏️ Colar link do QR
             </Btn>
             <Btn full variant="ghost" onClick={onClose}>
               Fechar
@@ -298,9 +377,13 @@ function Handle({ T }: { T: ReturnType<typeof useTheme>['T'] }) {
 function QrScanner({
   onDecode,
   onClose,
+  onFoto,
+  onColar,
 }: {
   onDecode: (text: string) => void;
   onClose: () => void;
+  onFoto: (file: File | null | undefined) => void;
+  onColar: () => void;
 }) {
   const { T } = useTheme();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -328,7 +411,7 @@ function QrScanner({
           if (ctx) {
             ctx.drawImage(video, 0, 0, w, h);
             const img = ctx.getImageData(0, 0, w, h);
-            const code = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
+            const code = jsQR(img.data, w, h, { inversionAttempts: 'attemptBoth' });
             const txt = code?.data?.trim();
             if (txt && /^https?:\/\//i.test(txt)) {
               doneRef.current = true;
@@ -437,25 +520,93 @@ function QrScanner({
         </button>
       </div>
 
-      {erro && (
-        <div
+      {/* Fallbacks: foto do cupom ou colar o link (quando o vídeo ao vivo falha). */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 16,
+          right: 16,
+          bottom: 'calc(20px + env(safe-area-inset-bottom))',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+        }}
+      >
+        {erro && (
+          <div style={{ background: T.surface, borderRadius: 14, padding: '12px 14px' }}>
+            <p style={{ color: T.text, fontSize: 13, margin: 0, textAlign: 'center' }}>{erro}</p>
+          </div>
+        )}
+        <p
           style={{
-            position: 'absolute',
-            left: 16,
-            right: 16,
-            bottom: 'calc(28px + env(safe-area-inset-bottom))',
-            background: T.surface,
-            borderRadius: 14,
-            padding: 16,
+            color: '#FFF',
+            fontSize: 12,
             textAlign: 'center',
+            margin: 0,
+            textShadow: '0 1px 3px #000',
           }}
         >
-          <p style={{ color: T.text, fontSize: 14, margin: '0 0 12px' }}>{erro}</p>
-          <Btn full variant="ghost" onClick={onClose}>
-            Fechar
-          </Btn>
+          Não leu? Use uma foto do QR ou cole o link.
+        </p>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <label style={acaoScanner}>
+            🖼️ Foto
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => onFoto(e.target.files?.[0])}
+              style={{ display: 'none' }}
+            />
+          </label>
+          <button onClick={onColar} style={acaoScanner}>
+            ✏️ Colar link
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
+}
+
+const acaoScanner = {
+  flex: 1,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 6,
+  background: 'rgba(255,255,255,0.92)',
+  color: '#111',
+  border: 'none',
+  borderRadius: 12,
+  padding: '12px 10px',
+  fontSize: 14,
+  fontWeight: 800,
+  cursor: 'pointer',
+} as const;
+
+/** Decodifica o QR de uma imagem (foto do cupom) — fallback ao vídeo ao vivo. */
+function decodeQrDeImagem(file: File): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const max = 1600;
+      const escala = Math.min(1, max / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * escala);
+      canvas.height = Math.round(img.height * escala);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) {
+        resolve(null);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(data.data, canvas.width, canvas.height, {
+        inversionAttempts: 'attemptBoth',
+      });
+      URL.revokeObjectURL(img.src);
+      resolve(code?.data?.trim() ?? null);
+    };
+    img.onerror = () => resolve(null);
+    img.src = URL.createObjectURL(file);
+  });
 }
