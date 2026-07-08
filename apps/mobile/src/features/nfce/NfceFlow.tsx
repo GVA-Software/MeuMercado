@@ -16,12 +16,14 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
   const [incluidos, setIncluidos] = useState<boolean[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
+  const [ultimaUrl, setUltimaUrl] = useState<string | null>(null);
   const [resultado, setResultado] = useState<{
     importados: number;
     produtosCriados: number;
   } | null>(null);
 
-  const onDecode = useCallback((url: string) => {
+  const rodarPreview = useCallback((url: string) => {
+    setUltimaUrl(url);
     setStep('loading');
     setErro(null);
     api
@@ -78,7 +80,7 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
         justifyContent: step === 'scan' ? 'stretch' : 'flex-end',
       }}
     >
-      {step === 'scan' && <QrScanner onDecode={onDecode} onClose={onClose} />}
+      {step === 'scan' && <QrScanner onDecode={rodarPreview} onClose={onClose} />}
 
       {step === 'loading' && (
         <div style={sheet(T)}>
@@ -100,7 +102,12 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
             {erro}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <Btn full onClick={() => setStep('scan')}>
+            {ultimaUrl && (
+              <Btn full onClick={() => rodarPreview(ultimaUrl)}>
+                🔄 Tentar de novo
+              </Btn>
+            )}
+            <Btn full variant={ultimaUrl ? 'soft' : 'primary'} onClick={() => setStep('scan')}>
               📷 Escanear de novo
             </Btn>
             <Btn full variant="ghost" onClick={onClose}>

@@ -144,18 +144,27 @@ export class NfceService {
   }
 
   private async fetchPagina(url: string): Promise<string> {
-    try {
-      const res = await fetch(url, {
-        headers: { 'user-agent': UA, 'accept-language': 'pt-BR,pt;q=0.9' },
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.text();
-    } catch (e) {
-      this.logger.warn(`Falha ao buscar SEFAZ (${url}): ${String(e)}`);
-      throw new ServiceUnavailableException(
-        'Não consegui acessar a SEFAZ agora. Tente novamente em instantes.',
-      );
+    // O portal da SEFAZ oscila (fica lento/indisponível). Tenta algumas vezes
+    // antes de desistir — a maioria das falhas é transitória.
+    const TENTATIVAS = 3;
+    let ultimoErro = '';
+    for (let i = 1; i <= TENTATIVAS; i++) {
+      try {
+        const res = await fetch(url, {
+          headers: { 'user-agent': UA, 'accept-language': 'pt-BR,pt;q=0.9' },
+          signal: AbortSignal.timeout(18000),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.text();
+      } catch (e) {
+        ultimoErro = String(e);
+        this.logger.warn(`SEFAZ tentativa ${i}/${TENTATIVAS} falhou: ${ultimoErro}`);
+        if (i < TENTATIVAS) await new Promise((r) => setTimeout(r, 800));
+      }
     }
+    this.logger.warn(`Falha ao buscar SEFAZ (${url}): ${ultimoErro}`);
+    throw new ServiceUnavailableException(
+      'A SEFAZ não respondeu agora (o portal deles costuma oscilar). Tente de novo em instantes.',
+    );
   }
 }
