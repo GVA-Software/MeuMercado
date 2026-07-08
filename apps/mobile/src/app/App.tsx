@@ -17,16 +17,19 @@ export function App() {
   const [tab, setTab] = useState<Tab>('compra');
 
   return (
-    <div style={{ background: T.bg, minHeight: '100vh', color: T.text }}>
-      {tab === 'compra' && <CompraScreen />}
-      {tab === 'mapa' && (
-        <Suspense fallback={<p style={{ padding: 20, color: T.muted }}>Carregando mapa…</p>}>
-          <MapaScreen />
-        </Suspense>
-      )}
-      {tab === 'nina' && <NinaScreen />}
-      {tab === 'historico' && <HistoricoScreen />}
-      {tab === 'perfil' && <PerfilScreen />}
+    <div className="app-shell" style={{ background: T.bg, color: T.text }}>
+      {/* Só esta área rola; o header (sticky) de cada tela e a nav ficam fixos. */}
+      <div className="app-scroll" key={tab}>
+        {tab === 'compra' && <CompraScreen />}
+        {tab === 'mapa' && (
+          <Suspense fallback={<p style={{ padding: 20, color: T.muted }}>Carregando mapa…</p>}>
+            <MapaScreen />
+          </Suspense>
+        )}
+        {tab === 'nina' && <NinaScreen />}
+        {tab === 'historico' && <HistoricoScreen />}
+        {tab === 'perfil' && <PerfilScreen />}
+      </div>
       <BottomNav tab={tab} setTab={setTab} />
       <UpdatePrompt />
     </div>

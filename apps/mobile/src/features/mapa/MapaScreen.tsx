@@ -4,7 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { MercadoDTO } from '@meumercado/contracts';
 import { api } from '../../api/client';
 import { useTheme } from '../../theme/theme';
-import { AppLogo, Btn } from '../../ui/kit';
+import { AppLogo, Btn, EmptyState } from '../../ui/kit';
 
 // Estilo raster sobre OpenStreetMap — sem chave/API paga ("nosso Maps").
 const OSM_STYLE: maplibregl.StyleSpecification = {
@@ -20,13 +20,18 @@ const OSM_STYLE: maplibregl.StyleSpecification = {
   layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
 };
 
-const DEFAULT_CENTER: [number, number] = [-46.58, -23.58];
+const DEFAULT_CENTER: [number, number] = [-46.63, -23.55];
 
 function formatDist(m?: number): string | null {
   if (m === undefined) return null;
   return m >= 1000
     ? `${(m / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km`
     : `${m} m`;
+}
+
+interface UserSheet {
+  endereco: string | null;
+  loading: boolean;
 }
 
 export function MapaScreen() {
@@ -37,7 +42,10 @@ export function MapaScreen() {
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const [ready, setReady] = useState(false);
   const [mercados, setMercados] = useState<MercadoDTO[]>([]);
-  const [selecionado, setSelecionado] = useState<MercadoDTO | null>(null);
+  const [buscando, setBuscando] = useState(false);
+  const [buscou, setBuscou] = useState(false);
+  const [selMercado, setSelMercado] = useState<MercadoDTO | null>(null);
+  const [selUser, setSelUser] = useState<UserSheet | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,20 +66,10 @@ export function MapaScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        setMercados(await api.mercados());
-      } catch (e) {
-        setErro(e instanceof Error ? e.message : String(e));
-      }
-    })();
-  }, []);
-
-  // Pins: tocar num pin abre o sheet do mercado.
+  // Pins dos mercados encontrados (nenhum por padrão).
   useEffect(() => {
     const map = mapRef.current;
-    if (!ready || !map || mercados.length === 0) return;
+    if (!ready || !map) return;
 
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = mercados.map((merc) => {
@@ -82,45 +80,69 @@ export function MapaScreen() {
       el.style.cursor = 'pointer';
       el.addEventListener('click', (e) => {
         e.stopPropagation();
-        setSelecionado(merc);
+        setSelMercado(merc);
       });
       return marker;
     });
 
-    const bounds = new maplibregl.LngLatBounds();
-    mercados.forEach((m) => bounds.extend([m.localizacao.lng, m.localizacao.lat]));
-    if (userMarkerRef.current) bounds.extend(userMarkerRef.current.getLngLat());
-    map.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 600 });
+    if (mercados.length > 0) {
+      const bounds = new maplibregl.LngLatBounds();
+      mercados.forEach((m) => bounds.extend([m.localizacao.lng, m.localizacao.lat]));
+      if (userMarkerRef.current) bounds.extend(userMarkerRef.current.getLngLat());
+      map.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 600 });
+    }
   }, [ready, mercados, T.primary]);
 
-  function localizar() {
+  function buscarPerto() {
     if (!navigator.geolocation) {
       setErro('Geolocalização não suportada neste navegador.');
       return;
     }
+    setBuscando(true);
+    setErro(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
         const map = mapRef.current;
-        if (!map) return;
-        userMarkerRef.current?.remove();
-        userMarkerRef.current = new maplibregl.Marker({ color: T.nina })
-          .setLngLat([longitude, latitude])
-          .addTo(map);
-        map.flyTo({ center: [longitude, latitude], zoom: 13 });
-        void api
-          .mercadosProximos(latitude, longitude)
-          .then(setMercados)
-          .catch(() => {});
+        if (map) {
+          userMarkerRef.current?.remove();
+          const um = new maplibregl.Marker({ color: T.nina })
+            .setLngLat([longitude, latitude])
+            .addTo(map);
+          um.getElement().style.cursor = 'pointer';
+          um.getElement().addEventListener('click', (e) => {
+            e.stopPropagation();
+            void abrirMinhaLoc(latitude, longitude);
+          });
+          userMarkerRef.current = um;
+          map.flyTo({ center: [longitude, latitude], zoom: 12 });
+        }
+        api
+          .mercadosProximos(latitude, longitude, 50000)
+          .then((near) => {
+            setMercados(near);
+            setBuscou(true);
+          })
+          .catch((e: unknown) => setErro(e instanceof Error ? e.message : String(e)))
+          .finally(() => setBuscando(false));
       },
-      () => setErro('Não consegui obter sua localização (permissão negada?).'),
+      () => {
+        setErro('Não consegui obter sua localização (permissão negada?).');
+        setBuscando(false);
+      },
       { enableHighAccuracy: true, timeout: 8000 },
     );
   }
 
-  function abrir(m: MercadoDTO) {
+  async function abrirMinhaLoc(lat: number, lng: number) {
+    setSelUser({ endereco: null, loading: true });
+    const endereco = await api.reverseGeocode(lat, lng).catch(() => null);
+    setSelUser({ endereco, loading: false });
+  }
+
+  function abrirMercado(m: MercadoDTO) {
     mapRef.current?.flyTo({ center: [m.localizacao.lng, m.localizacao.lat], zoom: 15 });
-    setSelecionado(m);
+    setSelMercado(m);
   }
 
   return (
@@ -135,27 +157,42 @@ export function MapaScreen() {
           borderBottom: `1px solid ${T.border}`,
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <AppLogo size={16} />
-          <Btn small onClick={localizar}>
-            📍 Minha localização
-          </Btn>
-        </div>
-        <p style={{ color: T.muted, fontSize: 13, margin: '8px 0 0' }}>
+        <AppLogo size={16} />
+        <p style={{ color: T.text, fontSize: 20, fontWeight: 800, margin: '10px 0 2px' }}>Mapa</p>
+        <p style={{ color: T.muted, fontSize: 13, margin: 0 }}>
           Mercados perto de você — sobre OpenStreetMap
         </p>
       </div>
 
-      <div ref={containerRef} style={{ width: '100%', height: '52vh', background: T.card }} />
+      <div ref={containerRef} style={{ width: '100%', height: '48vh', background: T.card }} />
 
-      <div style={{ padding: '12px 16px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ padding: '14px 16px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <Btn full onClick={buscarPerto} disabled={buscando}>
+          {buscando ? 'Localizando…' : '📍 Mercados perto de mim'}
+        </Btn>
+
         {erro && <p style={{ color: T.danger, fontSize: 13, margin: 0 }}>{erro}</p>}
+
+        {!buscou && !erro && (
+          <p style={{ color: T.muted, fontSize: 13, textAlign: 'center', margin: '4px 0' }}>
+            Toque no botão para encontrar mercados perto de você.
+          </p>
+        )}
+
+        {buscou && mercados.length === 0 && !erro && (
+          <EmptyState
+            emoji="🔍"
+            titulo="Nenhum mercado por perto"
+            sub="Não achamos mercados num raio de 50 km da sua localização."
+          />
+        )}
+
         {mercados.map((m) => {
           const dist = formatDist(m.distanciaMetros);
           return (
             <button
               key={m.id}
-              onClick={() => abrir(m)}
+              onClick={() => abrirMercado(m)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -196,18 +233,49 @@ export function MapaScreen() {
         })}
       </div>
 
-      {selecionado && <MercadoSheet mercado={selecionado} onClose={() => setSelecionado(null)} />}
+      {selMercado && (
+        <LocalSheet
+          titulo={selMercado.nome}
+          subtitulo={`${selMercado.rede ?? 'Mercado'}${
+            formatDist(selMercado.distanciaMetros)
+              ? ` · a ${formatDist(selMercado.distanciaMetros)}`
+              : ''
+          }`}
+          endereco={selMercado.endereco ?? 'Endereço não disponível'}
+          nav={selMercado.localizacao}
+          onClose={() => setSelMercado(null)}
+        />
+      )}
+
+      {selUser && (
+        <LocalSheet
+          titulo="Você está aqui"
+          endereco={
+            selUser.loading
+              ? 'Buscando seu endereço…'
+              : (selUser.endereco ?? 'Endereço não encontrado')
+          }
+          onClose={() => setSelUser(null)}
+        />
+      )}
     </div>
   );
 }
 
-function MercadoSheet({ mercado, onClose }: { mercado: MercadoDTO; onClose: () => void }) {
+function LocalSheet({
+  titulo,
+  subtitulo,
+  endereco,
+  nav,
+  onClose,
+}: {
+  titulo: string;
+  subtitulo?: string;
+  endereco: string;
+  nav?: { lat: number; lng: number };
+  onClose: () => void;
+}) {
   const { T } = useTheme();
-  const { lat, lng } = mercado.localizacao;
-  const dist = formatDist(mercado.distanciaMetros);
-  const wazeUrl = `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`;
-  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-
   const navBtn = {
     flex: 1,
     display: 'flex',
@@ -267,16 +335,13 @@ function MercadoSheet({ mercado, onClose }: { mercado: MercadoDTO; onClose: () =
               fontSize: 26,
             }}
           >
-            🏬
+            {nav ? '🏬' : '📍'}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ color: T.text, fontSize: 17, fontWeight: 800, margin: 0 }}>
-              {mercado.nome}
-            </p>
-            <p style={{ color: T.muted, fontSize: 13, margin: '2px 0 0' }}>
-              {mercado.rede ?? 'Mercado'}
-              {dist ? ` · a ${dist}` : ''}
-            </p>
+            <p style={{ color: T.text, fontSize: 17, fontWeight: 800, margin: 0 }}>{titulo}</p>
+            {subtitulo && (
+              <p style={{ color: T.muted, fontSize: 13, margin: '2px 0 0' }}>{subtitulo}</p>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -300,44 +365,46 @@ function MercadoSheet({ mercado, onClose }: { mercado: MercadoDTO; onClose: () =
             background: T.card,
             borderRadius: 12,
             padding: '12px 14px',
-            marginBottom: 16,
+            marginBottom: nav ? 16 : 0,
           }}
         >
           <span style={{ fontSize: 16 }}>📍</span>
-          <p style={{ color: T.sub, fontSize: 14, margin: 0, lineHeight: 1.5 }}>
-            {mercado.endereco ?? 'Endereço não disponível'}
-          </p>
+          <p style={{ color: T.sub, fontSize: 14, margin: 0, lineHeight: 1.5 }}>{endereco}</p>
         </div>
 
-        <p
-          style={{
-            color: T.muted,
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: 0.5,
-            margin: '0 0 8px',
-          }}
-        >
-          COMO CHEGAR
-        </p>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <a
-            href={wazeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ ...navBtn, background: '#33CCFF' }}
-          >
-            🧭 Waze
-          </a>
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ ...navBtn, background: '#1DB954' }}
-          >
-            🗺️ Google Maps
-          </a>
-        </div>
+        {nav && (
+          <>
+            <p
+              style={{
+                color: T.muted,
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: 0.5,
+                margin: '0 0 8px',
+              }}
+            >
+              COMO CHEGAR
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <a
+                href={`https://waze.com/ul?ll=${nav.lat},${nav.lng}&navigate=yes`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ ...navBtn, background: '#33CCFF' }}
+              >
+                🧭 Waze
+              </a>
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${nav.lat},${nav.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ ...navBtn, background: '#1DB954' }}
+              >
+                🗺️ Google Maps
+              </a>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

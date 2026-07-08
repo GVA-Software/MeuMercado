@@ -114,6 +114,12 @@ export class ApiClient {
   mercadosProximos(lat: number, lng: number, raioMetros = 50000): Promise<MercadoDTO[]> {
     return this.request(`/markets/nearby?lat=${lat}&lng=${lng}&raioMetros=${raioMetros}&limit=50`);
   }
+  async reverseGeocode(lat: number, lng: number): Promise<string | null> {
+    const r = await this.request<{ endereco: string | null }>(
+      `/geocode/reverse?lat=${lat}&lng=${lng}`,
+    );
+    return r.endereco;
+  }
 
   // ---- Nina ----
   insights(): Promise<InsightsResponse> {
