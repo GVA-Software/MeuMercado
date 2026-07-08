@@ -18,8 +18,8 @@ export default defineConfig({
         display: 'standalone',
         start_url: '/',
         icons: [
-          { src: '/pwa-512x512.jpeg', sizes: '192x192', type: 'image/jpeg' },
-          { src: '/pwa-512x512.jpeg', sizes: '512x512', type: 'image/jpeg' },
+          { src: '/pwa-512x512.png', sizes: '192x192', type: 'image/png' },
+          { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
         ],
       },
       workbox: { globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,woff2}'] },
