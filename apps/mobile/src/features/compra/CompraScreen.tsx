@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { CartDTO, ProdutoDTO } from '@meumercado/contracts';
+import { createPortal } from 'react-dom';
+import type { CartDTO, CartMercadoDTO, MercadoDTO, ProdutoDTO } from '@meumercado/contracts';
 import { api, formatBRL } from '../../api/client';
 import { useTheme } from '../../theme/theme';
 import { AppLogo, Btn, Card, CurrencyInput, EmptyState, SLabel, ThemeToggle } from '../../ui/kit';
+import { MarketTag } from '../../ui/market';
 
 export function CompraScreen() {
   const { T } = useTheme();
@@ -185,6 +187,8 @@ export function CompraScreen() {
       </div>
 
       <div style={{ padding: '14px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {cart && <MercadoDaCompra cart={cart} onCart={setCart} />}
+
         {addOpen && (
           <AddPanel produtos={produtos} onAdd={adicionar} onClose={() => setAddOpen(false)} />
         )}
@@ -555,5 +559,290 @@ function AddPanel({
         </>
       )}
     </Card>
+  );
+}
+
+/** Barra "comprando em X" no topo da compra. Sem mercado → convida a confirmar. */
+function MercadoDaCompra({ cart, onCart }: { cart: CartDTO; onCart: (c: CartDTO) => void }) {
+  const { T } = useTheme();
+  const [open, setOpen] = useState(false);
+  const m = cart.mercado;
+  return (
+    <>
+      {m ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            background: T.surface,
+            border: `1px solid ${T.border}`,
+            borderRadius: 14,
+            padding: '10px 14px',
+          }}
+        >
+          <span style={{ fontSize: 18 }}>🏪</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ color: T.muted, fontSize: 11, margin: '0 0 4px' }}>Comprando em</p>
+            <MarketTag nome={m.nome} />
+          </div>
+          <button
+            onClick={() => setOpen(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: T.primary,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            trocar
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            background: T.primaryBg,
+            border: `1px dashed ${T.primary}`,
+            borderRadius: 14,
+            padding: '12px 14px',
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
+          <span style={{ color: T.text, fontSize: 13, fontWeight: 600 }}>
+            📍 Em qual mercado você está comprando?
+          </span>
+          <span style={{ color: T.primary, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>
+            Confirmar
+          </span>
+        </button>
+      )}
+      {open && (
+        <MercadoSheet
+          cartId={cart.id}
+          onClose={() => setOpen(false)}
+          onCart={(c) => {
+            onCart(c);
+            setOpen(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/** Confirma o mercado da compra por geolocalização (ou digitando). */
+function MercadoSheet({
+  cartId,
+  onClose,
+  onCart,
+}: {
+  cartId: string;
+  onClose: () => void;
+  onCart: (c: CartDTO) => void;
+}) {
+  const { T } = useTheme();
+  const [nearby, setNearby] = useState<MercadoDTO[] | null>(null);
+  const [localizando, setLocalizando] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [manual, setManual] = useState('');
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setErro('Geolocalização não suportada — digite o mercado abaixo.');
+      setLocalizando(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        api
+          .mercadosProximos(pos.coords.latitude, pos.coords.longitude, 3000)
+          .then((m) => setNearby(m.slice(0, 10)))
+          .catch(() => setNearby([]))
+          .finally(() => setLocalizando(false));
+      },
+      () => {
+        setErro('Não consegui sua localização — digite o mercado abaixo.');
+        setLocalizando(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  }, []);
+
+  async function definir(mercado: CartMercadoDTO) {
+    setSalvando(true);
+    setErro(null);
+    try {
+      onCart(await api.definirMercadoCarrinho(cartId, mercado));
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+      setSalvando(false);
+    }
+  }
+
+  const doMercado = (m: MercadoDTO): CartMercadoDTO => ({
+    id: m.id,
+    nome: m.nome,
+    ...(m.endereco ? { endereco: m.endereco } : {}),
+    lat: m.localizacao.lat,
+    lng: m.localizacao.lng,
+  });
+
+  const lista = nearby ?? [];
+  const itemBtn = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+    background: T.card,
+    border: `1px solid ${T.border}`,
+    borderRadius: 12,
+    padding: '11px 12px',
+    cursor: 'pointer',
+    textAlign: 'left' as const,
+    color: T.text,
+    fontSize: 14,
+  };
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.55)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: 430,
+          background: T.surface,
+          borderRadius: '24px 24px 0 0',
+          padding: '18px 20px calc(24px + env(safe-area-inset-bottom))',
+          maxHeight: '86vh',
+          overflowY: 'auto',
+        }}
+      >
+        <div
+          style={{
+            width: 40,
+            height: 4,
+            background: T.border,
+            borderRadius: 99,
+            margin: '0 auto 16px',
+          }}
+        />
+        <p style={{ color: T.text, fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>
+          Onde você está comprando?
+        </p>
+        <p style={{ color: T.muted, fontSize: 12, margin: '0 0 14px', lineHeight: 1.5 }}>
+          Confirmando o mercado, cada preço que você digitar no carrinho já entra na base
+          colaborativa — sem redigitar.
+        </p>
+
+        {localizando && <p style={{ color: T.muted, fontSize: 13 }}>📍 Localizando você…</p>}
+
+        {lista[0] && (
+          <div
+            style={{
+              background: T.primaryBg,
+              border: `1px solid ${T.primary}55`,
+              borderRadius: 14,
+              padding: 14,
+              marginBottom: 14,
+            }}
+          >
+            <p style={{ color: T.muted, fontSize: 12, margin: '0 0 2px' }}>O mais próximo é</p>
+            <p style={{ color: T.text, fontSize: 16, fontWeight: 800, margin: '0 0 10px' }}>
+              {lista[0].nome}
+            </p>
+            <Btn full disabled={salvando} onClick={() => void definir(doMercado(lista[0]!))}>
+              {salvando ? 'Salvando…' : '✓ Sim, é aqui'}
+            </Btn>
+          </div>
+        )}
+
+        {lista.length > 1 && (
+          <>
+            <SLabel>Outro mercado perto</SLabel>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+              {lista.slice(1).map((m) => (
+                <button
+                  key={m.id}
+                  disabled={salvando}
+                  onClick={() => void definir(doMercado(m))}
+                  style={itemBtn}
+                >
+                  <span style={{ fontSize: 18 }}>🏬</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>{m.nome}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        <SLabel>Ou digite o nome</SLabel>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={manual}
+            onChange={(e) => setManual(e.target.value)}
+            placeholder="Nome do mercado"
+            style={{
+              flex: 1,
+              border: `1.5px solid ${T.border}`,
+              borderRadius: 12,
+              padding: '11px 14px',
+              background: T.card,
+              color: T.text,
+              fontSize: 15,
+            }}
+          />
+          <Btn
+            small
+            disabled={salvando || manual.trim().length < 2}
+            onClick={() =>
+              void definir({
+                id: `manual:${manual.trim().toLowerCase().replace(/\s+/g, '-')}`,
+                nome: manual.trim(),
+              })
+            }
+          >
+            Usar
+          </Btn>
+        </div>
+
+        {erro && <p style={{ color: T.danger, fontSize: 13, margin: '12px 0 0' }}>{erro}</p>}
+
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%',
+            background: 'none',
+            border: 'none',
+            color: T.muted,
+            fontSize: 13,
+            padding: '14px 0 0',
+            cursor: 'pointer',
+          }}
+        >
+          Agora não
+        </button>
+      </div>
+    </div>,
+    document.body,
   );
 }

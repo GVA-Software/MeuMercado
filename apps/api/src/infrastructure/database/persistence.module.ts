@@ -14,12 +14,18 @@ import {
   InMemoryPriceObservationRepository,
   PRICE_OBSERVATION_REPOSITORY,
 } from '../../modules/pricing/price-observation.repository.js';
+import {
+  InMemoryNfceImportRepository,
+  NFCE_IMPORT_REPOSITORY,
+} from '../../modules/nfce/nfce-import.repository.js';
 import { CartEntity, CartItemEntity } from './entities/cart.entity.js';
+import { NfceImportEntity } from './entities/nfce-import.entity.js';
 import { PriceObservationEntity } from './entities/price-observation.entity.js';
 import { ProdutoEntity } from './entities/produto.entity.js';
 import { SubscriptionEntity } from './entities/subscription.entity.js';
 import { UserEntity } from './entities/user.entity.js';
 import { TypeOrmCartRepository } from './repositories/typeorm-cart.repository.js';
+import { TypeOrmNfceImportRepository } from './repositories/typeorm-nfce-import.repository.js';
 import { TypeOrmPriceObservationRepository } from './repositories/typeorm-price-observation.repository.js';
 import { TypeOrmProdutoRepository } from './repositories/typeorm-produto.repository.js';
 import { TypeOrmSubscriptionRepository } from './repositories/typeorm-subscription.repository.js';
@@ -32,6 +38,7 @@ const ENTITIES = [
   CartItemEntity,
   PriceObservationEntity,
   ProdutoEntity,
+  NfceImportEntity,
 ];
 const TOKENS = [
   USER_REPOSITORY,
@@ -39,6 +46,7 @@ const TOKENS = [
   CART_STORE,
   PRICE_OBSERVATION_REPOSITORY,
   PRODUTO_REPOSITORY,
+  NFCE_IMPORT_REPOSITORY,
 ];
 
 /**
@@ -62,6 +70,7 @@ export class PersistenceModule {
           { provide: CART_STORE, useClass: InMemoryCartStore },
           { provide: PRICE_OBSERVATION_REPOSITORY, useClass: InMemoryPriceObservationRepository },
           { provide: PRODUTO_REPOSITORY, useClass: InMemoryProdutoRepository },
+          { provide: NFCE_IMPORT_REPOSITORY, useClass: InMemoryNfceImportRepository },
         ],
         exports: TOKENS,
       };
@@ -95,6 +104,7 @@ export class PersistenceModule {
         { provide: CART_STORE, useClass: TypeOrmCartRepository },
         { provide: PRICE_OBSERVATION_REPOSITORY, useClass: TypeOrmPriceObservationRepository },
         { provide: PRODUTO_REPOSITORY, useClass: TypeOrmProdutoRepository },
+        { provide: NFCE_IMPORT_REPOSITORY, useClass: TypeOrmNfceImportRepository },
       ],
       exports: TOKENS,
     };

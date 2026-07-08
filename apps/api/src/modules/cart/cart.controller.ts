@@ -1,13 +1,28 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 import { z } from 'zod';
 import {
   AddCartItemSchema,
+  CartMercadoSchema,
   SetLimiteSchema,
   type AddCartItemInput,
   type CartDTO,
+  type CartMercadoDTO,
   type SetLimiteInput,
 } from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
+import { CurrentUser } from '../auth/current-user.decorator.js';
+import { JwtAuthGuard, type AuthedUser } from '../auth/jwt-auth.guard.js';
 import { CartService } from './cart.service.js';
 
 const SetQuantitySchema = z.object({ quantity: z.number().int().min(1).max(999) });
@@ -29,11 +44,23 @@ export class CartController {
 
   @Post(':id/items')
   @HttpCode(201)
+  @UseGuards(JwtAuthGuard)
   adicionarItem(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(AddCartItemSchema)) body: AddCartItemInput,
+    @CurrentUser() user: AuthedUser,
   ): Promise<CartDTO> {
-    return this.service.adicionarItem(id, body);
+    return this.service.adicionarItem(id, body, user.id);
+  }
+
+  /** Vincula a compra a um mercado (confirmado pela localização). */
+  @Put(':id/mercado')
+  @UseGuards(JwtAuthGuard)
+  definirMercado(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(CartMercadoSchema)) body: CartMercadoDTO,
+  ): Promise<CartDTO> {
+    return this.service.definirMercado(id, body);
   }
 
   @Patch(':id/items/:lineId')

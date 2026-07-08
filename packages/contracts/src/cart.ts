@@ -14,6 +14,17 @@ export type CartItemDTO = z.infer<typeof CartItemSchema>;
 
 export const BudgetStatusSchema = z.enum(['sem-limite', 'ok', 'alerta', 'estourado']);
 
+/** Mercado da compra (confirmado pela localização) — os preços digitados no
+ * carrinho são atribuídos a ele na base colaborativa. */
+export const CartMercadoSchema = z.object({
+  id: z.string().min(1).max(120),
+  nome: z.string().min(1).max(160),
+  endereco: z.string().max(240).optional(),
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
+});
+export type CartMercadoDTO = z.infer<typeof CartMercadoSchema>;
+
 export const CartSchema = z.object({
   id: IdSchema,
   items: z.array(CartItemSchema),
@@ -22,6 +33,7 @@ export const CartSchema = z.object({
   remaining: MoneySchema.nullable(),
   progressPercent: z.number().nullable(),
   status: BudgetStatusSchema,
+  mercado: CartMercadoSchema.nullable(),
 });
 export type CartDTO = z.infer<typeof CartSchema>;
 

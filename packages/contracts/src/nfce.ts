@@ -21,6 +21,10 @@ export type NfceItemDraftDTO = z.infer<typeof NfceItemDraftSchema>;
 /** Rascunho do cupom lido: mercado, data e itens. */
 export const NfceDraftSchema = z.object({
   uf: z.string().length(2),
+  /** Chave de acesso da NF-e (44 dígitos) — usada para não importar 2x a mesma nota. */
+  chave: z.string().max(60).optional(),
+  /** true se esta nota já foi importada antes (trava anti-duplicata). */
+  jaImportada: z.boolean().optional(),
   /** Nome exibível — nome fantasia (via CNPJ) se encontrado, senão razão social. */
   mercadoNome: z.string().min(1).max(160),
   mercadoCnpj: z.string().max(20).optional(),
@@ -50,6 +54,7 @@ export type NfceImportItem = z.infer<typeof NfceImportItemSchema>;
 /** Importação confirmada: cria produtos (se novos) + observações de preço. */
 export const NfceImportRequestSchema = z.object({
   mercadoNome: z.string().min(1).max(160),
+  chave: z.string().max(60).optional(),
   mercadoId: z.string().max(120).optional(),
   mercadoEndereco: z.string().max(240).optional(),
   mercadoLat: z.number().min(-90).max(90).optional(),

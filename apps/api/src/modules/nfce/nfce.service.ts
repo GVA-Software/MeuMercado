@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   Logger,
@@ -15,7 +16,19 @@ import {
   PRICE_OBSERVATION_REPOSITORY,
   type PriceObservationRepository,
 } from '../pricing/price-observation.repository.js';
+import { NFCE_IMPORT_REPOSITORY, type NfceImportRepository } from './nfce-import.repository.js';
 import { SpNfceParser } from './nfce.parser.js';
+
+/** Extrai a chave de acesso (44 dígitos) da URL do QR (`?p=CHAVE|...`). */
+function extrairChave(url: string): string | undefined {
+  try {
+    const p = new URL(url).searchParams.get('p') ?? '';
+    const chave = p.split('|')[0]?.replace(/\D/g, '') ?? '';
+    return chave.length === 44 ? chave : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /** Domínios oficiais da SEFAZ (allowlist anti-SSRF). Só buscamos destes. */
 const SEFAZ_DOMINIOS: Array<{ sufixo: string; uf: string }> = [
@@ -54,6 +67,7 @@ export class NfceService {
   constructor(
     @Inject(PRODUTO_REPOSITORY) private readonly produtos: ProdutoRepository,
     @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly obs: PriceObservationRepository,
+    @Inject(NFCE_IMPORT_REPOSITORY) private readonly imports: NfceImportRepository,
     private readonly geocode: GeocodeService,
   ) {}
 
@@ -85,13 +99,17 @@ export class NfceService {
 
     // Enriquece o mercado: nome fantasia (CNPJ) e coordenada (geocode do endereço).
     // Best-effort e em paralelo — se falhar, seguimos com o que temos.
-    const [fantasia, coord] = await Promise.all([
+    const chave = extrairChave(url);
+    const [fantasia, coord, jaImportada] = await Promise.all([
       parsed.mercadoCnpj ? this.nomeFantasia(parsed.mercadoCnpj) : Promise.resolve(null),
       parsed.mercadoEndereco ? this.geocode.geocode(parsed.mercadoEndereco) : Promise.resolve(null),
+      chave ? this.imports.jaImportada(chave) : Promise.resolve(false),
     ]);
 
     return {
       uf,
+      ...(chave ? { chave } : {}),
+      ...(jaImportada ? { jaImportada: true } : {}),
       mercadoNome: fantasia || parsed.mercadoNome,
       ...(parsed.mercadoCnpj ? { mercadoCnpj: parsed.mercadoCnpj } : {}),
       ...(parsed.mercadoEndereco ? { mercadoEndereco: parsed.mercadoEndereco } : {}),
@@ -109,6 +127,13 @@ export class NfceService {
 
   /** Confirma a importação: cria produtos (se novos) e uma observação por item. */
   async importar(req: NfceImportRequest, reporterId: string): Promise<NfceImportResult> {
+    // Trava anti-duplicata: a mesma nota (chave de acesso) só entra uma vez.
+    const chave = req.chave?.replace(/\D/g, '');
+    const chaveValida = chave && chave.length === 44 ? chave : undefined;
+    if (chaveValida && (await this.imports.jaImportada(chaveValida))) {
+      throw new ConflictException('Esta nota já foi importada antes.');
+    }
+
     const mercadoId = req.mercadoId ?? `nfce:${slug(req.mercadoNome)}`;
     const observedAt = req.dataEmissao ? new Date(req.dataEmissao) : new Date();
 
@@ -166,6 +191,7 @@ export class NfceService {
       );
     }
 
+    if (chaveValida) await this.imports.registrar(chaveValida, reporterId);
     return { importados: itens.length, produtosCriados };
   }
 

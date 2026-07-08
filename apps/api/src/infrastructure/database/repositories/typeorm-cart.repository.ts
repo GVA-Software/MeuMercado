@@ -31,11 +31,29 @@ export class TypeOrmCartRepository implements CartStore {
       id: c.id,
       limite: c.limiteCents !== null ? Money.fromCents(c.limiteCents) : null,
       items,
+      mercado:
+        c.mercadoId && c.mercadoNome
+          ? {
+              id: c.mercadoId,
+              nome: c.mercadoNome,
+              ...(c.mercadoEndereco !== null ? { endereco: c.mercadoEndereco } : {}),
+              ...(c.mercadoLat !== null ? { lat: c.mercadoLat } : {}),
+              ...(c.mercadoLng !== null ? { lng: c.mercadoLng } : {}),
+            }
+          : null,
     });
   }
 
   async save(cart: Cart): Promise<void> {
-    await this.carts.save({ id: cart.id, limiteCents: cart.limite?.cents ?? null });
+    await this.carts.save({
+      id: cart.id,
+      limiteCents: cart.limite?.cents ?? null,
+      mercadoId: cart.mercado?.id ?? null,
+      mercadoNome: cart.mercado?.nome ?? null,
+      mercadoEndereco: cart.mercado?.endereco ?? null,
+      mercadoLat: cart.mercado?.lat ?? null,
+      mercadoLng: cart.mercado?.lng ?? null,
+    });
     // Substitui as linhas (aggregate salvo por completo).
     await this.items.delete({ cartId: cart.id });
     const rows = cart.items.map((i) => ({

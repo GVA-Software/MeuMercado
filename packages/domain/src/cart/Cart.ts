@@ -5,6 +5,15 @@ import { CartItem } from './CartItem.js';
 /** Situação do carrinho em relação ao limite de orçamento. */
 export type BudgetStatus = 'sem-limite' | 'ok' | 'alerta' | 'estourado';
 
+/** Mercado onde a compra está sendo feita (confirmado pela localização do usuário). */
+export interface CartMercado {
+  readonly id: string;
+  readonly nome: string;
+  readonly endereco?: string;
+  readonly lat?: number;
+  readonly lng?: number;
+}
+
 /** Percentuais de gatilho (espelham a UI do protótipo). */
 const WARN_AT = 80;
 const OVER_AT = 100;
@@ -19,10 +28,17 @@ export class Cart {
   readonly id: string;
   private readonly _items: Map<string, CartItem>;
   private _limite: Money | null;
+  private _mercado: CartMercado | null;
 
-  constructor(params: { id: string; limite?: Money | null; items?: readonly CartItem[] }) {
+  constructor(params: {
+    id: string;
+    limite?: Money | null;
+    items?: readonly CartItem[];
+    mercado?: CartMercado | null;
+  }) {
     this.id = params.id;
     this._limite = params.limite ?? null;
+    this._mercado = params.mercado ?? null;
     this._items = new Map();
     for (const item of params.items ?? []) {
       this._items.set(item.lineId, item);
@@ -35,6 +51,14 @@ export class Cart {
 
   get limite(): Money | null {
     return this._limite;
+  }
+
+  get mercado(): CartMercado | null {
+    return this._mercado;
+  }
+
+  setMercado(mercado: CartMercado | null): void {
+    this._mercado = mercado;
   }
 
   get isEmpty(): boolean {

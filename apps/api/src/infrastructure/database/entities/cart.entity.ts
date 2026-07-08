@@ -7,6 +7,21 @@ export class CartEntity {
 
   @Column({ name: 'limite_cents', type: 'int', nullable: true })
   limiteCents!: number | null;
+
+  @Column({ name: 'mercado_id', type: 'varchar', nullable: true })
+  mercadoId!: string | null;
+
+  @Column({ name: 'mercado_nome', type: 'varchar', nullable: true })
+  mercadoNome!: string | null;
+
+  @Column({ name: 'mercado_endereco', type: 'varchar', nullable: true })
+  mercadoEndereco!: string | null;
+
+  @Column({ name: 'mercado_lat', type: 'double precision', nullable: true })
+  mercadoLat!: number | null;
+
+  @Column({ name: 'mercado_lng', type: 'double precision', nullable: true })
+  mercadoLng!: number | null;
 }
 
 @Entity('cart_items')

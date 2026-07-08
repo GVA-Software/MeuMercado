@@ -76,6 +76,7 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
         }));
       const r = await api.nfceImportar({
         mercadoNome: draft.mercadoNome,
+        ...(draft.chave ? { chave: draft.chave } : {}),
         ...(draft.mercadoCnpj
           ? { mercadoId: `nfce:cnpj:${draft.mercadoCnpj.replace(/\D/g, '')}` }
           : {}),
@@ -231,6 +232,23 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
             amarelo.
           </p>
 
+          {draft.jaImportada && (
+            <div
+              style={{
+                background: `${T.yellow}1e`,
+                border: `1px solid ${T.yellow}66`,
+                borderRadius: 12,
+                padding: '10px 12px',
+                marginBottom: 12,
+              }}
+            >
+              <p style={{ color: T.yellow, fontSize: 13, fontWeight: 700, margin: 0 }}>
+                ⚠️ Esta nota já foi importada antes — para não duplicar os preços, não dá pra
+                importar de novo.
+              </p>
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
             {draft.itens.map((it, i) => {
               const dup = dupDescricoes.has(it.descricao);
@@ -303,10 +321,16 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
 
           {erro && <p style={{ color: T.danger, fontSize: 13, margin: '0 0 10px' }}>{erro}</p>}
 
-          <Btn full disabled={nIncluidos === 0 || importando} onClick={() => void importar()}>
-            {importando
-              ? 'Importando…'
-              : `Importar ${nIncluidos} ${nIncluidos === 1 ? 'preço' : 'preços'}`}
+          <Btn
+            full
+            disabled={nIncluidos === 0 || importando || draft.jaImportada === true}
+            onClick={() => void importar()}
+          >
+            {draft.jaImportada
+              ? 'Nota já importada'
+              : importando
+                ? 'Importando…'
+                : `Importar ${nIncluidos} ${nIncluidos === 1 ? 'preço' : 'preços'}`}
           </Btn>
           <button
             onClick={onClose}

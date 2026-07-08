@@ -2,6 +2,7 @@ import type {
   AddCartItemInput,
   AuthResponse,
   CartDTO,
+  CartMercadoDTO,
   CreateProdutoInput,
   InsightsResponse,
   LoginInput,
@@ -161,6 +162,9 @@ export class ApiClient {
       method: 'PUT',
       body: JSON.stringify({ limiteCents }),
     });
+  }
+  definirMercadoCarrinho(id: string, mercado: CartMercadoDTO): Promise<CartDTO> {
+    return this.request(`/carts/${id}/mercado`, { method: 'PUT', body: JSON.stringify(mercado) });
   }
 
   // ---- Mercados (aba Mapa) ----
