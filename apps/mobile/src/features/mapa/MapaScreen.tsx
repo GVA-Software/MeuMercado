@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -23,7 +23,7 @@ const OSM_STYLE: maplibregl.StyleSpecification = {
 
 const DEFAULT_CENTER: [number, number] = [-46.63, -23.55];
 // Raio de "perto de mim" (metros). Só traz mercados realmente próximos.
-const RAIO_METROS = 10000;
+const RAIO_METROS = 5000;
 const RAIO_KM = RAIO_METROS / 1000;
 
 function formatDist(m?: number): string | null {
@@ -70,6 +70,16 @@ export function MapaScreen() {
     };
   }, []);
 
+  // Enquadra o mapa em todos os mercados encontrados (+ você) — "visão geral".
+  const fitAll = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || mercados.length === 0) return;
+    const bounds = new maplibregl.LngLatBounds();
+    mercados.forEach((m) => bounds.extend([m.localizacao.lng, m.localizacao.lat]));
+    if (userMarkerRef.current) bounds.extend(userMarkerRef.current.getLngLat());
+    map.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 600 });
+  }, [mercados]);
+
   // Pins dos mercados encontrados (nenhum por padrão).
   useEffect(() => {
     const map = mapRef.current;
@@ -89,13 +99,8 @@ export function MapaScreen() {
       return marker;
     });
 
-    if (mercados.length > 0) {
-      const bounds = new maplibregl.LngLatBounds();
-      mercados.forEach((m) => bounds.extend([m.localizacao.lng, m.localizacao.lat]));
-      if (userMarkerRef.current) bounds.extend(userMarkerRef.current.getLngLat());
-      map.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 600 });
-    }
-  }, [ready, mercados, T.primary]);
+    fitAll();
+  }, [ready, mercados, T.primary, fitAll]);
 
   function buscarPerto() {
     if (!navigator.geolocation) {
@@ -168,7 +173,35 @@ export function MapaScreen() {
         </p>
       </div>
 
-      <div ref={containerRef} style={{ width: '100%', height: '48vh', background: T.card }} />
+      <div style={{ position: 'relative' }}>
+        <div ref={containerRef} style={{ width: '100%', height: '48vh', background: T.card }} />
+        {mercados.length > 0 && (
+          <button
+            onClick={fitAll}
+            aria-label="Ver todos os mercados no mapa"
+            style={{
+              position: 'absolute',
+              left: 12,
+              bottom: 12,
+              zIndex: 5,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+              background: T.surface,
+              color: T.text,
+              border: `1px solid ${T.border}`,
+              borderRadius: 99,
+              padding: '9px 14px',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.25)',
+            }}
+          >
+            <span style={{ fontSize: 15 }}>⤢</span> Ver todos
+          </button>
+        )}
+      </div>
 
       <div style={{ padding: '14px 16px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <Btn full onClick={buscarPerto} disabled={buscando}>

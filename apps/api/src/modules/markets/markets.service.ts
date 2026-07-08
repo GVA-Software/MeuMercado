@@ -34,10 +34,13 @@ export class MarketsService {
     raioMetros: number,
     limit: number,
   ): Promise<MercadoDTO[]> {
+    // Busca TODOS os mercados do raio (sem cortar server-side) — assim os
+    // grandes (super/hiper/atacadão) não somem só por haver muita mercearia
+    // perto. A ordenação por distância e o corte para `limit` são feitos aqui.
     const query =
-      `[out:json][timeout:20];` +
-      `(nwr["shop"~"^(supermarket|convenience|grocery|wholesale)$"](around:${raioMetros},${lat},${lng}););` +
-      `out center tags ${Math.min(limit * 3, 150)};`;
+      `[out:json][timeout:25];` +
+      `(nwr["shop"~"^(supermarket|hypermarket|wholesale|convenience|grocery|department_store|general)$"](around:${raioMetros},${lat},${lng}););` +
+      `out center tags 600;`;
 
     const elements = await this.overpass(query);
 
@@ -85,7 +88,7 @@ export class MarketsService {
             'User-Agent': 'MeuMercado/1.0 (app de compras)',
           },
           body: `data=${encodeURIComponent(query)}`,
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(25000),
         });
         if (!res.ok) {
           this.logger.warn(`Overpass ${ep} HTTP ${res.status}`);
