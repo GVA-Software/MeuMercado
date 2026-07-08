@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { MercadoDTO } from '@meumercado/contracts';
@@ -290,14 +291,14 @@ function LocalSheet({
     textDecoration: 'none',
   } as const;
 
-  return (
+  return createPortal(
     <div
       onClick={onClose}
       style={{
         position: 'fixed',
         inset: 0,
         background: 'rgba(0,0,0,0.55)',
-        zIndex: 500,
+        zIndex: 1000,
         display: 'flex',
         alignItems: 'flex-end',
         justifyContent: 'center',
@@ -310,7 +311,9 @@ function LocalSheet({
           maxWidth: 430,
           background: T.surface,
           borderRadius: '24px 24px 0 0',
-          padding: '18px 20px 40px',
+          padding: '18px 20px calc(28px + env(safe-area-inset-bottom))',
+          maxHeight: '82vh',
+          overflowY: 'auto',
         }}
       >
         <div
@@ -406,6 +409,7 @@ function LocalSheet({
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
