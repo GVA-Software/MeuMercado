@@ -19,7 +19,7 @@ export class MarketsController {
   @Get('nearby')
   proximos(
     @Query(new ZodValidationPipe(NearbyMarketsQuerySchema)) q: NearbyMarketsQuery,
-  ): MercadoDTO[] {
+  ): Promise<MercadoDTO[]> {
     return this.service.proximos(q.lat, q.lng, q.raioMetros, q.limit);
   }
 }

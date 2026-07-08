@@ -1,10 +1,12 @@
 import { lazy, Suspense, useState } from 'react';
 import { useTheme } from '../theme/theme';
+import { useAuth } from '../auth/AuthContext';
 import { BottomNav, type Tab } from '../components/BottomNav';
 import { CompraScreen } from '../features/compra/CompraScreen';
 import { NinaScreen } from '../features/nina/NinaScreen';
 import { HistoricoScreen } from '../features/historico/HistoricoScreen';
 import { PerfilScreen } from '../features/perfil/PerfilScreen';
+import { AuthScreen } from '../features/auth/AuthScreen';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
 
 // Mapa em chunk separado (carrega o MapLibre só ao abrir a aba Mapa).
@@ -14,7 +16,29 @@ const MapaScreen = lazy(() =>
 
 export function App() {
   const { T } = useTheme();
+  const { user, loading } = useAuth();
   const [tab, setTab] = useState<Tab>('compra');
+
+  // Portão: precisa estar logado para usar o app.
+  if (loading) {
+    return (
+      <div
+        style={{
+          height: '100dvh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: T.bg,
+          color: T.muted,
+        }}
+      >
+        Carregando…
+      </div>
+    );
+  }
+  if (!user) {
+    return <AuthScreen />;
+  }
 
   return (
     <div className="app-shell" style={{ background: T.bg, color: T.text }}>

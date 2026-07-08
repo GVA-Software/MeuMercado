@@ -4,23 +4,21 @@ import { useTheme, type Theme } from '../theme/theme';
 export function AppLogo({ size = 20, inverted = false }: { size?: number; inverted?: boolean }) {
   const { T } = useTheme();
   const textColor = inverted ? T.headerText : T.primary;
-  const iconBg = inverted ? 'rgba(255,255,255,0.18)' : T.primary;
+  const sz = size + 8;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-      <div
+      <img
+        src="/cart.png"
+        alt=""
+        width={sz}
+        height={sz}
         style={{
-          width: size + 8,
-          height: size + 8,
-          borderRadius: (size + 8) * 0.28,
-          background: iconBg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: size * 0.7,
+          borderRadius: sz * 0.28,
+          objectFit: 'cover',
+          display: 'block',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
         }}
-      >
-        🛒
-      </div>
+      />
       <span style={{ color: textColor, fontWeight: 800, fontSize: size, letterSpacing: -0.3 }}>
         Meu Mercado
       </span>
