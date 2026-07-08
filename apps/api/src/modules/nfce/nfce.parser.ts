@@ -22,7 +22,8 @@ export interface NfceParser {
 /** "1.234,56" / "R$ 5,99" / "5,99" → centavos. `null` se não houver número. */
 export function reaisParaCents(texto: string): number | null {
   const aposDoisPontos = texto.includes(':') ? texto.slice(texto.lastIndexOf(':') + 1) : texto;
-  const m = aposDoisPontos.match(/\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+/);
+  // A SEFAZ-SP às vezes corta o zero final ("15,9" = R$ 15,90) — aceita 1-2 casas.
+  const m = aposDoisPontos.match(/\d{1,3}(?:\.\d{3})*,\d{1,2}|\d+,\d{1,2}|\d+/);
   if (!m) return null;
   const v = parseFloat(m[0].replace(/\./g, '').replace(',', '.'));
   return Number.isFinite(v) ? Math.round(v * 100) : null;
