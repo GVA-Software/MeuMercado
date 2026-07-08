@@ -1,0 +1,10 @@
+// Contratos (wire) compartilhados entre API e PWA — validados com zod.
+export * from './common.js';
+export * from './catalog.js';
+export * from './market.js';
+export * from './pricing.js';
+export * from './cart.js';
+export * from './insights.js';
+export * from './geo.js';
+export * from './auth.js';
+export * from './billing.js';

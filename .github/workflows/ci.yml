@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancela execuções antigas do mesmo branch/PR.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build · Lint · Typecheck · Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # NOTA: quando um pnpm-lock.yaml for commitado, trocar para
+      # `--frozen-lockfile` e ativar `cache: pnpm` no setup-node acima.
+      - name: Install
+        run: pnpm install --no-frozen-lockfile
+
+      # Build primeiro: gera os dist de domain/contracts que api/mobile tipam.
+      - name: Build
+        run: pnpm -r build
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm -r run typecheck
+
+      - name: Test (unit + integração)
+        run: pnpm -r run test
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    # Informativo — não bloqueia o merge (vulns transitivas nem sempre acionáveis).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm audit --audit-level high

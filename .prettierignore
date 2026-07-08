@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+coverage
+pnpm-lock.yaml
+*.pmtiles
+*.osm.pbf
+apps/mobile/dev-dist
+playwright-report
+test-results

@@ -1,0 +1,44 @@
+# Render Blueprint — cria os ambientes PROD e DEV a partir deste repositório.
+# Docs: https://render.com/docs/blueprint-spec
+# Cada serviço roda a API (NestJS), que também serve a PWA (single-origin).
+services:
+  # ---------- PRODUÇÃO (branch main) ----------
+  - type: web
+    name: meumercado-prod
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: npm install && npm run build
+    startCommand: node apps/api/dist/main.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: 'true'
+      # Segredos fortes gerados pelo Render (não ficam no repositório).
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+
+  # ---------- DEV / STAGING (branch develop) ----------
+  - type: web
+    name: meumercado-dev
+    runtime: node
+    plan: free
+    branch: develop
+    buildCommand: npm install && npm run build
+    startCommand: node apps/api/dist/main.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: 'true'
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true

@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+# Repo usa pnpm — lockfiles do npm (gerados em verificações pontuais) não entram
+package-lock.json
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+apps/mobile/dev-dist/
+
+# Test / coverage
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Env & secrets — NUNCA commitar segredos reais
+# Ignora .env (segredos, ex.: apps/api/.env) e *.local; versiona .env.example
+# e os modes públicos do Vite (.env.development / .env.production).
+.env
+.env.local
+.env.*.local
+
+# OSM data / tiles (grandes, gerados) — não versionar
+services/**/data/
+*.osm.pbf
+*.pmtiles
+*.mbtiles
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Capacitor (gerado ao empacotar p/ lojas)
+apps/mobile/ios/
+apps/mobile/android/

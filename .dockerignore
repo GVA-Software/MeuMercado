@@ -1,0 +1,12 @@
+.git
+node_modules
+**/node_modules
+dist
+**/dist
+apps/mobile/dev-dist
+coverage
+*.log
+.env
+**/.env
+!apps/mobile/.env.development
+!apps/mobile/.env.production
