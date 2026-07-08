@@ -6,7 +6,7 @@ import {
   type MercadoRef,
   type ProdutoRef,
 } from '@meumercado/domain';
-import type { InsightsResponse } from '@meumercado/contracts';
+import type { InsightDTO, InsightsResponse } from '@meumercado/contracts';
 import { SEED_DATA } from '../../data/data.module.js';
 import type { SeedData } from '../../data/seed.js';
 import {
@@ -55,9 +55,25 @@ export class InsightsService {
       ...(cesta && cesta.length > 0 ? { cesta } : {}),
     };
 
-    return {
-      insights: this.engine.generate(context).map((i) => i.toJSON()),
-      geradoEm: asOf.toISOString(),
-    };
+    const insights: InsightDTO[] = this.engine.generate(context).map((i) => i.toJSON());
+
+    // Nunca deixa a Nina "vazia" quando já há dados reais: um card-resumo mostra
+    // que ela está viva e guia o usuário enquanto ainda não há observações
+    // suficientes para os alertas de comparação (mesmo produto em 2+ mercados/datas).
+    if (insights.length === 0 && observations.length > 0) {
+      const nMercados = new Set(observations.map((o) => o.mercadoId)).size;
+      const maisCara = observations.reduce((a, b) => (b.price.cents > a.price.cents ? b : a));
+      const nomeProd =
+        produtosDeInteresse.find((p) => p.id === maisCara.produtoId)?.nome ?? 'um item';
+      insights.push({
+        type: 'resumo',
+        urgente: false,
+        emoji: '🧾',
+        titulo: `${observations.length} ${observations.length === 1 ? 'preço registrado' : 'preços registrados'} em ${nMercados} ${nMercados === 1 ? 'mercado' : 'mercados'}`,
+        sub: `A Nina já está de olho. Quando o mesmo produto aparecer em mais de um mercado ou em datas diferentes, ela começa a comparar e avisar as melhores ofertas. Registre mais notas para turbinar. (Mais caro até agora: ${nomeProd}.)`,
+      });
+    }
+
+    return { insights, geradoEm: asOf.toISOString() };
   }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PLANOS, type Periodo } from '@meumercado/contracts';
 import { useAuth } from '../../auth/AuthContext';
 import { useTheme } from '../../theme/theme';
@@ -33,13 +34,13 @@ export function Paywall({ onClose }: { onClose: () => void }) {
     }
   }
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
         inset: 0,
         background: 'rgba(0,0,0,0.6)',
-        zIndex: 400,
+        zIndex: 1000,
         display: 'flex',
         alignItems: 'flex-end',
         justifyContent: 'center',
@@ -74,7 +75,7 @@ export function Paywall({ onClose }: { onClose: () => void }) {
           </p>
         </div>
 
-        <div style={{ padding: '22px 20px 40px' }}>
+        <div style={{ padding: '22px 20px calc(40px + env(safe-area-inset-bottom))' }}>
           <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
             {(['mensal', 'anual'] as Periodo[]).map((p) => {
               const ativo = periodo === p;
@@ -157,6 +158,7 @@ export function Paywall({ onClose }: { onClose: () => void }) {
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
