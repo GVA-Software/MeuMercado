@@ -276,6 +276,22 @@ export function CompraScreen() {
                       onClick={() => void mudarQtd(item.lineId, item.quantity + 1)}
                     />
                   </div>
+                  <button
+                    onClick={() => void api.removerItem(cart.id, item.lineId).then(setCart)}
+                    aria-label="Remover item"
+                    title="Remover item"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: T.muted,
+                      fontSize: 16,
+                      padding: '4px 2px',
+                      marginLeft: 2,
+                    }}
+                  >
+                    🗑️
+                  </button>
                 </div>
               ))}
               <div
@@ -416,7 +432,7 @@ function AddPanel({
   const { T } = useTheme();
   const [busca, setBusca] = useState('');
   const [sel, setSel] = useState<ProdutoDTO | null>(null);
-  const [preco, setPreco] = useState('');
+  const [precoCents, setPrecoCents] = useState(0);
   const [qty, setQty] = useState(1);
 
   const filtrados = useMemo(
@@ -426,7 +442,6 @@ function AddPanel({
         : [],
     [busca, produtos],
   );
-  const precoCents = Math.round((parseFloat(preco.replace(',', '.')) || 0) * 100);
 
   return (
     <Card style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -488,20 +503,11 @@ function AddPanel({
       {sel && (
         <>
           <div style={{ display: 'flex', gap: 10 }}>
-            <input
-              type="number"
+            <CurrencyInput
+              cents={precoCents}
+              onCents={setPrecoCents}
               placeholder="Preço R$"
-              value={preco}
-              onChange={(e) => setPreco(e.target.value)}
-              style={{
-                flex: 1,
-                border: `1.5px solid ${T.border}`,
-                borderRadius: 12,
-                padding: '12px 14px',
-                background: T.card,
-                color: T.text,
-                fontSize: 15,
-              }}
+              style={{ flex: 1 }}
             />
             <div
               style={{

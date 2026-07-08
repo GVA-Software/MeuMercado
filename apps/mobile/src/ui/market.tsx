@@ -17,7 +17,6 @@ const REDES: Array<{ re: RegExp; nome: string; cor: string }> = [
   { re: /\btenda\b/i, nome: 'Tenda', cor: '#E2001A' },
   { re: /makro/i, nome: 'Makro', cor: '#003DA5' },
   { re: /sam.?s club/i, nome: "Sam's Club", cor: '#0067A0' },
-  { re: /wms supermercados|walmart/i, nome: 'Walmart', cor: '#0071CE' },
   { re: /\bbig\b|bompre[çc]o/i, nome: 'BIG', cor: '#004B93' },
   { re: /nagumo/i, nome: 'Nagumo', cor: '#E4002B' },
   { re: /st\.? marche/i, nome: 'St Marche', cor: '#6E5A46' },
@@ -26,38 +25,28 @@ const REDES: Array<{ re: RegExp; nome: string; cor: string }> = [
   { re: /minimercado extra|mercado extra/i, nome: 'Extra Mercado', cor: '#E2001A' },
 ];
 
-const PALETA = [
-  '#E6371F',
-  '#F5A800',
-  '#164193',
-  '#00A651',
-  '#7C3AED',
-  '#0EA5E9',
-  '#DB2777',
-  '#0F766E',
-];
-
-function corDeterministica(s: string): string {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return PALETA[h % PALETA.length]!;
-}
-
 export function marcaMercado(nome: string): { label: string; cor: string } {
   for (const r of REDES) if (r.re.test(nome)) return { label: r.nome, cor: r.cor };
+  // Razão social sem marca reconhecível: limpa e mostra em cinza neutro (não
+  // "confirmamos" uma bandeira). O nome fantasia real vem da consulta do CNPJ.
   const limpo = nome
     .replace(
       /\b(supermercados?|hipermercado|com[eé]rcio|ltda|s\.?\s?a\.?|epp|-?\s?me|do brasil|eireli|distribui[çc][aã]o|de alimentos)\b/gi,
       '',
     )
-    .replace(/[.,-]/g, ' ')
+    .replace(/[.,\-/]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  const label = (limpo || nome).replace(/\b\w/g, (c) => c.toUpperCase());
-  return {
-    label: label.length > 24 ? `${label.slice(0, 24)}…` : label,
-    cor: corDeterministica(nome),
-  };
+  const titled = (limpo || nome)
+    .split(' ')
+    .filter(Boolean)
+    .map((w) =>
+      w.length <= 3 && w === w.toUpperCase()
+        ? w
+        : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
+    )
+    .join(' ');
+  return { label: titled.length > 22 ? `${titled.slice(0, 22)}…` : titled, cor: '#8A94A6' };
 }
 
 /** Chip colorido com a marca do mercado. */
