@@ -1,0 +1,161 @@
+import { randomUUID } from 'node:crypto';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import { Money, PriceObservation, Produto } from '@meumercado/domain';
+import type { NfceDraftDTO, NfceImportRequest, NfceImportResult } from '@meumercado/contracts';
+import { PRODUTO_REPOSITORY, type ProdutoRepository } from '../catalog/produtos.repository.js';
+import {
+  PRICE_OBSERVATION_REPOSITORY,
+  type PriceObservationRepository,
+} from '../pricing/price-observation.repository.js';
+import { SpNfceParser } from './nfce.parser.js';
+
+/** Domínios oficiais da SEFAZ (allowlist anti-SSRF). Só buscamos destes. */
+const SEFAZ_DOMINIOS: Array<{ sufixo: string; uf: string }> = [
+  { sufixo: 'fazenda.sp.gov.br', uf: 'SP' },
+  { sufixo: 'sefaz.rs.gov.br', uf: 'RS' },
+  { sufixo: 'fazenda.mg.gov.br', uf: 'MG' },
+  { sufixo: 'sefaz.rj.gov.br', uf: 'RJ' },
+  { sufixo: 'fazenda.pr.gov.br', uf: 'PR' },
+  { sufixo: 'sefaz.ba.gov.br', uf: 'BA' },
+  { sufixo: 'sefaz.go.gov.br', uf: 'GO' },
+  { sufixo: 'sefaz.pe.gov.br', uf: 'PE' },
+  { sufixo: 'sef.sc.gov.br', uf: 'SC' },
+];
+
+const UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 ' +
+  '(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+
+function slug(s: string): string {
+  return (
+    s
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') || 'mercado'
+  );
+}
+
+@Injectable()
+export class NfceService {
+  private readonly logger = new Logger(NfceService.name);
+  private readonly parsers: Record<string, SpNfceParser> = { SP: new SpNfceParser() };
+
+  constructor(
+    @Inject(PRODUTO_REPOSITORY) private readonly produtos: ProdutoRepository,
+    @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly obs: PriceObservationRepository,
+  ) {}
+
+  /** Lê a página pública da SEFAZ apontada pelo QR e extrai um rascunho de itens. */
+  async preview(url: string): Promise<NfceDraftDTO> {
+    const uf = this.detectarUf(url);
+    const parser = this.parsers[uf];
+    if (!parser) {
+      throw new UnprocessableEntityException(
+        `Notas de ${uf} ainda não são suportadas — por enquanto só São Paulo. Você pode cadastrar manualmente.`,
+      );
+    }
+
+    const html = await this.fetchPagina(url);
+    const parsed = parser.parse(html);
+
+    if (parsed.itens.length === 0) {
+      const titulo = html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim() ?? '';
+      this.logger.warn(`NFC-e ${uf}: 0 itens extraídos (html ${html.length}b, título "${titulo}")`);
+      throw new UnprocessableEntityException(
+        'Não consegui ler os itens deste cupom. Tente novamente ou cadastre manualmente.',
+      );
+    }
+
+    return {
+      uf,
+      mercadoNome: parsed.mercadoNome,
+      ...(parsed.mercadoCnpj ? { mercadoCnpj: parsed.mercadoCnpj } : {}),
+      ...(parsed.dataEmissao ? { dataEmissao: parsed.dataEmissao.toISOString() } : {}),
+      itens: parsed.itens.map((i) => ({
+        descricao: i.descricao,
+        unitPriceCents: i.unitPriceCents,
+        ...(i.quantidade !== undefined ? { quantidade: i.quantidade } : {}),
+        ...(i.unidade ? { unidade: i.unidade } : {}),
+      })),
+    };
+  }
+
+  /** Confirma a importação: cria produtos (se novos) e uma observação por item. */
+  async importar(req: NfceImportRequest, reporterId: string): Promise<NfceImportResult> {
+    const mercadoId = req.mercadoId ?? `nfce:${slug(req.mercadoNome)}`;
+    const observedAt = req.dataEmissao ? new Date(req.dataEmissao) : new Date();
+
+    const catalogo = await this.produtos.findAll();
+    const porNome = new Map(catalogo.map((p) => [p.nome.trim().toLowerCase(), p]));
+
+    let produtosCriados = 0;
+    for (const item of req.itens) {
+      const chave = item.nome.trim().toLowerCase();
+      let produto = porNome.get(chave);
+      if (!produto) {
+        produto = new Produto({
+          id: randomUUID(),
+          nome: item.nome.trim(),
+          categoria: 'Outros',
+          unidade: 'un',
+        });
+        await this.produtos.add(produto);
+        porNome.set(chave, produto);
+        produtosCriados++;
+      }
+      await this.obs.add(
+        new PriceObservation({
+          id: randomUUID(),
+          produtoId: produto.id,
+          mercadoId,
+          mercadoNome: req.mercadoNome,
+          price: Money.fromCents(item.priceCents),
+          source: 'qr',
+          reporterId,
+          observedAt,
+        }),
+      );
+    }
+
+    return { importados: req.itens.length, produtosCriados };
+  }
+
+  private detectarUf(url: string): string {
+    let host: string;
+    try {
+      host = new URL(url).hostname.toLowerCase();
+    } catch {
+      throw new BadRequestException('URL inválida.');
+    }
+    const hit = SEFAZ_DOMINIOS.find((d) => host === d.sufixo || host.endsWith(`.${d.sufixo}`));
+    if (!hit) {
+      throw new BadRequestException('Isto não parece um QR Code de NFC-e da SEFAZ.');
+    }
+    return hit.uf;
+  }
+
+  private async fetchPagina(url: string): Promise<string> {
+    try {
+      const res = await fetch(url, {
+        headers: { 'user-agent': UA, 'accept-language': 'pt-BR,pt;q=0.9' },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.text();
+    } catch (e) {
+      this.logger.warn(`Falha ao buscar SEFAZ (${url}): ${String(e)}`);
+      throw new ServiceUnavailableException(
+        'Não consegui acessar a SEFAZ agora. Tente novamente em instantes.',
+      );
+    }
+  }
+}

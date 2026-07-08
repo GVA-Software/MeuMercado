@@ -6,6 +6,9 @@ import type {
   InsightsResponse,
   LoginInput,
   MercadoDTO,
+  NfceDraftDTO,
+  NfceImportRequest,
+  NfceImportResult,
   Periodo,
   PriceHistoryDTO,
   PriceSummaryDTO,
@@ -124,6 +127,14 @@ export class ApiClient {
   }
   historicoPreco(produtoId: string): Promise<PriceHistoryDTO> {
     return this.request(`/prices/${encodeURIComponent(produtoId)}/history`);
+  }
+
+  // ---- Nota fiscal (NFC-e via QR) ----
+  nfcePreview(url: string): Promise<NfceDraftDTO> {
+    return this.request('/nfce/preview', { method: 'POST', body: JSON.stringify({ url }) });
+  }
+  nfceImportar(req: NfceImportRequest): Promise<NfceImportResult> {
+    return this.request('/nfce/importar', { method: 'POST', body: JSON.stringify(req) });
   }
 
   // ---- Carrinho ----

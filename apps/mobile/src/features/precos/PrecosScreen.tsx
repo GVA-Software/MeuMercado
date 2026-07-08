@@ -11,6 +11,7 @@ import type {
 import { api, formatBRL } from '../../api/client';
 import { useTheme, type Theme } from '../../theme/theme';
 import { AppLogo, Btn, EmptyState, SLabel } from '../../ui/kit';
+import { NfceFlow } from '../nfce/NfceFlow';
 
 function fmtData(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
@@ -33,6 +34,7 @@ export function PrecosScreen() {
   const [busca, setBusca] = useState('');
   const [entry, setEntry] = useState<{ open: boolean; produto?: ProdutoDTO }>({ open: false });
   const [detalhe, setDetalhe] = useState<PriceTableRowDTO | null>(null);
+  const [nfceOpen, setNfceOpen] = useState(false);
 
   async function carregar() {
     try {
@@ -81,9 +83,14 @@ export function PrecosScreen() {
       </div>
 
       <div style={{ padding: '14px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <Btn full onClick={() => abrirCadastro()}>
-          ＋ Registrar preço
-        </Btn>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Btn full onClick={() => abrirCadastro()}>
+            ＋ Registrar preço
+          </Btn>
+          <Btn full variant="soft" onClick={() => setNfceOpen(true)}>
+            📷 Ler nota
+          </Btn>
+        </div>
 
         {erro && <EmptyState emoji="⚠️" titulo="Não consegui carregar" sub={erro} />}
 
@@ -142,6 +149,15 @@ export function PrecosScreen() {
           row={detalhe}
           onClose={() => setDetalhe(null)}
           onRegistrar={(p) => abrirCadastro(p)}
+        />
+      )}
+
+      {nfceOpen && (
+        <NfceFlow
+          onClose={() => setNfceOpen(false)}
+          onImported={() => {
+            void carregar();
+          }}
         />
       )}
     </div>

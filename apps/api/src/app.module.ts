@@ -15,6 +15,7 @@ import { CatalogModule } from './modules/catalog/catalog.module.js';
 import { GeocodeModule } from './modules/geocode/geocode.module.js';
 import { MarketsModule } from './modules/markets/markets.module.js';
 import { PricingModule } from './modules/pricing/pricing.module.js';
+import { NfceModule } from './modules/nfce/nfce.module.js';
 import { CartModule } from './modules/cart/cart.module.js';
 import { InsightsModule } from './modules/insights/insights.module.js';
 
@@ -43,6 +44,7 @@ const imports: ModuleImport[] = [
   GeocodeModule,
   MarketsModule,
   PricingModule,
+  NfceModule,
   CartModule,
   InsightsModule,
 ];

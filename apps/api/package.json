@@ -21,6 +21,7 @@
     "@nestjs/serve-static": "^4.0.2",
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/typeorm": "^10.0.2",
+    "cheerio": "^1.2.0",
     "cookie-parser": "^1.4.7",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
