@@ -65,9 +65,9 @@ export function NinaScreen() {
         {!error && insights === null && <p style={{ color: T.muted }}>Analisando…</p>}
         {insights?.length === 0 && (
           <EmptyState
-            emoji="🔍"
-            titulo="Sem alertas por enquanto"
-            sub="Registre mais preços para a Nina analisar."
+            emoji="✨"
+            titulo="Sem insights ainda"
+            sub="A Nina analisa quando você registrar preços (manual, QR da nota ou foto). Cadastre alguns e volte aqui."
           />
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

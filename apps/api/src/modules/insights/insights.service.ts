@@ -35,11 +35,15 @@ export class InsightsService {
     }));
     const mercados: MercadoRef[] = this.seed.mercados.map((m) => ({ id: m.id, nome: m.nome }));
 
+    // A Nina analisa apenas dados REAIS (preços reportados por usuários), nunca o
+    // seed de demonstração. Sem dados reais → nenhum insight (não inventa).
+    const observations = this.prices.all().filter((o) => o.reporterId !== 'seed');
+
     const context: InsightContext = {
       asOf,
       produtosDeInteresse,
       mercados,
-      observations: this.prices.all(),
+      observations,
       ...(cesta && cesta.length > 0 ? { cesta } : {}),
     };
 

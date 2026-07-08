@@ -22,6 +22,9 @@ const OSM_STYLE: maplibregl.StyleSpecification = {
 };
 
 const DEFAULT_CENTER: [number, number] = [-46.63, -23.55];
+// Raio de "perto de mim" (metros). Só traz mercados realmente próximos.
+const RAIO_METROS = 10000;
+const RAIO_KM = RAIO_METROS / 1000;
 
 function formatDist(m?: number): string | null {
   if (m === undefined) return null;
@@ -119,7 +122,7 @@ export function MapaScreen() {
           map.flyTo({ center: [longitude, latitude], zoom: 12 });
         }
         api
-          .mercadosProximos(latitude, longitude, 50000)
+          .mercadosProximos(latitude, longitude, RAIO_METROS)
           .then((near) => {
             setMercados(near);
             setBuscou(true);
@@ -184,7 +187,7 @@ export function MapaScreen() {
           <EmptyState
             emoji="🔍"
             titulo="Nenhum mercado por perto"
-            sub="Não achamos mercados num raio de 50 km da sua localização."
+            sub={`Não há mercados cadastrados num raio de ${RAIO_KM} km de você.`}
           />
         )}
 
