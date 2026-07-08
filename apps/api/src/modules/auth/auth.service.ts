@@ -21,7 +21,7 @@ export class AuthService {
 
   async register(input: RegisterInput): Promise<AuthResult> {
     const email = new Email(input.email).value; // valida + normaliza
-    if (this.users.findByEmail(email)) {
+    if (await this.users.findByEmail(email)) {
       throw new ConflictException('E-mail já cadastrado');
     }
     const user: StoredUser = {
@@ -31,13 +31,13 @@ export class AuthService {
       passwordHash: await this.hasher.hash(input.senha),
       criadoEm: new Date(),
     };
-    this.users.create(user);
+    await this.users.create(user);
     return this.issue(user);
   }
 
   async login(input: LoginInput): Promise<AuthResult> {
     const email = new Email(input.email).value;
-    const user = this.users.findByEmail(email);
+    const user = await this.users.findByEmail(email);
     // Resposta idêntica para "não existe" e "senha errada": não revela quais e-mails existem.
     if (!user || !(await this.hasher.verify(user.passwordHash, input.senha))) {
       throw new UnauthorizedException('Credenciais inválidas');
@@ -45,14 +45,14 @@ export class AuthService {
     return this.issue(user);
   }
 
-  me(userId: string): UserDTO {
-    const user = this.users.findById(userId);
+  async me(userId: string): Promise<UserDTO> {
+    const user = await this.users.findById(userId);
     if (!user) throw new UnauthorizedException();
     return this.toDTO(user);
   }
 
-  refresh(userId: string): AuthResult {
-    const user = this.users.findById(userId);
+  async refresh(userId: string): Promise<AuthResult> {
+    const user = await this.users.findById(userId);
     if (!user) throw new UnauthorizedException();
     return this.issue(user);
   }

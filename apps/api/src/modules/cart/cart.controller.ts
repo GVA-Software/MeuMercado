@@ -18,12 +18,12 @@ export class CartController {
 
   @Post()
   @HttpCode(201)
-  criar(): CartDTO {
+  criar(): Promise<CartDTO> {
     return this.service.criar();
   }
 
   @Get(':id')
-  obter(@Param('id') id: string): CartDTO {
+  obter(@Param('id') id: string): Promise<CartDTO> {
     return this.service.obter(id);
   }
 
@@ -32,7 +32,7 @@ export class CartController {
   adicionarItem(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(AddCartItemSchema)) body: AddCartItemInput,
-  ): CartDTO {
+  ): Promise<CartDTO> {
     return this.service.adicionarItem(id, body);
   }
 
@@ -41,12 +41,12 @@ export class CartController {
     @Param('id') id: string,
     @Param('lineId') lineId: string,
     @Body(new ZodValidationPipe(SetQuantitySchema)) body: z.infer<typeof SetQuantitySchema>,
-  ): CartDTO {
+  ): Promise<CartDTO> {
     return this.service.alterarQuantidade(id, lineId, body.quantity);
   }
 
   @Delete(':id/items/:lineId')
-  removerItem(@Param('id') id: string, @Param('lineId') lineId: string): CartDTO {
+  removerItem(@Param('id') id: string, @Param('lineId') lineId: string): Promise<CartDTO> {
     return this.service.removerItem(id, lineId);
   }
 
@@ -54,7 +54,7 @@ export class CartController {
   definirLimite(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(SetLimiteSchema)) body: SetLimiteInput,
-  ): CartDTO {
+  ): Promise<CartDTO> {
     return this.service.definirLimite(id, body.limiteCents);
   }
 }

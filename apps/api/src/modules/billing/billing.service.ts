@@ -8,13 +8,13 @@ export class BillingService {
   constructor(@Inject(SUBSCRIPTION_REPOSITORY) private readonly repo: SubscriptionRepository) {}
 
   /** Assinatura do usuário (free por padrão, se nunca assinou). */
-  forUser(usuarioId: string): Assinatura {
-    return this.repo.get(usuarioId) ?? Assinatura.free(usuarioId);
+  async forUser(usuarioId: string): Promise<Assinatura> {
+    return (await this.repo.get(usuarioId)) ?? Assinatura.free(usuarioId);
   }
 
-  iniciarTrial(usuarioId: string, agora: Date = new Date()): Assinatura {
+  async iniciarTrial(usuarioId: string, agora: Date = new Date()): Promise<Assinatura> {
     const a = Assinatura.iniciarTrial(usuarioId, agora);
-    this.repo.save(a);
+    await this.repo.save(a);
     return a;
   }
 
@@ -23,20 +23,24 @@ export class BillingService {
    * gateway** (Mercado Pago/Stripe) após confirmação de pagamento — nunca só
    * pela palavra do cliente.
    */
-  assinar(usuarioId: string, periodo: Periodo, agora: Date = new Date()): Assinatura {
-    const a = this.forUser(usuarioId).ativar(periodo, agora);
-    this.repo.save(a);
+  async assinar(
+    usuarioId: string,
+    periodo: Periodo,
+    agora: Date = new Date(),
+  ): Promise<Assinatura> {
+    const a = (await this.forUser(usuarioId)).ativar(periodo, agora);
+    await this.repo.save(a);
     return a;
   }
 
-  cancelar(usuarioId: string): Assinatura {
-    const a = this.forUser(usuarioId).cancelar();
-    this.repo.save(a);
+  async cancelar(usuarioId: string): Promise<Assinatura> {
+    const a = (await this.forUser(usuarioId)).cancelar();
+    await this.repo.save(a);
     return a;
   }
 
-  isProAtivo(usuarioId: string, agora: Date = new Date()): boolean {
-    return this.forUser(usuarioId).isProAtivo(agora);
+  async isProAtivo(usuarioId: string, agora: Date = new Date()): Promise<boolean> {
+    return (await this.forUser(usuarioId)).isProAtivo(agora);
   }
 
   toDTO(a: Assinatura, agora: Date = new Date()): SubscriptionDTO {

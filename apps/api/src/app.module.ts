@@ -7,6 +7,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv, type Env } from './config/env.schema.js';
 import { DataModule } from './data/data.module.js';
+import { PersistenceModule } from './infrastructure/database/persistence.module.js';
 import { HealthModule } from './health/health.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { BillingModule } from './modules/billing/billing.module.js';
@@ -31,6 +32,7 @@ const imports: ModuleImport[] = [
       ],
     }),
   }),
+  PersistenceModule.forRoot(),
   DataModule,
   HealthModule,
   AuthModule,
@@ -41,9 +43,10 @@ const imports: ModuleImport[] = [
   InsightsModule,
 ];
 
-// Em PRODUÇÃO, a API serve o build estático da PWA (single-origin, como num
-// deploy real atrás da Cloudflare). As rotas /api/* seguem para os controllers.
-if (process.env.NODE_ENV === 'production') {
+// Em PRODUÇÃO num host de processo (Render/Docker), a API serve o build estático
+// da PWA (single-origin). Na Vercel NÃO — lá a própria Vercel serve os estáticos
+// e roteia só /api/* para a função serverless.
+if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
   const mobileDist = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'mobile', 'dist');
   imports.push(
     ServeStaticModule.forRoot({

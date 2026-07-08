@@ -1,19 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { Cart } from '@meumercado/domain';
 
-/**
- * Armazenamento em memória de carrinhos (por sessão/usuário). Substituível por
- * Redis/Postgres depois — o service não muda.
- */
+/** Porta de armazenamento de carrinhos. Assíncrona (memória ou banco). */
+export interface CartStore {
+  get(id: string): Promise<Cart | null>;
+  save(cart: Cart): Promise<void>;
+}
+
+export const CART_STORE = 'CART_STORE';
+
 @Injectable()
-export class CartStore {
+export class InMemoryCartStore implements CartStore {
   private readonly carts = new Map<string, Cart>();
 
-  save(cart: Cart): void {
-    this.carts.set(cart.id, cart);
+  get(id: string): Promise<Cart | null> {
+    return Promise.resolve(this.carts.get(id) ?? null);
   }
-
-  get(id: string): Cart | null {
-    return this.carts.get(id) ?? null;
+  save(cart: Cart): Promise<void> {
+    this.carts.set(cart.id, cart);
+    return Promise.resolve();
   }
 }

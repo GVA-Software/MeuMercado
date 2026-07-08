@@ -32,6 +32,17 @@ export const envSchema = z.object({
   /** Cloudflare Turnstile (CAPTCHA grátis). Sem chave → guard passa em dev. */
   TURNSTILE_SECRET_KEY: z.string().optional(),
 
+  /**
+   * Postgres (TypeORM). Se definido → usa banco (dados persistem).
+   * Se ausente → repositórios em memória (dev local sem banco).
+   */
+  DATABASE_URL: z.string().url().optional(),
+  /** Cria/atualiza as tabelas automaticamente (ok para demo/1º deploy). */
+  DB_SYNCHRONIZE: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+
   /** Motores de geo (auto-hospedados). Opcionais até a aba Mapa entrar. */
   VALHALLA_URL: z.string().url().optional(),
   PHOTON_URL: z.string().url().optional(),

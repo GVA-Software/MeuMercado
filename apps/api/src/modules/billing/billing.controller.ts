@@ -12,26 +12,26 @@ export class BillingController {
   constructor(private readonly service: BillingService) {}
 
   @Get('me')
-  minha(@CurrentUser() user: AuthedUser): SubscriptionDTO {
-    return this.service.toDTO(this.service.forUser(user.id));
+  async minha(@CurrentUser() user: AuthedUser): Promise<SubscriptionDTO> {
+    return this.service.toDTO(await this.service.forUser(user.id));
   }
 
   @Post('trial')
-  trial(@CurrentUser() user: AuthedUser): SubscriptionDTO {
-    return this.service.toDTO(this.service.iniciarTrial(user.id));
+  async trial(@CurrentUser() user: AuthedUser): Promise<SubscriptionDTO> {
+    return this.service.toDTO(await this.service.iniciarTrial(user.id));
   }
 
   @Post('subscribe')
-  assinar(
+  async assinar(
     @CurrentUser() user: AuthedUser,
     @Body(new ZodValidationPipe(SubscribeSchema)) body: SubscribeInput,
-  ): SubscriptionDTO {
-    return this.service.toDTO(this.service.assinar(user.id, body.periodo));
+  ): Promise<SubscriptionDTO> {
+    return this.service.toDTO(await this.service.assinar(user.id, body.periodo));
   }
 
   @Post('cancel')
-  cancelar(@CurrentUser() user: AuthedUser): SubscriptionDTO {
-    return this.service.toDTO(this.service.cancelar(user.id));
+  async cancelar(@CurrentUser() user: AuthedUser): Promise<SubscriptionDTO> {
+    return this.service.toDTO(await this.service.cancelar(user.id));
   }
 
   /** Exemplo de recurso exclusivo do Pro (prova o ProGuard no servidor). */

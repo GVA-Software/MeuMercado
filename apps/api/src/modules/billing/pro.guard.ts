@@ -11,10 +11,10 @@ import { BillingService } from './billing.service.js';
 export class ProGuard implements CanActivate {
   constructor(private readonly billing: BillingService) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<{ user?: AuthedUser }>();
     if (!req.user) throw new ForbiddenException('Autenticação necessária');
-    if (!this.billing.isProAtivo(req.user.id)) {
+    if (!(await this.billing.isProAtivo(req.user.id))) {
       throw new ForbiddenException('Recurso exclusivo do Pro');
     }
     return true;

@@ -1,0 +1,22 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import type { StoredUser, UserRepository } from '../../../modules/auth/user.repository.js';
+import { UserEntity } from '../entities/user.entity.js';
+
+@Injectable()
+export class TypeOrmUserRepository implements UserRepository {
+  constructor(@InjectRepository(UserEntity) private readonly repo: Repository<UserEntity>) {}
+
+  async findByEmail(email: string): Promise<StoredUser | null> {
+    return this.repo.findOne({ where: { email } });
+  }
+
+  async findById(id: string): Promise<StoredUser | null> {
+    return this.repo.findOne({ where: { id } });
+  }
+
+  async create(user: StoredUser): Promise<void> {
+    await this.repo.insert(user);
+  }
+}

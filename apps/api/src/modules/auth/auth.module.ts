@@ -4,9 +4,9 @@ import { AuthService } from './auth.service.js';
 import { TokenService } from './token.service.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { TurnstileGuard } from './turnstile.guard.js';
-import { Argon2PasswordHasher, PASSWORD_HASHER } from './password.hasher.js';
-import { InMemoryUserRepository, USER_REPOSITORY } from './user.repository.js';
+import { PASSWORD_HASHER, ScryptPasswordHasher } from './password.hasher.js';
 
+// USER_REPOSITORY é fornecido globalmente pelo PersistenceModule (memória ou Postgres).
 @Module({
   controllers: [AuthController],
   providers: [
@@ -14,8 +14,7 @@ import { InMemoryUserRepository, USER_REPOSITORY } from './user.repository.js';
     TokenService,
     JwtAuthGuard,
     TurnstileGuard,
-    { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
-    { provide: USER_REPOSITORY, useClass: InMemoryUserRepository },
+    { provide: PASSWORD_HASHER, useClass: ScryptPasswordHasher },
   ],
   // Exporta o que outros módulos precisam para proteger rotas.
   exports: [TokenService, JwtAuthGuard],

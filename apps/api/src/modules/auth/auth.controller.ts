@@ -56,7 +56,10 @@ export class AuthController {
   }
 
   @Post('refresh')
-  refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response): AuthResponse {
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponse> {
     const token = (req.cookies as Record<string, string> | undefined)?.[REFRESH_COOKIE];
     if (!token) throw new UnauthorizedException('Refresh ausente');
     let sub: string;
@@ -65,7 +68,7 @@ export class AuthController {
     } catch {
       throw new UnauthorizedException('Refresh inválido');
     }
-    return this.finish(this.service.refresh(sub), res);
+    return this.finish(await this.service.refresh(sub), res);
   }
 
   @Post('logout')
@@ -76,7 +79,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  me(@CurrentUser() user: AuthedUser): UserDTO {
+  me(@CurrentUser() user: AuthedUser): Promise<UserDTO> {
     return this.service.me(user.id);
   }
 

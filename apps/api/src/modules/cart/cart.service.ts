@@ -1,25 +1,25 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Cart, CartItem, Money } from '@meumercado/domain';
 import type { AddCartItemInput, CartDTO } from '@meumercado/contracts';
-import { CartStore } from './cart.store.js';
+import { CART_STORE, type CartStore } from './cart.store.js';
 
 @Injectable()
 export class CartService {
-  constructor(private readonly store: CartStore) {}
+  constructor(@Inject(CART_STORE) private readonly store: CartStore) {}
 
-  criar(): CartDTO {
+  async criar(): Promise<CartDTO> {
     const cart = new Cart({ id: randomUUID() });
-    this.store.save(cart);
+    await this.store.save(cart);
     return this.toDTO(cart);
   }
 
-  obter(id: string): CartDTO {
-    return this.toDTO(this.requireCart(id));
+  async obter(id: string): Promise<CartDTO> {
+    return this.toDTO(await this.requireCart(id));
   }
 
-  adicionarItem(id: string, input: AddCartItemInput): CartDTO {
-    const cart = this.requireCart(id);
+  async adicionarItem(id: string, input: AddCartItemInput): Promise<CartDTO> {
+    const cart = await this.requireCart(id);
     cart.addItem(
       new CartItem({
         lineId: randomUUID(),
@@ -30,33 +30,33 @@ export class CartService {
         ...(input.emoji !== undefined ? { emoji: input.emoji } : {}),
       }),
     );
-    this.store.save(cart);
+    await this.store.save(cart);
     return this.toDTO(cart);
   }
 
-  alterarQuantidade(id: string, lineId: string, quantity: number): CartDTO {
-    const cart = this.requireCart(id);
+  async alterarQuantidade(id: string, lineId: string, quantity: number): Promise<CartDTO> {
+    const cart = await this.requireCart(id);
     cart.setQuantity(lineId, quantity);
-    this.store.save(cart);
+    await this.store.save(cart);
     return this.toDTO(cart);
   }
 
-  removerItem(id: string, lineId: string): CartDTO {
-    const cart = this.requireCart(id);
+  async removerItem(id: string, lineId: string): Promise<CartDTO> {
+    const cart = await this.requireCart(id);
     cart.removeItem(lineId);
-    this.store.save(cart);
+    await this.store.save(cart);
     return this.toDTO(cart);
   }
 
-  definirLimite(id: string, limiteCents: number | null): CartDTO {
-    const cart = this.requireCart(id);
+  async definirLimite(id: string, limiteCents: number | null): Promise<CartDTO> {
+    const cart = await this.requireCart(id);
     cart.setLimite(limiteCents === null ? null : Money.fromCents(limiteCents));
-    this.store.save(cart);
+    await this.store.save(cart);
     return this.toDTO(cart);
   }
 
-  private requireCart(id: string): Cart {
-    const cart = this.store.get(id);
+  private async requireCart(id: string): Promise<Cart> {
+    const cart = await this.store.get(id);
     if (!cart) {
       throw new NotFoundException(`Carrinho não encontrado: ${id}`);
     }
