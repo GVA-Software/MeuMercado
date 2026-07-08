@@ -37,7 +37,7 @@ export class PricingService {
    * Registra um preço reportado por um usuário. `reporterId` é guardado para
    * reputação/anti-fraude (ver docs/security.md). Retorna o resumo atualizado.
    */
-  reportar(input: ReportPriceInput, reporterId: string): PriceSummaryDTO {
+  async reportar(input: ReportPriceInput, reporterId: string): Promise<PriceSummaryDTO> {
     const obs = new PriceObservation({
       id: randomUUID(),
       produtoId: input.produtoId,
@@ -48,13 +48,13 @@ export class PricingService {
       reporterId,
       observedAt: input.observedAt ? new Date(input.observedAt) : new Date(),
     });
-    this.repo.add(obs);
+    await this.repo.add(obs);
     return this.resumo(input.produtoId);
   }
 
   /** Resumo estatístico de um produto (média regional, mín/máx, tendência). */
-  resumo(produtoId: string, asOf: Date = new Date()): PriceSummaryDTO {
-    const stats = new PriceStatistics(this.reais(this.repo.findByProduto(produtoId)));
+  async resumo(produtoId: string, asOf: Date = new Date()): Promise<PriceSummaryDTO> {
+    const stats = new PriceStatistics(this.reais(await this.repo.findByProduto(produtoId)));
     return {
       produtoId,
       mediaCents: stats.average()?.cents ?? null,
@@ -69,15 +69,22 @@ export class PricingService {
   /**
    * Tabela de preços: cada produto do catálogo com ≥1 preço reportado, com
    * estatística regional. Opcionalmente filtrada por busca. Ordena pelos mais
-   * reportados (mais confiáveis) primeiro.
+   * reportados (mais confiáveis) primeiro. Uma leitura só, agrupada em memória.
    */
-  tabela(q?: string, asOf: Date = new Date()): PriceTableRowDTO[] {
+  async tabela(q?: string, asOf: Date = new Date()): Promise<PriceTableRowDTO[]> {
+    const porProduto = new Map<string, PriceObservation[]>();
+    for (const o of this.reais(await this.repo.all())) {
+      const arr = porProduto.get(o.produtoId);
+      if (arr) arr.push(o);
+      else porProduto.set(o.produtoId, [o]);
+    }
+
     const termo = q?.trim().toLowerCase();
     const rows = this.produtos
       .findAll()
       .map((p): PriceTableRowDTO | null => {
-        const obs = this.reais(this.repo.findByProduto(p.id));
-        if (obs.length === 0) return null;
+        const obs = porProduto.get(p.id);
+        if (!obs || obs.length === 0) return null;
         const stats = new PriceStatistics(obs);
         const maisBarata = obs.reduce(
           (acc, o) => (o.price.isLessThan(acc.price) ? o : acc),
@@ -105,8 +112,8 @@ export class PricingService {
   }
 
   /** Série histórica (ordem cronológica) de um produto — base do gráfico. */
-  historico(produtoId: string): PriceHistoryDTO {
-    const pontos = this.reais(this.repo.findByProduto(produtoId))
+  async historico(produtoId: string): Promise<PriceHistoryDTO> {
+    const pontos = this.reais(await this.repo.findByProduto(produtoId))
       .slice()
       .sort((a, b) => a.observedAt.getTime() - b.observedAt.getTime())
       .map((o) => ({

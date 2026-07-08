@@ -3,20 +3,14 @@ import { AuthModule } from '../auth/auth.module.js';
 import { CatalogModule } from '../catalog/catalog.module.js';
 import { PricingController } from './pricing.controller.js';
 import { PricingService } from './pricing.service.js';
-import {
-  InMemoryPriceObservationRepository,
-  PRICE_OBSERVATION_REPOSITORY,
-} from './price-observation.repository.js';
 
 @Module({
   // AuthModule → JwtAuthGuard/TokenService (protege o POST); CatalogModule →
-  // PRODUTO_REPOSITORY (para montar a tabela de preços).
+  // PRODUTO_REPOSITORY (para montar a tabela de preços). O repositório de
+  // observações vem (global) do PersistenceModule — memória ou Postgres.
   imports: [AuthModule, CatalogModule],
   controllers: [PricingController],
-  providers: [
-    PricingService,
-    { provide: PRICE_OBSERVATION_REPOSITORY, useClass: InMemoryPriceObservationRepository },
-  ],
-  exports: [PricingService, PRICE_OBSERVATION_REPOSITORY],
+  providers: [PricingService],
+  exports: [PricingService],
 })
 export class PricingModule {}

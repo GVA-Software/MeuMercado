@@ -22,7 +22,7 @@ export class InsightsController {
 
   /** Insights gerais da Nina (tendência, mercado mais barato, mínimo histórico). */
   @Get()
-  gerar(): InsightsResponse {
+  gerar(): Promise<InsightsResponse> {
     return this.service.gerar();
   }
 
@@ -30,7 +30,7 @@ export class InsightsController {
   @Post('cesta')
   gerarComCesta(
     @Body(new ZodValidationPipe(BasketSchema)) body: z.infer<typeof BasketSchema>,
-  ): InsightsResponse {
+  ): Promise<InsightsResponse> {
     return this.service.gerar(body.itens);
   }
 }

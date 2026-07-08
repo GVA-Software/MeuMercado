@@ -6,15 +6,27 @@ import {
   SUBSCRIPTION_REPOSITORY,
 } from '../../modules/billing/subscription.repository.js';
 import { CART_STORE, InMemoryCartStore } from '../../modules/cart/cart.store.js';
+import {
+  InMemoryPriceObservationRepository,
+  PRICE_OBSERVATION_REPOSITORY,
+} from '../../modules/pricing/price-observation.repository.js';
 import { CartEntity, CartItemEntity } from './entities/cart.entity.js';
+import { PriceObservationEntity } from './entities/price-observation.entity.js';
 import { SubscriptionEntity } from './entities/subscription.entity.js';
 import { UserEntity } from './entities/user.entity.js';
 import { TypeOrmCartRepository } from './repositories/typeorm-cart.repository.js';
+import { TypeOrmPriceObservationRepository } from './repositories/typeorm-price-observation.repository.js';
 import { TypeOrmSubscriptionRepository } from './repositories/typeorm-subscription.repository.js';
 import { TypeOrmUserRepository } from './repositories/typeorm-user.repository.js';
 
-const ENTITIES = [UserEntity, SubscriptionEntity, CartEntity, CartItemEntity];
-const TOKENS = [USER_REPOSITORY, SUBSCRIPTION_REPOSITORY, CART_STORE];
+const ENTITIES = [
+  UserEntity,
+  SubscriptionEntity,
+  CartEntity,
+  CartItemEntity,
+  PriceObservationEntity,
+];
+const TOKENS = [USER_REPOSITORY, SUBSCRIPTION_REPOSITORY, CART_STORE, PRICE_OBSERVATION_REPOSITORY];
 
 /**
  * Fornece (globalmente) os repositórios de estado mutável — usuários,
@@ -35,6 +47,7 @@ export class PersistenceModule {
           { provide: USER_REPOSITORY, useClass: InMemoryUserRepository },
           { provide: SUBSCRIPTION_REPOSITORY, useClass: InMemorySubscriptionRepository },
           { provide: CART_STORE, useClass: InMemoryCartStore },
+          { provide: PRICE_OBSERVATION_REPOSITORY, useClass: InMemoryPriceObservationRepository },
         ],
         exports: TOKENS,
       };
@@ -66,6 +79,7 @@ export class PersistenceModule {
         { provide: USER_REPOSITORY, useClass: TypeOrmUserRepository },
         { provide: SUBSCRIPTION_REPOSITORY, useClass: TypeOrmSubscriptionRepository },
         { provide: CART_STORE, useClass: TypeOrmCartRepository },
+        { provide: PRICE_OBSERVATION_REPOSITORY, useClass: TypeOrmPriceObservationRepository },
       ],
       exports: TOKENS,
     };

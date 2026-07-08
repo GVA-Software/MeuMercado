@@ -26,7 +26,7 @@ export class InsightsService {
     @Inject(SEED_DATA) private readonly seed: SeedData,
   ) {}
 
-  gerar(cesta?: readonly BasketLine[]): InsightsResponse {
+  async gerar(cesta?: readonly BasketLine[]): Promise<InsightsResponse> {
     const asOf = new Date();
     const produtosDeInteresse: ProdutoRef[] = this.produtos.findAll().map((p) => ({
       id: p.id,
@@ -36,7 +36,7 @@ export class InsightsService {
 
     // A Nina analisa apenas dados REAIS (preços reportados por usuários), nunca o
     // seed de demonstração. Sem dados reais → nenhum insight (não inventa).
-    const observations = this.prices.all().filter((o) => o.reporterId !== 'seed');
+    const observations = (await this.prices.all()).filter((o) => o.reporterId !== 'seed');
 
     // Nomes de mercado: seed + os mercados REAIS (OSM) presentes nas observações,
     // pelo nome denormalizado — assim a Nina consegue dizer "mais barato no X"

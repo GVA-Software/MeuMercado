@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { CatalogModule } from '../catalog/catalog.module.js';
-import { PricingModule } from '../pricing/pricing.module.js';
 import { InsightsController } from './insights.controller.js';
 import { InsightsService } from './insights.service.js';
 
 @Module({
-  // Importa para reusar PRODUTO_REPOSITORY e PRICE_OBSERVATION_REPOSITORY.
-  imports: [CatalogModule, PricingModule],
+  // CatalogModule → PRODUTO_REPOSITORY. PRICE_OBSERVATION_REPOSITORY e SEED_DATA
+  // vêm globais (PersistenceModule / DataModule).
+  imports: [CatalogModule],
   controllers: [InsightsController],
   providers: [InsightsService],
 })

@@ -22,25 +22,25 @@ export class PricingController {
   reportar(
     @Body(new ZodValidationPipe(ReportPriceSchema)) body: ReportPriceInput,
     @CurrentUser() user: AuthedUser,
-  ): PriceSummaryDTO {
+  ): Promise<PriceSummaryDTO> {
     return this.service.reportar(body, user.id);
   }
 
   /** Tabela de preços colaborativa (produtos com preço reportado). */
   @Get('table')
-  tabela(@Query('q') q?: string): PriceTableRowDTO[] {
+  tabela(@Query('q') q?: string): Promise<PriceTableRowDTO[]> {
     return this.service.tabela(q);
   }
 
   /** Série histórica de um produto (para o gráfico). */
   @Get(':produtoId/history')
-  historico(@Param('produtoId') produtoId: string): PriceHistoryDTO {
+  historico(@Param('produtoId') produtoId: string): Promise<PriceHistoryDTO> {
     return this.service.historico(produtoId);
   }
 
   /** Resumo (média regional / tendência) de um produto. */
   @Get(':produtoId/summary')
-  resumo(@Param('produtoId') produtoId: string): PriceSummaryDTO {
+  resumo(@Param('produtoId') produtoId: string): Promise<PriceSummaryDTO> {
     return this.service.resumo(produtoId);
   }
 }
