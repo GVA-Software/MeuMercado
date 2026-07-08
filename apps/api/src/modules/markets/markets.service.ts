@@ -39,7 +39,7 @@ export class MarketsService {
     // perto. A ordenação por distância e o corte para `limit` são feitos aqui.
     const query =
       `[out:json][timeout:25];` +
-      `(nwr["shop"~"^(supermarket|hypermarket|wholesale|convenience|grocery|department_store|general)$"](around:${raioMetros},${lat},${lng}););` +
+      `(nwr["shop"~"^(supermarket|hypermarket|wholesale|convenience|grocery|greengrocer)$"](around:${raioMetros},${lat},${lng}););` +
       `out center tags 600;`;
 
     const elements = await this.overpass(query);
