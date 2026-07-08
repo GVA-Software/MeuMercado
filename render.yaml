@@ -22,6 +22,9 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      # Postgres (Neon). Valor definido no dashboard do Render (não no repo).
+      - key: DATABASE_URL
+        sync: false
 
   # ---------- DEV / STAGING (branch develop) ----------
   - type: web
@@ -42,3 +45,6 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      # Postgres (Neon). Valor definido no dashboard do Render (não no repo).
+      - key: DATABASE_URL
+        sync: false
