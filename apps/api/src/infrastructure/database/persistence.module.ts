@@ -51,6 +51,14 @@ export class PersistenceModule {
           entities: ENTITIES,
           synchronize, // cria/atualiza tabelas (ok p/ demo)
           ssl: { rejectUnauthorized: false }, // provedores gerenciados (Neon/etc.)
+          // Resiliência no boot: o Neon (free) suspende quando ocioso e a conexão
+          // pode travar ao "acordar". Fail-fast + retries evitam o boot ficar preso
+          // (e o health check do Render dar timeout).
+          connectTimeoutMS: 12000,
+          retryAttempts: 12,
+          retryDelay: 4000,
+          keepConnectionAlive: true,
+          extra: { max: 5, connectionTimeoutMillis: 12000 },
         }),
         TypeOrmModule.forFeature(ENTITIES),
       ],
