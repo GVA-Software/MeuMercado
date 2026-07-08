@@ -76,7 +76,14 @@ export function CompraScreen() {
     <div style={{ paddingBottom: 100 }}>
       {/* Header */}
       <div
-        style={{ background: T.headerBg, padding: '20px 20px 28px', borderRadius: '0 0 28px 28px' }}
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+          background: T.headerBg,
+          padding: '20px 20px 28px',
+          borderRadius: '0 0 28px 28px',
+        }}
       >
         <div
           style={{

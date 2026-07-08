@@ -33,10 +33,38 @@ const PRODUTOS: Array<{
   { id: 'banana', nome: 'Banana kg', categoria: 'Frutas', unidade: 'kg', emoji: '🍌' },
 ];
 
-const MERCADOS: Array<{ id: string; nome: string; rede: string; lat: number; lng: number }> = [
-  { id: 'assai', nome: 'Assaí Vila Prudente', rede: 'Assaí', lat: -23.582, lng: -46.58 },
-  { id: 'carrefour', nome: 'Carrefour Aricanduva', rede: 'Carrefour', lat: -23.564, lng: -46.51 },
-  { id: 'atacadao', nome: 'Atacadão Sapopemba', rede: 'Atacadão', lat: -23.6, lng: -46.52 },
+const MERCADOS: Array<{
+  id: string;
+  nome: string;
+  rede: string;
+  endereco: string;
+  lat: number;
+  lng: number;
+}> = [
+  {
+    id: 'assai',
+    nome: 'Assaí Vila Prudente',
+    rede: 'Assaí',
+    endereco: 'Av. Prof. Luiz Ignácio Anhaia Mello, 1153 - Vila Prudente, São Paulo - SP',
+    lat: -23.582,
+    lng: -46.58,
+  },
+  {
+    id: 'carrefour',
+    nome: 'Carrefour Aricanduva',
+    rede: 'Carrefour',
+    endereco: 'Av. Aricanduva, 5555 - Vila Matilde, São Paulo - SP',
+    lat: -23.564,
+    lng: -46.51,
+  },
+  {
+    id: 'atacadao',
+    nome: 'Atacadão Sapopemba',
+    rede: 'Atacadão',
+    endereco: 'Av. Sapopemba, 9709 - Sapopemba, São Paulo - SP',
+    lat: -23.6,
+    lng: -46.52,
+  },
 ];
 
 /**
@@ -80,6 +108,7 @@ export function buildSeed(now: Date = new Date()): SeedData {
         id: m.id,
         nome: m.nome,
         rede: m.rede,
+        endereco: m.endereco,
         localizacao: new GeoPoint(m.lat, m.lng),
       }),
   );

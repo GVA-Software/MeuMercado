@@ -14,6 +14,9 @@ export function PerfilScreen() {
     <div style={{ paddingBottom: 100 }}>
       <div
         style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
           background: T.surface,
           padding: '20px 20px 16px',
           borderBottom: `1px solid ${T.border}`,

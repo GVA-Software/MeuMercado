@@ -22,7 +22,16 @@ export function NinaScreen() {
 
   return (
     <div style={{ paddingBottom: 100 }}>
-      <div style={{ background: T.ninaGrad, padding: '22px 20px', borderRadius: '0 0 28px 28px' }}>
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+          background: T.ninaGrad,
+          padding: '22px 20px',
+          borderRadius: '0 0 28px 28px',
+        }}
+      >
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
           <div
             style={{

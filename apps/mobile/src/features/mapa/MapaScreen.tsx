@@ -20,7 +20,6 @@ const OSM_STYLE: maplibregl.StyleSpecification = {
   layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
 };
 
-// Centro inicial (região dos mercados de exemplo — São Paulo).
 const DEFAULT_CENTER: [number, number] = [-46.58, -23.58];
 
 function formatDist(m?: number): string | null {
@@ -38,9 +37,9 @@ export function MapaScreen() {
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const [ready, setReady] = useState(false);
   const [mercados, setMercados] = useState<MercadoDTO[]>([]);
+  const [selecionado, setSelecionado] = useState<MercadoDTO | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
-  // Inicializa o mapa uma vez.
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
@@ -59,7 +58,6 @@ export function MapaScreen() {
     };
   }, []);
 
-  // Carrega os mercados.
   useEffect(() => {
     void (async () => {
       try {
@@ -70,7 +68,7 @@ export function MapaScreen() {
     })();
   }, []);
 
-  // Renderiza os pins quando mapa + mercados prontos.
+  // Pins: tocar num pin abre o sheet do mercado.
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map || mercados.length === 0) return;
@@ -79,12 +77,13 @@ export function MapaScreen() {
     markersRef.current = mercados.map((merc) => {
       const marker = new maplibregl.Marker({ color: T.primary })
         .setLngLat([merc.localizacao.lng, merc.localizacao.lat])
-        .setPopup(
-          new maplibregl.Popup({ offset: 24 }).setHTML(
-            `<strong>${merc.nome}</strong>${merc.rede ? `<br/>${merc.rede}` : ''}`,
-          ),
-        )
         .addTo(map);
+      const el = marker.getElement();
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setSelecionado(merc);
+      });
       return marker;
     });
 
@@ -107,10 +106,8 @@ export function MapaScreen() {
         userMarkerRef.current?.remove();
         userMarkerRef.current = new maplibregl.Marker({ color: T.nina })
           .setLngLat([longitude, latitude])
-          .setPopup(new maplibregl.Popup({ offset: 24 }).setHTML('<strong>Você está aqui</strong>'))
           .addTo(map);
         map.flyTo({ center: [longitude, latitude], zoom: 13 });
-        // Recarrega mercados COM distância a partir da sua posição.
         void api
           .mercadosProximos(latitude, longitude)
           .then(setMercados)
@@ -121,14 +118,18 @@ export function MapaScreen() {
     );
   }
 
-  function irPara(m: MercadoDTO) {
+  function abrir(m: MercadoDTO) {
     mapRef.current?.flyTo({ center: [m.localizacao.lng, m.localizacao.lat], zoom: 15 });
+    setSelecionado(m);
   }
 
   return (
     <div style={{ paddingBottom: 100 }}>
       <div
         style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
           background: T.surface,
           padding: '16px 16px 12px',
           borderBottom: `1px solid ${T.border}`,
@@ -154,7 +155,7 @@ export function MapaScreen() {
           return (
             <button
               key={m.id}
-              onClick={() => irPara(m)}
+              onClick={() => abrir(m)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -193,6 +194,150 @@ export function MapaScreen() {
             </button>
           );
         })}
+      </div>
+
+      {selecionado && <MercadoSheet mercado={selecionado} onClose={() => setSelecionado(null)} />}
+    </div>
+  );
+}
+
+function MercadoSheet({ mercado, onClose }: { mercado: MercadoDTO; onClose: () => void }) {
+  const { T } = useTheme();
+  const { lat, lng } = mercado.localizacao;
+  const dist = formatDist(mercado.distanciaMetros);
+  const wazeUrl = `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`;
+  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+  const navBtn = {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: '14px 12px',
+    borderRadius: 14,
+    color: '#FFF',
+    fontWeight: 800,
+    fontSize: 15,
+    textDecoration: 'none',
+  } as const;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.55)',
+        zIndex: 500,
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: 430,
+          background: T.surface,
+          borderRadius: '24px 24px 0 0',
+          padding: '18px 20px 40px',
+        }}
+      >
+        <div
+          style={{
+            width: 40,
+            height: 4,
+            background: T.border,
+            borderRadius: 99,
+            margin: '0 auto 16px',
+          }}
+        />
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 14,
+              background: T.primaryBg,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 26,
+            }}
+          >
+            🏬
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ color: T.text, fontSize: 17, fontWeight: 800, margin: 0 }}>
+              {mercado.nome}
+            </p>
+            <p style={{ color: T.muted, fontSize: 13, margin: '2px 0 0' }}>
+              {mercado.rede ?? 'Mercado'}
+              {dist ? ` · a ${dist}` : ''}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: T.muted,
+              fontSize: 20,
+              cursor: 'pointer',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            alignItems: 'flex-start',
+            background: T.card,
+            borderRadius: 12,
+            padding: '12px 14px',
+            marginBottom: 16,
+          }}
+        >
+          <span style={{ fontSize: 16 }}>📍</span>
+          <p style={{ color: T.sub, fontSize: 14, margin: 0, lineHeight: 1.5 }}>
+            {mercado.endereco ?? 'Endereço não disponível'}
+          </p>
+        </div>
+
+        <p
+          style={{
+            color: T.muted,
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            margin: '0 0 8px',
+          }}
+        >
+          COMO CHEGAR
+        </p>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <a
+            href={wazeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ ...navBtn, background: '#33CCFF' }}
+          >
+            🧭 Waze
+          </a>
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ ...navBtn, background: '#1DB954' }}
+          >
+            🗺️ Google Maps
+          </a>
+        </div>
       </div>
     </div>
   );
