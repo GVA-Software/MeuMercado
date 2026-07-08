@@ -23,6 +23,12 @@ export class Produto {
   readonly categoria: Categoria;
   readonly unidade: Unidade;
   readonly emoji: string | undefined;
+  /**
+   * Chave de deduplicação externa (ex.: `nfce:<cnpj>:<código>`). Distingue SKUs
+   * de mesma descrição (tamanhos diferentes) vindos da nota fiscal. Interno — não
+   * é serializado no DTO.
+   */
+  readonly codigoExterno: string | undefined;
 
   constructor(params: {
     id: string;
@@ -30,6 +36,7 @@ export class Produto {
     categoria: Categoria;
     unidade: Unidade;
     emoji?: string;
+    codigoExterno?: string;
   }) {
     if (!params.id?.trim()) {
       throw new InvalidProductError('Produto precisa de id');
@@ -45,6 +52,7 @@ export class Produto {
     this.categoria = params.categoria;
     this.unidade = params.unidade;
     this.emoji = params.emoji;
+    this.codigoExterno = params.codigoExterno;
     Object.freeze(this);
   }
 

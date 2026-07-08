@@ -46,7 +46,11 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
     try {
       const itens = draft.itens
         .filter((_, i) => incluidos[i])
-        .map((it) => ({ nome: it.descricao, priceCents: it.unitPriceCents }));
+        .map((it) => ({
+          nome: it.descricao,
+          priceCents: it.unitPriceCents,
+          ...(it.codigo ? { codigo: it.codigo } : {}),
+        }));
       const r = await api.nfceImportar({
         mercadoNome: draft.mercadoNome,
         ...(draft.mercadoCnpj

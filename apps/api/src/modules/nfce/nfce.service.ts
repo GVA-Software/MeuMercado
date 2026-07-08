@@ -83,6 +83,7 @@ export class NfceService {
       itens: parsed.itens.map((i) => ({
         descricao: i.descricao,
         unitPriceCents: i.unitPriceCents,
+        ...(i.codigo ? { codigo: i.codigo } : {}),
         ...(i.quantidade !== undefined ? { quantidade: i.quantidade } : {}),
         ...(i.unidade ? { unidade: i.unidade } : {}),
       })),
@@ -94,22 +95,41 @@ export class NfceService {
     const mercadoId = req.mercadoId ?? `nfce:${slug(req.mercadoNome)}`;
     const observedAt = req.dataEmissao ? new Date(req.dataEmissao) : new Date();
 
+    // Dedup: linhas idênticas (mesmo SKU/nome e mesmo preço) contam uma vez só.
+    const vistos = new Set<string>();
+    const itens = req.itens.filter((it) => {
+      const k = `${it.codigo ?? it.nome.trim().toLowerCase()}|${it.priceCents}`;
+      if (vistos.has(k)) return false;
+      vistos.add(k);
+      return true;
+    });
+
+    // Índices para achar o produto existente. Produtos da NF são identificados
+    // pelo CÓDIGO do SKU (distingue tamanhos de mesma descrição); os demais, pelo nome.
     const catalogo = await this.produtos.findAll();
-    const porNome = new Map(catalogo.map((p) => [p.nome.trim().toLowerCase(), p]));
+    const porCodigo = new Map(
+      catalogo.filter((p) => p.codigoExterno).map((p) => [p.codigoExterno, p]),
+    );
+    const porNome = new Map(
+      catalogo.filter((p) => !p.codigoExterno).map((p) => [p.nome.trim().toLowerCase(), p]),
+    );
 
     let produtosCriados = 0;
-    for (const item of req.itens) {
-      const chave = item.nome.trim().toLowerCase();
-      let produto = porNome.get(chave);
+    for (const item of itens) {
+      const codigoExterno = item.codigo ? `${mercadoId}:${item.codigo}` : undefined;
+      const nomeKey = item.nome.trim().toLowerCase();
+      let produto = codigoExterno ? porCodigo.get(codigoExterno) : porNome.get(nomeKey);
       if (!produto) {
         produto = new Produto({
           id: randomUUID(),
           nome: item.nome.trim(),
           categoria: 'Outros',
           unidade: 'un',
+          ...(codigoExterno ? { codigoExterno } : {}),
         });
         await this.produtos.add(produto);
-        porNome.set(chave, produto);
+        if (codigoExterno) porCodigo.set(codigoExterno, produto);
+        else porNome.set(nomeKey, produto);
         produtosCriados++;
       }
       await this.obs.add(
@@ -126,7 +146,7 @@ export class NfceService {
       );
     }
 
-    return { importados: req.itens.length, produtosCriados };
+    return { importados: itens.length, produtosCriados };
   }
 
   private detectarUf(url: string): string {

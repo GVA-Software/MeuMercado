@@ -31,6 +31,7 @@ export class TypeOrmProdutoRepository implements ProdutoRepository {
       categoria: row.categoria as Categoria,
       unidade: row.unidade as Unidade,
       ...(row.emoji !== null ? { emoji: row.emoji } : {}),
+      ...(row.codigoExterno !== null ? { codigoExterno: row.codigoExterno } : {}),
     });
   }
 
@@ -61,6 +62,7 @@ export class TypeOrmProdutoRepository implements ProdutoRepository {
       categoria: produto.categoria,
       unidade: produto.unidade,
       emoji: produto.emoji ?? null,
+      codigoExterno: produto.codigoExterno ?? null,
     });
   }
 }

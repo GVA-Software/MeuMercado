@@ -9,6 +9,8 @@ import { z } from 'zod';
 /** Um item extraído do cupom (rascunho — o usuário revê antes de importar). */
 export const NfceItemDraftSchema = z.object({
   descricao: z.string().min(1).max(200),
+  /** Código do SKU no varejista — distingue produtos de mesma descrição (tamanhos). */
+  codigo: z.string().max(40).optional(),
   quantidade: z.number().positive().optional(),
   unidade: z.string().max(12).optional(),
   /** Preço UNITÁRIO em centavos. */
@@ -36,6 +38,7 @@ export type NfcePreviewRequest = z.infer<typeof NfcePreviewRequestSchema>;
 /** Item confirmado pelo usuário para importar. */
 export const NfceImportItemSchema = z.object({
   nome: z.string().min(1).max(200),
+  codigo: z.string().max(40).optional(),
   priceCents: z.number().int().positive().max(100_000_00),
 });
 export type NfceImportItem = z.infer<typeof NfceImportItemSchema>;

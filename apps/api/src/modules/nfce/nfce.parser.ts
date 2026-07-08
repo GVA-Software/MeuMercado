@@ -2,6 +2,8 @@ import * as cheerio from 'cheerio';
 
 export interface ParsedItem {
   descricao: string;
+  /** Código do produto no varejista (ex.: "AR092559") — identidade única do SKU. */
+  codigo?: string;
   quantidade?: number;
   unidade?: string;
   unitPriceCents: number;
@@ -62,6 +64,7 @@ export class SpNfceParser implements NfceParser {
       const unitCents = reaisParaCents(texto($tr.find('.RvlUnit').first()));
       if (unitCents === null || unitCents <= 0) return;
       const quantidade = primeiroNumero(texto($tr.find('.Rqtd').first()));
+      const codigo = texto($tr.find('.RCod').first()).match(/[Cc]ódigo:\s*([^\s)]+)/)?.[1];
       const unidade =
         texto($tr.find('.RUN').first())
           .replace(/UN:?\s*/i, '')
@@ -69,6 +72,7 @@ export class SpNfceParser implements NfceParser {
       itens.push({
         descricao,
         unitPriceCents: unitCents,
+        ...(codigo ? { codigo } : {}),
         ...(quantidade !== undefined ? { quantidade } : {}),
         ...(unidade ? { unidade } : {}),
       });

@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryColumn } from 'typeorm';
+import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
 
 /** Produto do catálogo. Criados pelos usuários ficam gravados aqui. */
 @Entity('produtos')
@@ -17,4 +17,8 @@ export class ProdutoEntity {
 
   @Column({ type: 'varchar', nullable: true })
   emoji!: string | null;
+
+  @Index()
+  @Column({ name: 'codigo_externo', type: 'varchar', nullable: true })
+  codigoExterno!: string | null;
 }

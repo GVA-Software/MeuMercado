@@ -41,13 +41,18 @@ describe('SpNfceParser', () => {
     expect(parsed.mercadoCnpj).toBe('12.345.678/0001-99');
   });
 
-  it('extrai os itens com preço unitário correto (inclusive "24,9" = R$24,90)', () => {
+  it('extrai os itens com preço unitário correto (inclusive "24,9" = R$24,90) e o código do SKU', () => {
     expect(parsed.itens).toHaveLength(2);
     expect(parsed.itens[0]).toMatchObject({
       descricao: 'ARROZ CAMIL 5KG',
+      codigo: '123',
       unitPriceCents: 2490,
       quantidade: 2,
     });
-    expect(parsed.itens[1]).toMatchObject({ descricao: 'FEIJAO 1KG', unitPriceCents: 879 });
+    expect(parsed.itens[1]).toMatchObject({
+      descricao: 'FEIJAO 1KG',
+      codigo: '456',
+      unitPriceCents: 879,
+    });
   });
 });
