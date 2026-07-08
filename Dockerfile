@@ -5,7 +5,7 @@
 FROM node:22-slim AS build
 WORKDIR /app
 COPY . .
-RUN npm install && npm run build
+RUN npm install --include=dev && npm run build
 
 # ---------- runtime ----------
 FROM node:22-slim AS runtime
