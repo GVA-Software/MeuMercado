@@ -3,8 +3,9 @@ import { createPortal } from 'react-dom';
 import type { CompraDTO } from '@meumercado/contracts';
 import { api, formatBRL } from '../../api/client';
 import { useTheme } from '../../theme/theme';
-import { EmptyState } from '../../ui/kit';
+import { CartLoader, EmptyState } from '../../ui/kit';
 import { MarketTag } from '../../ui/market';
+import { emojiDe } from '../../ui/emoji';
 
 function mesLabel(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
@@ -98,7 +99,7 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
         {erro && <EmptyState emoji="⚠️" titulo="Não consegui carregar" sub={erro} />}
-        {!erro && compras === null && <p style={{ color: T.muted }}>Carregando…</p>}
+        {!erro && compras === null && <CartLoader label="Carregando suas compras…" center />}
 
         {compras && compras.length === 0 && (
           <EmptyState
@@ -325,7 +326,7 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
                               whiteSpace: 'nowrap',
                             }}
                           >
-                            {it.emoji ?? '📦'} {it.nome} {it.quantity > 1 ? `×${it.quantity}` : ''}
+                            {emojiDe(it)} {it.nome} {it.quantity > 1 ? `×${it.quantity}` : ''}
                           </span>
                           <span
                             style={{

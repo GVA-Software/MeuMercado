@@ -13,6 +13,7 @@ import { api, formatBRL } from '../../api/client';
 import { useTheme, type Theme } from '../../theme/theme';
 import { AppLogo, Btn, CartLoader, CurrencyInput, EmptyState, SLabel } from '../../ui/kit';
 import { MarketTag, marcaMercado } from '../../ui/market';
+import { emojiDe } from '../../ui/emoji';
 import { useNav } from '../../app/nav';
 import { NfceFlow } from '../nfce/NfceFlow';
 
@@ -569,7 +570,7 @@ function DetailSheet({
             fontSize: 26,
           }}
         >
-          {row.produto.emoji ?? '📦'}
+          {emojiDe(row.produto)}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ color: T.text, fontSize: 17, fontWeight: 800, margin: 0 }}>
@@ -825,7 +826,7 @@ function PriceEntrySheet({
             marginBottom: 14,
           }}
         >
-          <span style={{ fontSize: 20 }}>{produto.emoji ?? '📦'}</span>
+          <span style={{ fontSize: 20 }}>{emojiDe(produto)}</span>
           <span
             style={{ color: T.text, fontSize: 14, fontWeight: 700, flex: 1, textAlign: 'left' }}
           >
@@ -859,7 +860,7 @@ function PriceEntrySheet({
                   textAlign: 'left',
                 }}
               >
-                <span style={{ fontSize: 20 }}>{p.emoji ?? '📦'}</span>
+                <span style={{ fontSize: 20 }}>{emojiDe(p)}</span>
                 <span style={{ color: T.text, fontSize: 14 }}>{p.nome}</span>
               </button>
             ))}

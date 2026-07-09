@@ -5,6 +5,7 @@ import { api, formatBRL } from '../../api/client';
 import { useTheme } from '../../theme/theme';
 import { AppLogo, Btn, Card, CurrencyInput, EmptyState, SLabel, ThemeToggle } from '../../ui/kit';
 import { MarketTag } from '../../ui/market';
+import { emojiDe } from '../../ui/emoji';
 import { MinhasCompras } from '../compras/MinhasCompras';
 
 export function CompraScreen() {
@@ -276,7 +277,7 @@ export function CompraScreen() {
                       fontSize: 22,
                     }}
                   >
-                    {item.emoji ?? '📦'}
+                    {emojiDe(item)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p
@@ -552,7 +553,7 @@ function AddPanel({
               textAlign: 'left',
             }}
           >
-            <span style={{ fontSize: 20 }}>{p.emoji ?? '📦'}</span>
+            <span style={{ fontSize: 20 }}>{emojiDe(p)}</span>
             <span style={{ color: T.text, fontSize: 14 }}>{p.nome}</span>
           </button>
         ))}
