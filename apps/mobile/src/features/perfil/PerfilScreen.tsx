@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { useTheme } from '../../theme/theme';
@@ -5,30 +6,138 @@ import { AppLogo, Btn, Card, Pill, ThemeToggle } from '../../ui/kit';
 import { AuthForm } from '../auth/AuthForm';
 import { Paywall } from '../billing/Paywall';
 
-/** Redimensiona/recorta a imagem num quadrado de 256px e devolve como dataURL JPEG. */
-function fotoQuadrada(file: File): Promise<string | null> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const size = 256;
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve(null);
-        return;
-      }
-      const escala = Math.max(size / img.width, size / img.height);
-      const w = img.width * escala;
-      const h = img.height * escala;
-      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-      URL.revokeObjectURL(img.src);
-      resolve(canvas.toDataURL('image/jpeg', 0.82));
-    };
-    img.onerror = () => resolve(null);
-    img.src = URL.createObjectURL(file);
-  });
+/**
+ * Modal de recorte da foto: o usuário arrasta e dá zoom para enquadrar antes de
+ * salvar (evita o corte automático cego). Gera um dataURL JPEG 256×256.
+ */
+function CropModal({
+  file,
+  onSave,
+  onCancel,
+}: {
+  file: File;
+  onSave: (dataUrl: string) => void;
+  onCancel: () => void;
+}) {
+  const { T } = useTheme();
+  const V = 280; // lado do visor (px)
+  const [img, setImg] = useState<{ el: HTMLImageElement; w: number; h: number } | null>(null);
+  const [src, setSrc] = useState<string>('');
+  const [zoom, setZoom] = useState(1);
+  const [off, setOff] = useState({ x: 0, y: 0 });
+  const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setSrc(url);
+    const image = new Image();
+    image.onload = () => setImg({ el: image, w: image.naturalWidth, h: image.naturalHeight });
+    image.src = url;
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const baseScale = img ? Math.max(V / img.w, V / img.h) : 1;
+  const effScale = baseScale * zoom;
+  const dispW = img ? img.w * effScale : V;
+  const dispH = img ? img.h * effScale : V;
+
+  function clamp(x: number, y: number) {
+    const maxX = Math.max(0, (dispW - V) / 2);
+    const maxY = Math.max(0, (dispH - V) / 2);
+    return { x: Math.max(-maxX, Math.min(maxX, x)), y: Math.max(-maxY, Math.min(maxY, y)) };
+  }
+  // Reajusta o pan quando o zoom muda para nunca deixar borda vazia.
+  useEffect(() => {
+    setOff((o) => clamp(o.x, o.y));
+  }, [zoom, img]);
+
+  const bgX = (V - dispW) / 2 + off.x;
+  const bgY = (V - dispH) / 2 + off.y;
+
+  function down(e: React.PointerEvent) {
+    drag.current = { x: e.clientX, y: e.clientY, ox: off.x, oy: off.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function move(e: React.PointerEvent) {
+    if (!drag.current) return;
+    setOff(clamp(drag.current.ox + (e.clientX - drag.current.x), drag.current.oy + (e.clientY - drag.current.y)));
+  }
+  function up() {
+    drag.current = null;
+  }
+
+  function salvar() {
+    if (!img) return;
+    const out = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = out;
+    canvas.height = out;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(img.el, -bgX / effScale, -bgY / effScale, V / effScale, V / effScale, 0, 0, out, out);
+    onSave(canvas.toDataURL('image/jpeg', 0.85));
+  }
+
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2000,
+        background: 'rgba(0,0,0,0.8)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+        gap: 18,
+      }}
+    >
+      <p style={{ color: '#FFF', fontSize: 16, fontWeight: 800, margin: 0 }}>Ajuste sua foto</p>
+      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, margin: '-8px 0 0', textAlign: 'center' }}>
+        Arraste para posicionar e use a barra para dar zoom.
+      </p>
+      <div
+        onPointerDown={down}
+        onPointerMove={move}
+        onPointerUp={up}
+        onPointerCancel={up}
+        style={{
+          width: V,
+          height: V,
+          maxWidth: '86vw',
+          maxHeight: '86vw',
+          borderRadius: 28,
+          border: '3px solid rgba(255,255,255,0.9)',
+          boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)',
+          cursor: 'grab',
+          touchAction: 'none',
+          backgroundImage: src ? `url(${src})` : 'none',
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: `${dispW}px ${dispH}px`,
+          backgroundPosition: `${bgX}px ${bgY}px`,
+        }}
+      />
+      <input
+        type="range"
+        min={1}
+        max={3}
+        step={0.01}
+        value={zoom}
+        onChange={(e) => setZoom(parseFloat(e.target.value))}
+        style={{ width: V, maxWidth: '86vw', accentColor: T.primary }}
+      />
+      <div style={{ display: 'flex', gap: 10, width: V, maxWidth: '86vw' }}>
+        <Btn full variant="ghost" onClick={onCancel}>
+          Cancelar
+        </Btn>
+        <Btn full onClick={salvar}>
+          Usar foto
+        </Btn>
+      </div>
+    </div>,
+    document.body,
+  );
 }
 
 export function PerfilScreen() {
@@ -39,21 +148,26 @@ export function PerfilScreen() {
   // Foto de perfil: fica só no aparelho (localStorage), privada do usuário.
   const fotoKey = user ? `mm-avatar:${user.email}` : '';
   const [foto, setFoto] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     setFoto(fotoKey ? localStorage.getItem(fotoKey) : null);
   }, [fotoKey]);
 
-  async function onEscolherFoto(file?: File | null) {
-    if (!file || !fotoKey) return;
-    const data = await fotoQuadrada(file);
-    if (!data) return;
-    try {
-      localStorage.setItem(fotoKey, data);
-      setFoto(data);
-    } catch {
-      /* armazenamento cheio — ignora */
+  function onEscolherFoto(file?: File | null) {
+    if (file) setCropFile(file);
+    if (fileRef.current) fileRef.current.value = ''; // permite reescolher o mesmo arquivo
+  }
+  function salvarFoto(dataUrl: string) {
+    if (fotoKey) {
+      try {
+        localStorage.setItem(fotoKey, dataUrl);
+        setFoto(dataUrl);
+      } catch {
+        /* armazenamento cheio — ignora */
+      }
     }
+    setCropFile(null);
   }
   function removerFoto() {
     if (fotoKey) localStorage.removeItem(fotoKey);
@@ -247,6 +361,9 @@ export function PerfilScreen() {
       </div>
 
       {paywall && <Paywall onClose={() => setPaywall(false)} />}
+      {cropFile && (
+        <CropModal file={cropFile} onSave={salvarFoto} onCancel={() => setCropFile(null)} />
+      )}
     </div>
   );
 }
