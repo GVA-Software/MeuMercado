@@ -26,9 +26,12 @@
           if (await tryRefresh()) return apiFetch(path, opts);
         }
         if (!res.ok) {
-          var msg = res.statusText;
-          try { var b = await res.json(); if (b && b.message) msg = b.message; } catch (e) {}
-          throw new Error(msg);
+          var body = null;
+          try { body = await res.json(); } catch (e) {}
+          var err = new Error((body && body.message) || res.statusText);
+          err.status = res.status;
+          err.issues = body && body.issues;
+          throw err;
         }
         return res.status === 204 ? null : res.json();
       }
@@ -84,9 +87,17 @@
           token = r.accessToken;
           await carregar();
         } catch (e) {
-          var msg = e.message || 'Falha ao entrar.';
-          if (msg === 'Falha de validação') msg = 'E-mail inválido. Confira e tente de novo.';
-          else if (msg === 'Credenciais inválidas') msg = 'E-mail ou senha incorretos.';
+          var msg;
+          var campos = (e.issues || []).map(function (i) { return i.path; });
+          if (campos.indexOf('email') >= 0) {
+            msg = 'O e-mail está vazio ou inválido — digite seu e-mail completo no 1º campo (às vezes o navegador preenche só a senha).';
+          } else if (campos.indexOf('senha') >= 0) {
+            msg = 'A senha está vazia — digite sua senha.';
+          } else if (e.message === 'Credenciais inválidas') {
+            msg = 'E-mail ou senha incorretos.';
+          } else {
+            msg = e.message || 'Falha ao entrar.';
+          }
           errEl.textContent = msg;
           btn.disabled = false; btn.textContent = 'Entrar';
         }
