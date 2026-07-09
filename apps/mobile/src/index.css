@@ -60,3 +60,29 @@ input:-webkit-autofill:active {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Loading "carrinho enchendo" (aba Mapa, durante a busca de mercados). */
+@keyframes mm-cart-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(2deg);
+  }
+}
+@keyframes mm-item-drop {
+  0% {
+    transform: translateY(-16px) scale(0.4);
+    opacity: 0;
+  }
+  40% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  80%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}

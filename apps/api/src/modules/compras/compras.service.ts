@@ -5,6 +5,14 @@ import type { CompraDTO, CompraItemDTO } from '@meumercado/contracts';
 import { PricingService } from '../pricing/pricing.service.js';
 import { COMPRA_REPOSITORY, type CompraRepository } from './compra.repository.js';
 
+export interface RegistrarCompra {
+  mercadoId?: string | null;
+  mercadoNome?: string | null;
+  mercadoEndereco?: string | null;
+  data?: Date;
+  itens: CompraItemDTO[];
+}
+
 @Injectable()
 export class ComprasService {
   constructor(
@@ -12,38 +20,47 @@ export class ComprasService {
     private readonly pricing: PricingService,
   ) {}
 
-  /** Fecha uma compra a partir do carrinho (snapshot + economia estimada). */
-  async criarDeCarrinho(cart: Cart, userId: string): Promise<CompraDTO> {
-    const itens: CompraItemDTO[] = cart.items.map((i) => ({
-      produtoId: i.produtoId,
-      nome: i.nome,
-      ...(i.emoji !== undefined ? { emoji: i.emoji } : {}),
-      unitPriceCents: i.unitPrice.cents,
-      quantity: i.quantity,
-    }));
-
+  /** Registra uma compra fechada (do carrinho ou da nota fiscal). */
+  async registrar(userId: string, params: RegistrarCompra): Promise<CompraDTO> {
     // Economia: soma de (média da base − preço pago) × qtd, quando pagou abaixo.
     let economiaCents = 0;
-    for (const i of cart.items) {
+    for (const i of params.itens) {
       const resumo = await this.pricing.resumo(i.produtoId);
-      if (resumo.mediaCents !== null && i.unitPrice.cents < resumo.mediaCents) {
-        economiaCents += (resumo.mediaCents - i.unitPrice.cents) * i.quantity;
+      if (resumo.mediaCents !== null && i.unitPriceCents < resumo.mediaCents) {
+        economiaCents += Math.round((resumo.mediaCents - i.unitPriceCents) * i.quantity);
       }
     }
+    const totalCents = params.itens.reduce((s, i) => s + i.unitPriceCents * i.quantity, 0);
 
-    const m = cart.mercado;
     const compra: CompraDTO = {
       id: randomUUID(),
-      mercadoId: m?.id ?? null,
-      mercadoNome: m?.nome ?? null,
-      mercadoEndereco: m?.endereco ?? null,
-      totalCents: cart.total().cents,
+      mercadoId: params.mercadoId ?? null,
+      mercadoNome: params.mercadoNome ?? null,
+      mercadoEndereco: params.mercadoEndereco ?? null,
+      totalCents,
       economiaCents,
-      itens,
-      criadaEm: new Date().toISOString(),
+      itens: params.itens,
+      criadaEm: (params.data ?? new Date()).toISOString(),
     };
     await this.repo.salvar(userId, compra);
     return compra;
+  }
+
+  /** Fecha uma compra a partir do carrinho. */
+  criarDeCarrinho(cart: Cart, userId: string): Promise<CompraDTO> {
+    const m = cart.mercado;
+    return this.registrar(userId, {
+      mercadoId: m?.id ?? null,
+      mercadoNome: m?.nome ?? null,
+      mercadoEndereco: m?.endereco ?? null,
+      itens: cart.items.map((i) => ({
+        produtoId: i.produtoId,
+        nome: i.nome,
+        ...(i.emoji !== undefined ? { emoji: i.emoji } : {}),
+        unitPriceCents: i.unitPrice.cents,
+        quantity: i.quantity,
+      })),
+    });
   }
 
   listar(userId: string): Promise<CompraDTO[]> {

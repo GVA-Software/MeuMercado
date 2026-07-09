@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -48,10 +48,16 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
   const focusMarkerRef = useRef<maplibregl.Marker | null>(null);
   const posRef = useRef<{ lat: number; lng: number } | null>(null);
   const [ready, setReady] = useState(false);
-  const [mercados, setMercados] = useState<MercadoDTO[]>([]);
+  const [todosMercados, setTodosMercados] = useState<MercadoDTO[]>([]);
   const [buscando, setBuscando] = useState(false);
   const [buscou, setBuscou] = useState(false);
   const [raioMetros, setRaioMetros] = useState(RAIO_PADRAO);
+
+  // Busca uma vez no raio máximo e FILTRA no cliente — trocar o raio é instantâneo.
+  const mercados = useMemo(
+    () => todosMercados.filter((m) => (m.distanciaMetros ?? 0) <= raioMetros),
+    [todosMercados, raioMetros],
+  );
   const [selMercado, setSelMercado] = useState<MercadoDTO | null>(null);
   const [selUser, setSelUser] = useState<UserSheet | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -153,7 +159,7 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
     setSelMercado(sintetico);
   }, [ready, focus]);
 
-  function buscarMercados(lat: number, lng: number, raio: number) {
+  function buscarMercados(lat: number, lng: number) {
     setBuscando(true);
     setErro(null);
     // Nova busca: some o pin dourado de foco e fecha o cartão — o mapa volta ao
@@ -173,10 +179,11 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
       userMarkerRef.current = um;
       map.flyTo({ center: [lng, lat], zoom: 12 });
     }
+    // Busca no raio MÁXIMO uma vez; a régua filtra no cliente (instantâneo).
     api
-      .mercadosProximos(lat, lng, raio)
+      .mercadosProximos(lat, lng, Math.max(...RAIOS))
       .then((near) => {
-        setMercados(near);
+        setTodosMercados(near);
         setBuscou(true);
       })
       .catch((e: unknown) => setErro(e instanceof Error ? e.message : String(e)))
@@ -193,7 +200,7 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         posRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        buscarMercados(pos.coords.latitude, pos.coords.longitude, raioMetros);
+        buscarMercados(pos.coords.latitude, pos.coords.longitude);
       },
       () => {
         setErro('Não consegui obter sua localização (permissão negada?).');
@@ -201,12 +208,6 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
       },
       { enableHighAccuracy: true, timeout: 8000 },
     );
-  }
-
-  // Troca o raio: re-busca na hora se já temos a localização.
-  function mudarRaio(r: number) {
-    setRaioMetros(r);
-    if (posRef.current) buscarMercados(posRef.current.lat, posRef.current.lng, r);
   }
 
   async function abrirMinhaLoc(lat: number, lng: number) {
@@ -241,6 +242,7 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
 
       <div style={{ position: 'relative' }}>
         <div ref={containerRef} style={{ width: '100%', height: '48vh', background: T.card }} />
+        {buscando && <CartLoading />}
         {mercados.length > 0 && (
           <button
             onClick={fitAll}
@@ -277,8 +279,7 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
             return (
               <button
                 key={r}
-                onClick={() => mudarRaio(r)}
-                disabled={buscando}
+                onClick={() => setRaioMetros(r)}
                 style={{
                   flex: 1,
                   background: sel ? T.primary : T.card,
@@ -288,7 +289,7 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
                   padding: '8px 0',
                   fontSize: 13,
                   fontWeight: 800,
-                  cursor: buscando ? 'default' : 'pointer',
+                  cursor: 'pointer',
                 }}
               >
                 {r / 1000} km
@@ -540,5 +541,59 @@ function LocalSheet({
       </div>
     </div>,
     document.body,
+  );
+}
+
+/** Loading do mapa: um carrinho (nosso logo) enchendo de compras. */
+function CartLoading() {
+  const itens = ['🍎', '🥛', '🍞', '🧀', '🥫'];
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 6,
+        background: 'rgba(0,0,0,0.4)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 14,
+      }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          width: 120,
+          height: 74,
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+        }}
+      >
+        <div style={{ position: 'absolute', top: 0, display: 'flex', gap: 3 }}>
+          {itens.map((e, i) => (
+            <span
+              key={i}
+              style={{ fontSize: 20, animation: `mm-item-drop 1.3s ${i * 0.18}s infinite` }}
+            >
+              {e}
+            </span>
+          ))}
+        </div>
+        <span style={{ fontSize: 52, animation: 'mm-cart-bob 1s ease-in-out infinite' }}>🛒</span>
+      </div>
+      <p
+        style={{
+          color: '#FFF',
+          fontSize: 14,
+          fontWeight: 700,
+          textShadow: '0 1px 4px #000',
+          margin: 0,
+        }}
+      >
+        Enchendo o carrinho de mercados…
+      </p>
+    </div>
   );
 }

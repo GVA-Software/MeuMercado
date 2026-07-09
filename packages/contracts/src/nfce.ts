@@ -47,6 +47,7 @@ export type NfcePreviewRequest = z.infer<typeof NfcePreviewRequestSchema>;
 export const NfceImportItemSchema = z.object({
   nome: z.string().min(1).max(200),
   codigo: z.string().max(40).optional(),
+  quantidade: z.number().positive().max(9999).optional(),
   priceCents: z.number().int().positive().max(100_000_00),
 });
 export type NfceImportItem = z.infer<typeof NfceImportItemSchema>;

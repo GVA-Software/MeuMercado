@@ -120,17 +120,23 @@ export function CompraScreen() {
               onClick={() => setComprasOpen(true)}
               aria-label="Minhas compras"
               style={{
-                background: 'rgba(255,255,255,0.9)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                background: 'rgba(255,255,255,0.92)',
+                color: '#111',
                 border: 'none',
                 borderRadius: 14,
-                width: 44,
                 height: 44,
-                fontSize: 20,
+                padding: '0 12px',
+                fontSize: 13,
+                fontWeight: 800,
                 cursor: 'pointer',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                whiteSpace: 'nowrap',
               }}
             >
-              🧾
+              <span style={{ fontSize: 16 }}>🧾</span> Compras
             </button>
             <ThemeToggle />
             <button

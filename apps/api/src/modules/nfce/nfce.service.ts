@@ -9,8 +9,14 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Money, PriceObservation, Produto } from '@meumercado/domain';
-import type { NfceDraftDTO, NfceImportRequest, NfceImportResult } from '@meumercado/contracts';
+import type {
+  CompraItemDTO,
+  NfceDraftDTO,
+  NfceImportRequest,
+  NfceImportResult,
+} from '@meumercado/contracts';
 import { GeocodeService } from '../geocode/geocode.service.js';
+import { ComprasService } from '../compras/compras.service.js';
 import { PRODUTO_REPOSITORY, type ProdutoRepository } from '../catalog/produtos.repository.js';
 import {
   PRICE_OBSERVATION_REPOSITORY,
@@ -69,6 +75,7 @@ export class NfceService {
     @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly obs: PriceObservationRepository,
     @Inject(NFCE_IMPORT_REPOSITORY) private readonly imports: NfceImportRepository,
     private readonly geocode: GeocodeService,
+    private readonly compras: ComprasService,
   ) {}
 
   /** Lê a página pública da SEFAZ apontada pelo QR e extrai um rascunho de itens. */
@@ -157,6 +164,7 @@ export class NfceService {
     );
 
     let produtosCriados = 0;
+    const compraItens: CompraItemDTO[] = [];
     for (const item of itens) {
       const codigoExterno = item.codigo ? `${mercadoId}:${item.codigo}` : undefined;
       const nomeKey = item.nome.trim().toLowerCase();
@@ -189,7 +197,22 @@ export class NfceService {
           observedAt,
         }),
       );
+      compraItens.push({
+        produtoId: produto.id,
+        nome: item.nome.trim(),
+        unitPriceCents: item.priceCents,
+        quantity: item.quantidade ? Math.max(1, Math.round(item.quantidade)) : 1,
+      });
     }
+
+    // A nota importada também vira uma COMPRA no histórico do usuário.
+    await this.compras.registrar(reporterId, {
+      mercadoId,
+      mercadoNome: req.mercadoNome,
+      ...(req.mercadoEndereco ? { mercadoEndereco: req.mercadoEndereco } : {}),
+      data: observedAt,
+      itens: compraItens,
+    });
 
     if (chaveValida) await this.imports.registrar(chaveValida, reporterId);
     return { importados: itens.length, produtosCriados };
