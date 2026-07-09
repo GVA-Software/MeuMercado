@@ -1,5 +1,8 @@
 import type {
   AddCartItemInput,
+  AdminStatsDTO,
+  AdminUserDTO,
+  AdminUsersResponse,
   AuthResponse,
   CartDTO,
   CartMercadoDTO,
@@ -223,6 +226,33 @@ export class ApiClient {
   }
   me(): Promise<UserDTO> {
     return this.request('/auth/me');
+  }
+  /** Atualiza o próprio nome (persistido; e-mail não muda). */
+  atualizarNome(nome: string): Promise<UserDTO> {
+    return this.request('/auth/me', { method: 'PATCH', body: JSON.stringify({ nome }) });
+  }
+
+  // ---- Admin ----
+  adminStats(): Promise<AdminStatsDTO> {
+    return this.request('/admin/stats');
+  }
+  adminUsuarios(limit = 100, offset = 0): Promise<AdminUsersResponse> {
+    return this.request(`/admin/users?limit=${limit}&offset=${offset}`);
+  }
+  adminExcluir(id: string): Promise<void> {
+    return this.request(`/admin/users/${id}`, { method: 'DELETE' });
+  }
+  adminConcederTrial(id: string): Promise<AdminUserDTO> {
+    return this.request(`/admin/users/${id}/trial`, { method: 'POST' });
+  }
+  adminConcederPro(id: string, periodo: Periodo): Promise<AdminUserDTO> {
+    return this.request(`/admin/users/${id}/pro`, {
+      method: 'POST',
+      body: JSON.stringify({ periodo }),
+    });
+  }
+  adminRevogar(id: string): Promise<AdminUserDTO> {
+    return this.request(`/admin/users/${id}/revoke`, { method: 'POST' });
   }
 
   // ---- Billing / assinatura ----

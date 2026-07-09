@@ -8,6 +8,7 @@ interface AuthState {
   loading: boolean;
   login: (email: string, senha: string) => Promise<void>;
   register: (email: string, nome: string, senha: string) => Promise<void>;
+  atualizarNome: (nome: string) => Promise<void>;
   logout: () => Promise<void>;
   assinar: (periodo: Periodo) => Promise<void>;
   cancelar: () => Promise<void>;
@@ -66,6 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyAuth],
   );
 
+  const atualizarNome = useCallback(async (nome: string) => {
+    setUser(await api.atualizarNome(nome));
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.logout();
@@ -88,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ user, subscription, loading, login, register, logout, assinar, cancelar }}
+      value={{ user, subscription, loading, login, register, atualizarNome, logout, assinar, cancelar }}
     >
       {children}
     </Ctx.Provider>

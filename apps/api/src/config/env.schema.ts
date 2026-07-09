@@ -32,6 +32,9 @@ export const envSchema = z.object({
   /** Cloudflare Turnstile (CAPTCHA grátis). Sem chave → guard passa em dev. */
   TURNSTILE_SECRET_KEY: z.string().optional(),
 
+  /** E-mails de administradores (separados por vírgula) — liberam o painel de ADM. */
+  ADMIN_EMAILS: z.string().default(''),
+
   /**
    * Postgres (TypeORM). Se definido → usa banco (dados persistem).
    * Se ausente → repositórios em memória (dev local sem banco).

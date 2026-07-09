@@ -5,6 +5,7 @@ import { useTheme } from '../../theme/theme';
 import { AppLogo, Btn, Card, Pill, ThemeToggle } from '../../ui/kit';
 import { AuthForm } from '../auth/AuthForm';
 import { Paywall } from '../billing/Paywall';
+import { AdminScreen } from '../admin/AdminScreen';
 
 /**
  * Modal de recorte da foto: o usuário arrasta e dá zoom para enquadrar antes de
@@ -142,8 +143,39 @@ function CropModal({
 
 export function PerfilScreen() {
   const { T } = useTheme();
-  const { user, subscription, loading, logout, cancelar } = useAuth();
+  const { user, subscription, loading, atualizarNome, logout, cancelar } = useAuth();
   const [paywall, setPaywall] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
+
+  // Edição do nome.
+  const [editandoNome, setEditandoNome] = useState(false);
+  const [nomeEdit, setNomeEdit] = useState('');
+  const [salvandoNome, setSalvandoNome] = useState(false);
+  const [erroNome, setErroNome] = useState<string | null>(null);
+
+  function abrirEdicao() {
+    setNomeEdit(user?.nome ?? '');
+    setErroNome(null);
+    setEditandoNome(true);
+  }
+  async function salvarNome() {
+    const novo = nomeEdit.trim();
+    if (novo.length < 1) return;
+    if (novo === user?.nome) {
+      setEditandoNome(false);
+      return;
+    }
+    setSalvandoNome(true);
+    setErroNome(null);
+    try {
+      await atualizarNome(novo);
+      setEditandoNome(false);
+    } catch (e) {
+      setErroNome(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSalvandoNome(false);
+    }
+  }
 
   // Foto de perfil: fica só no aparelho (localStorage), privada do usuário.
   const fotoKey = user ? `mm-avatar:${user.email}` : '';
@@ -266,10 +298,87 @@ export function PerfilScreen() {
                   onChange={(e) => void onEscolherFoto(e.target.files?.[0])}
                   style={{ display: 'none' }}
                 />
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ color: T.text, fontSize: 16, fontWeight: 700, margin: 0 }}>
-                    {user.nome}
-                  </p>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  {editandoNome ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 4 }}>
+                      <input
+                        autoFocus
+                        value={nomeEdit}
+                        onChange={(e) => setNomeEdit(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void salvarNome();
+                          if (e.key === 'Escape') setEditandoNome(false);
+                        }}
+                        maxLength={120}
+                        style={{
+                          border: `1.5px solid ${T.primary}`,
+                          borderRadius: 10,
+                          padding: '8px 10px',
+                          background: T.card,
+                          color: T.text,
+                          fontSize: 15,
+                          fontWeight: 600,
+                          width: '100%',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <button
+                          onClick={() => void salvarNome()}
+                          disabled={salvandoNome || nomeEdit.trim().length < 1}
+                          style={{
+                            background: T.primary,
+                            color: '#FFF',
+                            border: 'none',
+                            borderRadius: 8,
+                            padding: '6px 14px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            opacity: salvandoNome || nomeEdit.trim().length < 1 ? 0.5 : 1,
+                          }}
+                        >
+                          {salvandoNome ? 'Salvando…' : 'Salvar'}
+                        </button>
+                        <button
+                          onClick={() => setEditandoNome(false)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: T.muted,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <p style={{ color: T.text, fontSize: 16, fontWeight: 700, margin: 0 }}>
+                        {user.nome}
+                      </p>
+                      <button
+                        onClick={abrirEdicao}
+                        aria-label="Editar nome"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: T.primary,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                      >
+                        ✏️
+                      </button>
+                    </div>
+                  )}
+                  {erroNome && (
+                    <p style={{ color: T.danger, fontSize: 12, margin: '2px 0 4px' }}>{erroNome}</p>
+                  )}
                   <p style={{ color: T.muted, fontSize: 13, margin: '2px 0 6px' }}>{user.email}</p>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                     <button
@@ -348,6 +457,36 @@ export function PerfilScreen() {
               )}
             </Card>
 
+            {user.isAdmin && (
+              <button
+                onClick={() => setAdminOpen(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  width: '100%',
+                  background: T.surface,
+                  border: `1px solid ${T.primary}55`,
+                  borderRadius: 16,
+                  padding: '14px 16px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  boxShadow: `0 1px 4px ${T.shadow}`,
+                }}
+              >
+                <span style={{ fontSize: 22 }}>🛠️</span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ color: T.text, fontSize: 15, fontWeight: 800, margin: 0 }}>
+                    Painel de administração
+                  </p>
+                  <p style={{ color: T.muted, fontSize: 12, margin: '2px 0 0' }}>
+                    Cadastros, assinaturas e gestão de usuários
+                  </p>
+                </div>
+                <span style={{ color: T.primary, fontSize: 16 }}>›</span>
+              </button>
+            )}
+
             <Card>
               <p style={{ color: T.text, fontWeight: 700, margin: '0 0 8px' }}>Aparência</p>
               <ThemeToggle />
@@ -364,6 +503,7 @@ export function PerfilScreen() {
       {cropFile && (
         <CropModal file={cropFile} onSave={salvarFoto} onCancel={() => setCropFile(null)} />
       )}
+      {adminOpen && <AdminScreen onClose={() => setAdminOpen(false)} />}
     </div>
   );
 }

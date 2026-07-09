@@ -10,3 +10,4 @@ export * from './insights.js';
 export * from './geo.js';
 export * from './auth.js';
 export * from './billing.js';
+export * from './admin.js';

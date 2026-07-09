@@ -19,4 +19,20 @@ export class TypeOrmUserRepository implements UserRepository {
   async create(user: StoredUser): Promise<void> {
     await this.repo.insert(user);
   }
+
+  async updateNome(id: string, nome: string): Promise<void> {
+    await this.repo.update(id, { nome });
+  }
+
+  async findAll(): Promise<StoredUser[]> {
+    return this.repo.find({ order: { criadoEm: 'DESC' } });
+  }
+
+  count(): Promise<number> {
+    return this.repo.count();
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.repo.delete(id);
+  }
 }

@@ -10,6 +10,7 @@ import { DataModule } from './data/data.module.js';
 import { PersistenceModule } from './infrastructure/database/persistence.module.js';
 import { HealthModule } from './health/health.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { AdminModule } from './modules/admin/admin.module.js';
 import { BillingModule } from './modules/billing/billing.module.js';
 import { CatalogModule } from './modules/catalog/catalog.module.js';
 import { GeocodeModule } from './modules/geocode/geocode.module.js';
@@ -40,6 +41,7 @@ const imports: ModuleImport[] = [
   DataModule,
   HealthModule,
   AuthModule,
+  AdminModule,
   BillingModule,
   CatalogModule,
   GeocodeModule,

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Patch,
   Post,
   Req,
   Res,
@@ -13,9 +14,11 @@ import type { Request, Response } from 'express';
 import {
   LoginSchema,
   RegisterSchema,
+  UpdateNameSchema,
   type AuthResponse,
   type LoginInput,
   type RegisterInput,
+  type UpdateNameInput,
   type UserDTO,
 } from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
@@ -81,6 +84,16 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   me(@CurrentUser() user: AuthedUser): Promise<UserDTO> {
     return this.service.me(user.id);
+  }
+
+  /** Atualiza o próprio nome (o e-mail não muda). */
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  atualizar(
+    @CurrentUser() user: AuthedUser,
+    @Body(new ZodValidationPipe(UpdateNameSchema)) body: UpdateNameInput,
+  ): Promise<UserDTO> {
+    return this.service.updateNome(user.id, body.nome);
   }
 
   /** Seta o refresh token em cookie httpOnly (não acessível ao JS do front). */

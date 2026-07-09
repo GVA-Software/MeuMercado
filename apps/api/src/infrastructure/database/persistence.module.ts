@@ -2,6 +2,10 @@ import { type DynamicModule, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { InMemoryUserRepository, USER_REPOSITORY } from '../../modules/auth/user.repository.js';
 import {
+  InMemoryNameChangeRepository,
+  NAME_CHANGE_REPOSITORY,
+} from '../../modules/auth/name-change.repository.js';
+import {
   InMemorySubscriptionRepository,
   SUBSCRIPTION_REPOSITORY,
 } from '../../modules/billing/subscription.repository.js';
@@ -24,6 +28,7 @@ import {
 } from '../../modules/compras/compra.repository.js';
 import { CartEntity, CartItemEntity } from './entities/cart.entity.js';
 import { CompraEntity } from './entities/compra.entity.js';
+import { NameChangeEntity } from './entities/name-change.entity.js';
 import { NfceImportEntity } from './entities/nfce-import.entity.js';
 import { PriceObservationEntity } from './entities/price-observation.entity.js';
 import { ProdutoEntity } from './entities/produto.entity.js';
@@ -36,9 +41,11 @@ import { TypeOrmPriceObservationRepository } from './repositories/typeorm-price-
 import { TypeOrmProdutoRepository } from './repositories/typeorm-produto.repository.js';
 import { TypeOrmSubscriptionRepository } from './repositories/typeorm-subscription.repository.js';
 import { TypeOrmUserRepository } from './repositories/typeorm-user.repository.js';
+import { TypeOrmNameChangeRepository } from './repositories/typeorm-name-change.repository.js';
 
 const ENTITIES = [
   UserEntity,
+  NameChangeEntity,
   SubscriptionEntity,
   CartEntity,
   CartItemEntity,
@@ -49,6 +56,7 @@ const ENTITIES = [
 ];
 const TOKENS = [
   USER_REPOSITORY,
+  NAME_CHANGE_REPOSITORY,
   SUBSCRIPTION_REPOSITORY,
   CART_STORE,
   PRICE_OBSERVATION_REPOSITORY,
@@ -74,6 +82,7 @@ export class PersistenceModule {
         global: true,
         providers: [
           { provide: USER_REPOSITORY, useClass: InMemoryUserRepository },
+          { provide: NAME_CHANGE_REPOSITORY, useClass: InMemoryNameChangeRepository },
           { provide: SUBSCRIPTION_REPOSITORY, useClass: InMemorySubscriptionRepository },
           { provide: CART_STORE, useClass: InMemoryCartStore },
           { provide: PRICE_OBSERVATION_REPOSITORY, useClass: InMemoryPriceObservationRepository },
@@ -109,6 +118,7 @@ export class PersistenceModule {
       ],
       providers: [
         { provide: USER_REPOSITORY, useClass: TypeOrmUserRepository },
+        { provide: NAME_CHANGE_REPOSITORY, useClass: TypeOrmNameChangeRepository },
         { provide: SUBSCRIPTION_REPOSITORY, useClass: TypeOrmSubscriptionRepository },
         { provide: CART_STORE, useClass: TypeOrmCartRepository },
         { provide: PRICE_OBSERVATION_REPOSITORY, useClass: TypeOrmPriceObservationRepository },
