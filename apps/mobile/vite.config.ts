@@ -22,7 +22,12 @@ export default defineConfig({
           { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
         ],
       },
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,woff2}'] },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,woff2}'],
+        // O painel de ADM (/admin.html) é uma página separada, fora do SPA:
+        // impede o service worker de reescrever a navegação para o index do app.
+        navigateFallbackDenylist: [/^\/admin/],
+      },
     }),
   ],
   server: { port: 5173 },

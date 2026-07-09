@@ -5,7 +5,6 @@ import { useTheme } from '../../theme/theme';
 import { AppLogo, Btn, Card, Pill, ThemeToggle } from '../../ui/kit';
 import { AuthForm } from '../auth/AuthForm';
 import { Paywall } from '../billing/Paywall';
-import { AdminScreen } from '../admin/AdminScreen';
 
 /**
  * Modal de recorte da foto: o usuário arrasta e dá zoom para enquadrar antes de
@@ -145,7 +144,6 @@ export function PerfilScreen() {
   const { T } = useTheme();
   const { user, subscription, loading, atualizarNome, logout, cancelar } = useAuth();
   const [paywall, setPaywall] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
 
   // Edição do nome.
   const [editandoNome, setEditandoNome] = useState(false);
@@ -457,36 +455,6 @@ export function PerfilScreen() {
               )}
             </Card>
 
-            {user.isAdmin && (
-              <button
-                onClick={() => setAdminOpen(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  width: '100%',
-                  background: T.surface,
-                  border: `1px solid ${T.primary}55`,
-                  borderRadius: 16,
-                  padding: '14px 16px',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  boxShadow: `0 1px 4px ${T.shadow}`,
-                }}
-              >
-                <span style={{ fontSize: 22 }}>🛠️</span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ color: T.text, fontSize: 15, fontWeight: 800, margin: 0 }}>
-                    Painel de administração
-                  </p>
-                  <p style={{ color: T.muted, fontSize: 12, margin: '2px 0 0' }}>
-                    Cadastros, assinaturas e gestão de usuários
-                  </p>
-                </div>
-                <span style={{ color: T.primary, fontSize: 16 }}>›</span>
-              </button>
-            )}
-
             <Card>
               <p style={{ color: T.text, fontWeight: 700, margin: '0 0 8px' }}>Aparência</p>
               <ThemeToggle />
@@ -503,7 +471,6 @@ export function PerfilScreen() {
       {cropFile && (
         <CropModal file={cropFile} onSave={salvarFoto} onCancel={() => setCropFile(null)} />
       )}
-      {adminOpen && <AdminScreen onClose={() => setAdminOpen(false)} />}
     </div>
   );
 }

@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <title>Meu Mercado — Administração</title>
+    <style>
+      :root {
+        --bg: #0e1117;
+        --surface: #171b24;
+        --card: #1f2430;
+        --border: #2a2f3c;
+        --text: #eef1f6;
+        --muted: #8a93a3;
+        --sub: #c2c8d2;
+        --primary: #ff6b2b;
+        --green: #22c55e;
+        --nina: #38bdf8;
+        --danger: #ef4444;
+        --purple: #a78bfa;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        min-height: 100dvh;
+      }
+      button { font-family: inherit; }
+      .wrap { max-width: 960px; margin: 0 auto; padding: 20px 16px 60px; }
+
+      /* Login */
+      .login { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+      .login-card { width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 28px 24px; }
+      .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+      .brand img { width: 34px; height: 34px; object-fit: contain; }
+      .brand b { color: var(--primary); font-size: 18px; }
+      h1 { font-size: 20px; margin: 14px 0 4px; }
+      .hint { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+      label { display: block; color: var(--sub); font-size: 12px; font-weight: 700; margin: 12px 0 5px; }
+      input {
+        width: 100%; border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px;
+        background: var(--card); color: var(--text); font-size: 15px; outline: none;
+      }
+      input:focus { border-color: var(--primary); }
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+        border: none; border-radius: 12px; padding: 12px 16px; font-size: 14px; font-weight: 700;
+        cursor: pointer; background: var(--primary); color: #fff; width: 100%;
+      }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .btn-ghost { background: transparent; color: var(--sub); border: 1.5px solid var(--border); }
+      .err { color: var(--danger); font-size: 13px; margin: 12px 0 0; min-height: 16px; font-weight: 600; }
+
+      /* Header */
+      .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; gap: 12px; }
+      .top .brand b { font-size: 20px; }
+      .top-sub { color: var(--muted); font-size: 12px; }
+      .logout { background: transparent; border: 1px solid var(--border); color: var(--sub); border-radius: 99px; padding: 8px 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+      /* Stats */
+      .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 12px; }
+      @media (min-width: 640px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+      .stat { border-radius: 16px; padding: 16px 18px; }
+      .stat .n { font-size: 30px; font-weight: 800; line-height: 1; margin: 0; }
+      .stat .l { color: var(--sub); font-size: 12px; font-weight: 700; margin: 8px 0 0; }
+      .mini { display: flex; justify-content: space-around; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 8px; margin-bottom: 20px; }
+      .mini div { text-align: center; }
+      .mini .n { font-size: 18px; font-weight: 800; margin: 0; }
+      .mini .l { color: var(--muted); font-size: 11px; margin: 3px 0 0; }
+
+      .search { margin-bottom: 14px; }
+
+      /* Users */
+      .user { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
+      .user-head { display: flex; align-items: center; gap: 12px; width: 100%; background: none; border: none; padding: 13px 14px; cursor: pointer; text-align: left; color: inherit; }
+      .avatar { width: 42px; height: 42px; border-radius: 12px; background: rgba(255,107,43,0.16); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; flex-shrink: 0; }
+      .user-info { flex: 1; min-width: 0; }
+      .user-name { font-size: 14px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 6px; }
+      .user-email { color: var(--muted); font-size: 12px; margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+      .chip { font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
+      .date { color: var(--muted); font-size: 10px; }
+      .tag-admin { background: rgba(255,107,43,0.16); color: var(--primary); font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 99px; }
+      .actions { border-top: 1px solid var(--border); padding: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+      .act { border-radius: 10px; padding: 8px 12px; font-size: 12px; font-weight: 700; cursor: pointer; background: rgba(255,107,43,0.12); color: var(--primary); border: 1px solid rgba(255,107,43,0.35); }
+      .act.danger { background: rgba(239,68,68,0.12); color: var(--danger); border-color: rgba(239,68,68,0.35); }
+      .act:disabled { opacity: 0.5; cursor: not-allowed; }
+      .empty { text-align: center; color: var(--muted); padding: 40px 20px; }
+      .loading { text-align: center; color: var(--muted); padding: 50px 20px; }
+      .loading img { width: 84px; height: 84px; animation: bob 1s ease-in-out infinite; }
+      @keyframes bob { 0%,100% { transform: translateY(0);} 50% { transform: translateY(-10px);} }
+      .banner { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: var(--danger); border-radius: 12px; padding: 10px 12px; margin-bottom: 14px; font-size: 13px; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      'use strict';
+      var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
+      var token = null;
+      var state = { stats: null, users: [], busca: '', aberto: null, agindo: null, erro: '' };
+
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+      function el(id) { return document.getElementById(id); }
+
+      async function apiFetch(path, opts) {
+        opts = opts || {};
+        var res = await fetch(API_BASE + path, {
+          method: opts.method || 'GET',
+          credentials: 'include',
+          headers: Object.assign(
+            { 'content-type': 'application/json' },
+            token ? { authorization: 'Bearer ' + token } : {},
+            opts.headers || {}
+          ),
+          body: opts.body,
+        });
+        if (res.status === 401 && path.indexOf('/auth/') !== 0) {
+          if (await tryRefresh()) return apiFetch(path, opts);
+        }
+        if (!res.ok) {
+          var msg = res.statusText;
+          try { var b = await res.json(); if (b && b.message) msg = b.message; } catch (e) {}
+          throw new Error(msg);
+        }
+        return res.status === 204 ? null : res.json();
+      }
+      async function tryRefresh() {
+        try {
+          var r = await fetch(API_BASE + '/auth/refresh', {
+            method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
+          });
+          if (!r.ok) return false;
+          var b = await r.json();
+          token = b.accessToken;
+          return true;
+        } catch (e) { return false; }
+      }
+
+      // ---------- Login ----------
+      function renderLogin(erro) {
+        document.getElementById('root').innerHTML =
+          '<div class="login"><div class="login-card">' +
+          '<div class="brand"><img src="/Loading.png" alt=""/><b>Meu Mercado</b></div>' +
+          '<h1>Administração</h1>' +
+          '<p class="hint">Acesso restrito. Entre com uma conta de administrador.</p>' +
+          '<label>E-mail</label><input id="email" type="email" autocomplete="username" placeholder="voce@email.com"/>' +
+          '<label>Senha</label><input id="senha" type="password" autocomplete="current-password" placeholder="••••••••"/>' +
+          '<div class="err" id="loginErr">' + esc(erro || '') + '</div>' +
+          '<button class="btn" id="entrar" style="margin-top:14px">Entrar</button>' +
+          '</div></div>';
+        el('entrar').onclick = fazerLogin;
+        el('senha').onkeydown = function (e) { if (e.key === 'Enter') fazerLogin(); };
+      }
+      async function fazerLogin() {
+        var email = el('email').value.trim();
+        var senha = el('senha').value;
+        var btn = el('entrar');
+        el('loginErr').textContent = '';
+        btn.disabled = true; btn.textContent = 'Entrando…';
+        try {
+          var r = await apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email: email, senha: senha }) });
+          if (!r.user || !r.user.isAdmin) {
+            token = null;
+            throw new Error('Esta conta não tem acesso de administrador.');
+          }
+          token = r.accessToken;
+          await carregar();
+        } catch (e) {
+          el('loginErr').textContent = e.message || 'Falha ao entrar.';
+          btn.disabled = false; btn.textContent = 'Entrar';
+        }
+      }
+
+      // ---------- Dashboard ----------
+      function chipHtml(u) {
+        var cor = '#8a93a3', label = 'FREE';
+        if (u.isPro && u.status === 'trial') { cor = '#38bdf8'; label = 'TESTE · ' + u.diasRestantes + 'd'; }
+        else if (u.isPro) { cor = '#22c55e'; label = 'PRO · ' + esc(u.status); }
+        return '<span class="chip" style="background:' + cor + '22;color:' + cor + '">' + label + '</span>';
+      }
+      function dataLabel(iso) {
+        try { return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' }); }
+        catch (e) { return ''; }
+      }
+
+      function statCard(n, l, cor) {
+        return '<div class="stat" style="background:' + cor + '14;border:1px solid ' + cor + '40">' +
+          '<p class="n" style="color:' + cor + '">' + n + '</p><p class="l">' + l + '</p></div>';
+      }
+      function mini(n, l) { return '<div><p class="n">' + n + '</p><p class="l">' + l + '</p></div>'; }
+
+      function usersFiltrados() {
+        var t = state.busca.trim().toLowerCase();
+        if (!t) return state.users;
+        return state.users.filter(function (u) {
+          return u.nome.toLowerCase().indexOf(t) >= 0 || u.email.toLowerCase().indexOf(t) >= 0;
+        });
+      }
+
+      function userHtml(u) {
+        var inicial = esc((u.nome.trim()[0] || '?').toUpperCase());
+        var aberto = state.aberto === u.id;
+        var agindo = state.agindo === u.id;
+        var acts = '';
+        if (aberto) {
+          acts = '<div class="actions">' +
+            btn(u.id, 'trial', '🎁 Teste Nina (7d)', agindo) +
+            btn(u.id, 'mensal', 'Pro mensal', agindo) +
+            btn(u.id, 'anual', 'Pro anual', agindo) +
+            (u.isPro ? btn(u.id, 'revoke', 'Revogar', agindo) : '') +
+            (u.isAdmin ? '' : btn(u.id, 'excluir', '🗑️ Excluir', agindo, true)) +
+            '</div>';
+        }
+        return '<div class="user">' +
+          '<button class="user-head" data-toggle="' + u.id + '">' +
+          '<div class="avatar">' + inicial + '</div>' +
+          '<div class="user-info"><p class="user-name">' + esc(u.nome) +
+          (u.isAdmin ? ' <span class="tag-admin">ADMIN</span>' : '') + '</p>' +
+          '<p class="user-email">' + esc(u.email) + '</p></div>' +
+          '<div class="right">' + chipHtml(u) + '<span class="date">' + dataLabel(u.criadoEm) + '</span></div>' +
+          '</button>' + acts + '</div>';
+      }
+      function btn(id, act, label, disabled, danger) {
+        return '<button class="act' + (danger ? ' danger' : '') + '" data-id="' + id + '" data-act="' + act + '"' +
+          (disabled ? ' disabled' : '') + '>' + label + '</button>';
+      }
+
+      function renderDashboard() {
+        var s = state.stats;
+        var root = document.getElementById('root');
+        root.innerHTML = '<div class="wrap">' +
+          '<div class="top"><div><div class="brand"><img src="/Loading.png" alt=""/><b>Meu Mercado</b></div>' +
+          '<div class="top-sub">Painel de administração</div></div>' +
+          '<button class="logout" id="sair">Sair</button></div>' +
+          (state.erro ? '<div class="banner">' + esc(state.erro) + '</div>' : '') +
+          (s ? (
+            '<div class="stats">' +
+              statCard(s.totalUsuarios, 'Usuários', '#ff6b2b') +
+              statCard(s.proAtivos, 'Pro ativos', '#22c55e') +
+              statCard(s.trials, 'Em teste', '#38bdf8') +
+              statCard(s.free, 'Free', '#8a93a3') +
+            '</div>' +
+            '<div class="mini">' + mini(s.cadastrosHoje, 'hoje') + mini(s.cadastros7d, '7 dias') +
+              mini(s.cadastros30d, '30 dias') + mini(s.admins, 'admins') + '</div>'
+          ) : '') +
+          '<input class="search" id="busca" placeholder="Buscar por nome ou e-mail…" value="' + esc(state.busca) + '"/>' +
+          '<div id="lista"></div></div>';
+        el('sair').onclick = sair;
+        var busca = el('busca');
+        busca.oninput = function () { state.busca = busca.value; renderLista(); };
+        renderLista();
+      }
+      function renderLista() {
+        var lista = usersFiltrados();
+        el('lista').innerHTML = lista.length
+          ? lista.map(userHtml).join('')
+          : '<div class="empty">Nenhum usuário encontrado.</div>';
+      }
+
+      // Delegação de eventos (toggle + ações)
+      document.addEventListener('click', function (ev) {
+        var head = ev.target.closest ? ev.target.closest('[data-toggle]') : null;
+        if (head) {
+          var id = head.getAttribute('data-toggle');
+          state.aberto = state.aberto === id ? null : id;
+          renderLista();
+          return;
+        }
+        var a = ev.target.closest ? ev.target.closest('.act') : null;
+        if (a && !a.disabled) executarAcao(a.getAttribute('data-id'), a.getAttribute('data-act'));
+      });
+
+      async function executarAcao(id, act) {
+        var u = state.users.find(function (x) { return x.id === id; });
+        if (!u) return;
+        if (act === 'excluir') {
+          if (!confirm('Excluir ' + u.nome + ' (' + u.email + ')? Esta ação não pode ser desfeita.')) return;
+          state.agindo = id; state.erro = ''; renderLista();
+          try {
+            await apiFetch('/admin/users/' + id, { method: 'DELETE' });
+            state.users = state.users.filter(function (x) { return x.id !== id; });
+            await atualizarStats();
+          } catch (e) { state.erro = e.message; }
+          state.agindo = null; renderDashboard();
+          return;
+        }
+        state.agindo = id; state.erro = ''; renderLista();
+        try {
+          var atualizado;
+          if (act === 'trial') atualizado = await apiFetch('/admin/users/' + id + '/trial', { method: 'POST' });
+          else if (act === 'revoke') atualizado = await apiFetch('/admin/users/' + id + '/revoke', { method: 'POST' });
+          else atualizado = await apiFetch('/admin/users/' + id + '/pro', { method: 'POST', body: JSON.stringify({ periodo: act }) });
+          state.users = state.users.map(function (x) { return x.id === id ? atualizado : x; });
+          await atualizarStats();
+        } catch (e) { state.erro = e.message; }
+        state.agindo = null; renderDashboard();
+      }
+
+      async function atualizarStats() {
+        try { state.stats = await apiFetch('/admin/stats'); } catch (e) {}
+      }
+
+      async function carregar() {
+        document.getElementById('root').innerHTML =
+          '<div class="loading"><img src="/Loading.png" alt=""/><p>Carregando o painel…</p></div>';
+        try {
+          var res = await Promise.all([apiFetch('/admin/stats'), apiFetch('/admin/users?limit=500')]);
+          state.stats = res[0];
+          state.users = res[1].items;
+          renderDashboard();
+        } catch (e) {
+          renderLogin(e.message || 'Falha ao carregar. Faça login novamente.');
+        }
+      }
+
+      function sair() {
+        token = null;
+        fetch(API_BASE + '/auth/logout', { method: 'POST', credentials: 'include' }).catch(function () {});
+        renderLogin('');
+      }
+
+      // Boot: tenta usar a sessão existente (cookie de refresh); senão, login.
+      (async function () {
+        if (await tryRefresh()) {
+          try {
+            var me = await apiFetch('/auth/me');
+            if (me && me.isAdmin) { return carregar(); }
+          } catch (e) {}
+        }
+        renderLogin('');
+      })();
+    </script>
+  </body>
+</html>
