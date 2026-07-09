@@ -362,7 +362,7 @@ function TabelaRow({ row, onClick }: { row: PriceTableRowDTO; onClick: () => voi
           fontSize: 22,
         }}
       >
-        {row.produto.emoji ?? '📦'}
+        {emojiDe(row.produto)}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p

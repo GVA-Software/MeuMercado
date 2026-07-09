@@ -42,7 +42,7 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['acucar'], '🍬'],
   [['sal '], '🧂'],
   [['cafe'], '☕'],
-  [['oleo', 'banha'], '🫗'],
+  [['oleo', 'banha'], '🛢️'],
   [['azeite', 'azeitona'], '🫒'],
   [['vinagre', 'molho', 'ketchup', 'maionese', 'mostarda', 'shoyu', 'extrato', 'tempero', 'caldo'], '🥫'],
   [['pao', 'baguete', 'bisnaga', 'torrada'], '🍞'],
