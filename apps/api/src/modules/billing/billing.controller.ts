@@ -1,6 +1,5 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { SubscribeSchema, type SubscribeInput, type SubscriptionDTO } from '@meumercado/contracts';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
+import { Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { type SubscriptionDTO } from '@meumercado/contracts';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { JwtAuthGuard, type AuthedUser } from '../auth/jwt-auth.guard.js';
 import { BillingService } from './billing.service.js';
@@ -16,18 +15,9 @@ export class BillingController {
     return this.service.toDTO(await this.service.forUser(user.id));
   }
 
-  @Post('trial')
-  async trial(@CurrentUser() user: AuthedUser): Promise<SubscriptionDTO> {
-    return this.service.toDTO(await this.service.iniciarTrial(user.id));
-  }
-
-  @Post('subscribe')
-  async assinar(
-    @CurrentUser() user: AuthedUser,
-    @Body(new ZodValidationPipe(SubscribeSchema)) body: SubscribeInput,
-  ): Promise<SubscriptionDTO> {
-    return this.service.toDTO(await this.service.assinar(user.id, body.periodo));
-  }
+  // A concessão de Pro / Nina IA (trial ou assinatura) é feita SOMENTE pelo painel
+  // de administração (AdminService → BillingService). O app não pode se auto-conceder
+  // — por isso não há mais /billing/trial nem /billing/subscribe aqui.
 
   @Post('cancel')
   async cancelar(@CurrentUser() user: AuthedUser): Promise<SubscriptionDTO> {

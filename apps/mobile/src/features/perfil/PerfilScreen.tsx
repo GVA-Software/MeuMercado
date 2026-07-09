@@ -4,7 +4,6 @@ import { useAuth } from '../../auth/AuthContext';
 import { useTheme } from '../../theme/theme';
 import { AppLogo, Btn, Card, Pill, ThemeToggle } from '../../ui/kit';
 import { AuthForm } from '../auth/AuthForm';
-import { Paywall } from '../billing/Paywall';
 
 /**
  * Modal de recorte da foto: o usuário arrasta e dá zoom para enquadrar antes de
@@ -143,7 +142,6 @@ function CropModal({
 export function PerfilScreen() {
   const { T } = useTheme();
   const { user, subscription, loading, atualizarNome, logout, cancelar } = useAuth();
-  const [paywall, setPaywall] = useState(false);
 
   // Edição do nome.
   const [editandoNome, setEditandoNome] = useState(false);
@@ -444,14 +442,9 @@ export function PerfilScreen() {
                   </Btn>
                 </>
               ) : (
-                <>
-                  <p style={{ color: T.muted, fontSize: 13, margin: '0 0 12px' }}>
-                    Desbloqueie a Nina IA, histórico completo e mais.
-                  </p>
-                  <Btn full onClick={() => setPaywall(true)}>
-                    ✨ Assinar o Pro
-                  </Btn>
-                </>
+                <p style={{ color: T.muted, fontSize: 13, margin: 0, lineHeight: 1.5 }}>
+                  A Nina IA e os recursos Pro são liberados pela administração do Meu Mercado.
+                </p>
               )}
             </Card>
 
@@ -467,7 +460,6 @@ export function PerfilScreen() {
         )}
       </div>
 
-      {paywall && <Paywall onClose={() => setPaywall(false)} />}
       {cropFile && (
         <CropModal file={cropFile} onSave={salvarFoto} onCancel={() => setCropFile(null)} />
       )}

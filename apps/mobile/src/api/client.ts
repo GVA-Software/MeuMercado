@@ -13,7 +13,6 @@ import type {
   NfceDraftDTO,
   NfceImportRequest,
   NfceImportResult,
-  Periodo,
   PriceHistoryDTO,
   PriceSummaryDTO,
   PriceTableRowDTO,
@@ -230,17 +229,9 @@ export class ApiClient {
   }
 
   // ---- Billing / assinatura ----
+  // Conceder Pro/Nina é exclusivo do painel de ADM; o app só consulta e cancela.
   billingMe(): Promise<SubscriptionDTO> {
     return this.request('/billing/me');
-  }
-  assinar(periodo: Periodo): Promise<SubscriptionDTO> {
-    return this.request('/billing/subscribe', {
-      method: 'POST',
-      body: JSON.stringify({ periodo }),
-    });
-  }
-  iniciarTrial(): Promise<SubscriptionDTO> {
-    return this.request('/billing/trial', { method: 'POST' });
   }
   cancelar(): Promise<SubscriptionDTO> {
     return this.request('/billing/cancel', { method: 'POST' });

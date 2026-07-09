@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import type { Periodo, SubscriptionDTO, UserDTO } from '@meumercado/contracts';
+import type { SubscriptionDTO, UserDTO } from '@meumercado/contracts';
 import { api } from '../api/client';
 
 interface AuthState {
@@ -10,7 +10,6 @@ interface AuthState {
   register: (email: string, nome: string, senha: string) => Promise<void>;
   atualizarNome: (nome: string) => Promise<void>;
   logout: () => Promise<void>;
-  assinar: (periodo: Periodo) => Promise<void>;
   cancelar: () => Promise<void>;
 }
 
@@ -83,17 +82,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSubscription(null);
   }, []);
 
-  const assinar = useCallback(async (periodo: Periodo) => {
-    setSubscription(await api.assinar(periodo));
-  }, []);
-
   const cancelar = useCallback(async () => {
     setSubscription(await api.cancelar());
   }, []);
 
   return (
     <Ctx.Provider
-      value={{ user, subscription, loading, login, register, atualizarNome, logout, assinar, cancelar }}
+      value={{ user, subscription, loading, login, register, atualizarNome, logout, cancelar }}
     >
       {children}
     </Ctx.Provider>
