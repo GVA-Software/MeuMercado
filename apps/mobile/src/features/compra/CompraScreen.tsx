@@ -5,6 +5,7 @@ import { api, formatBRL } from '../../api/client';
 import { useTheme } from '../../theme/theme';
 import { AppLogo, Btn, Card, CurrencyInput, EmptyState, SLabel, ThemeToggle } from '../../ui/kit';
 import { MarketTag } from '../../ui/market';
+import { MinhasCompras } from '../compras/MinhasCompras';
 
 export function CompraScreen() {
   const { T } = useTheme();
@@ -12,6 +13,9 @@ export function CompraScreen() {
   const [produtos, setProdutos] = useState<ProdutoDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [comprasOpen, setComprasOpen] = useState(false);
+  const [finalizando, setFinalizando] = useState(false);
+  const [finalizarErro, setFinalizarErro] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -63,6 +67,21 @@ export function CompraScreen() {
     setCart(await api.definirLimite(cart.id, valor));
   }
 
+  async function finalizar() {
+    if (!cart || cart.items.length === 0) return;
+    setFinalizando(true);
+    setFinalizarErro(null);
+    try {
+      await api.finalizarCompra(cart.id);
+      setCart(await api.obterCarrinho(cart.id)); // agora vazio
+      setComprasOpen(true);
+    } catch (e) {
+      setFinalizarErro(e instanceof Error ? e.message : String(e));
+    } finally {
+      setFinalizando(false);
+    }
+  }
+
   if (error) {
     return (
       <div style={{ padding: 20, paddingBottom: 100 }}>
@@ -97,6 +116,22 @@ export function CompraScreen() {
         >
           <AppLogo size={18} inverted />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              onClick={() => setComprasOpen(true)}
+              aria-label="Minhas compras"
+              style={{
+                background: 'rgba(255,255,255,0.9)',
+                border: 'none',
+                borderRadius: 14,
+                width: 44,
+                height: 44,
+                fontSize: 20,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              }}
+            >
+              🧾
+            </button>
             <ThemeToggle />
             <button
               onClick={() => setAddOpen((v) => !v)}
@@ -315,10 +350,21 @@ export function CompraScreen() {
                   {formatBRL(cart.total.cents)}
                 </span>
               </div>
+
+              <Btn full disabled={finalizando} onClick={() => void finalizar()}>
+                {finalizando ? 'Finalizando…' : '✓ Finalizar compra'}
+              </Btn>
+              {finalizarErro && (
+                <p style={{ color: T.danger, fontSize: 13, margin: 0, textAlign: 'center' }}>
+                  {finalizarErro}
+                </p>
+              )}
             </>
           )
         )}
       </div>
+
+      {comprasOpen && <MinhasCompras onClose={() => setComprasOpen(false)} />}
     </div>
   );
 }

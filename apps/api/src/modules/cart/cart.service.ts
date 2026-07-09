@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cart, CartItem, Money } from '@meumercado/domain';
-import type { AddCartItemInput, CartDTO, CartMercadoDTO } from '@meumercado/contracts';
+import type { AddCartItemInput, CartDTO, CartMercadoDTO, CompraDTO } from '@meumercado/contracts';
 import { PricingService } from '../pricing/pricing.service.js';
+import { ComprasService } from '../compras/compras.service.js';
 import { CART_STORE, type CartStore } from './cart.store.js';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class CartService {
   constructor(
     @Inject(CART_STORE) private readonly store: CartStore,
     private readonly pricing: PricingService,
+    private readonly compras: ComprasService,
   ) {}
 
   async criar(): Promise<CartDTO> {
@@ -98,6 +100,19 @@ export class CartService {
     cart.setLimite(limiteCents === null ? null : Money.fromCents(limiteCents));
     await this.store.save(cart);
     return this.toDTO(cart);
+  }
+
+  /** Fecha a compra: salva no histórico e esvazia o carrinho para a próxima. */
+  async finalizar(id: string, userId: string): Promise<CompraDTO> {
+    const cart = await this.requireCart(id);
+    if (cart.items.length === 0) {
+      throw new BadRequestException('Carrinho vazio — adicione itens antes de finalizar.');
+    }
+    const compra = await this.compras.criarDeCarrinho(cart, userId);
+    for (const item of cart.items) cart.removeItem(item.lineId);
+    cart.setMercado(null);
+    await this.store.save(cart);
+    return compra;
   }
 
   private async requireCart(id: string): Promise<Cart> {

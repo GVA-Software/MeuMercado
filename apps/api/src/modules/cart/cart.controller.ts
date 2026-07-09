@@ -18,6 +18,7 @@ import {
   type AddCartItemInput,
   type CartDTO,
   type CartMercadoDTO,
+  type CompraDTO,
   type SetLimiteInput,
 } from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
@@ -61,6 +62,14 @@ export class CartController {
     @Body(new ZodValidationPipe(CartMercadoSchema)) body: CartMercadoDTO,
   ): Promise<CartDTO> {
     return this.service.definirMercado(id, body);
+  }
+
+  /** Fecha a compra: guarda no histórico e esvazia o carrinho. */
+  @Post(':id/finalizar')
+  @HttpCode(201)
+  @UseGuards(JwtAuthGuard)
+  finalizar(@Param('id') id: string, @CurrentUser() user: AuthedUser): Promise<CompraDTO> {
+    return this.service.finalizar(id, user.id);
   }
 
   @Patch(':id/items/:lineId')

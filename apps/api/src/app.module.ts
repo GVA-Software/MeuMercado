@@ -17,6 +17,7 @@ import { MarketsModule } from './modules/markets/markets.module.js';
 import { PricingModule } from './modules/pricing/pricing.module.js';
 import { NfceModule } from './modules/nfce/nfce.module.js';
 import { CartModule } from './modules/cart/cart.module.js';
+import { ComprasModule } from './modules/compras/compras.module.js';
 import { InsightsModule } from './modules/insights/insights.module.js';
 
 type ModuleImport = Type | DynamicModule | Promise<DynamicModule> | ForwardReference;
@@ -46,6 +47,7 @@ const imports: ModuleImport[] = [
   PricingModule,
   NfceModule,
   CartModule,
+  ComprasModule,
   InsightsModule,
 ];
 

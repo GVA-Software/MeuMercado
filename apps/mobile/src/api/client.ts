@@ -3,6 +3,8 @@ import type {
   AuthResponse,
   CartDTO,
   CartMercadoDTO,
+  CompraDTO,
+  ComprasResponse,
   CreateProdutoInput,
   InsightsResponse,
   LoginInput,
@@ -165,6 +167,14 @@ export class ApiClient {
   }
   definirMercadoCarrinho(id: string, mercado: CartMercadoDTO): Promise<CartDTO> {
     return this.request(`/carts/${id}/mercado`, { method: 'PUT', body: JSON.stringify(mercado) });
+  }
+  finalizarCompra(id: string): Promise<CompraDTO> {
+    return this.request(`/carts/${id}/finalizar`, { method: 'POST' });
+  }
+
+  // ---- Minhas compras (histórico) ----
+  listarCompras(): Promise<ComprasResponse> {
+    return this.request('/compras');
   }
 
   // ---- Mercados (aba Mapa) ----

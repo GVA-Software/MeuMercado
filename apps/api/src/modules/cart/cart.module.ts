@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
+import { ComprasModule } from '../compras/compras.module.js';
 import { PricingModule } from '../pricing/pricing.module.js';
 import { CartController } from './cart.controller.js';
 import { CartService } from './cart.service.js';
 
-// CART_STORE é fornecido globalmente pelo PersistenceModule (memória ou Postgres).
-// AuthModule → JwtAuthGuard; PricingModule → PricingService (auto-report do preço).
+// CART_STORE é global (PersistenceModule). AuthModule → guard; PricingModule →
+// auto-report; ComprasModule → finalizar a compra no histórico.
 @Module({
-  imports: [AuthModule, PricingModule],
+  imports: [AuthModule, PricingModule, ComprasModule],
   controllers: [CartController],
   providers: [CartService],
 })
