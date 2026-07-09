@@ -11,6 +11,7 @@ export function AuthForm() {
   const [email, setEmail] = useState('');
   const [nome, setNome] = useState('');
   const [senha, setSenha] = useState('');
+  const [verSenha, setVerSenha] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -62,13 +63,35 @@ export function AuthForm() {
         onChange={(e) => setEmail(e.target.value)}
         style={input}
       />
-      <input
-        placeholder={mode === 'register' ? 'Senha (mín. 8 caracteres)' : 'Senha'}
-        type="password"
-        value={senha}
-        onChange={(e) => setSenha(e.target.value)}
-        style={input}
-      />
+      <div style={{ position: 'relative' }}>
+        <input
+          placeholder={mode === 'register' ? 'Senha (mín. 8 caracteres)' : 'Senha'}
+          type={verSenha ? 'text' : 'password'}
+          autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+          value={senha}
+          onChange={(e) => setSenha(e.target.value)}
+          style={{ ...input, paddingRight: 44 }}
+        />
+        <button
+          type="button"
+          onClick={() => setVerSenha((v) => !v)}
+          aria-label={verSenha ? 'Ocultar senha' : 'Mostrar senha'}
+          style={{
+            position: 'absolute',
+            right: 6,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 17,
+            padding: 6,
+            lineHeight: 1,
+          }}
+        >
+          {verSenha ? '🙈' : '👁️'}
+        </button>
+      </div>
 
       {erro && <p style={{ color: T.danger, fontSize: 13, margin: 0 }}>{erro}</p>}
 

@@ -52,12 +52,19 @@
           '<h1>Administração</h1>' +
           '<p class="hint">Acesso restrito. Entre com uma conta de administrador.</p>' +
           '<label>E-mail</label><input id="email" type="email" autocomplete="username" placeholder="voce@email.com"/>' +
-          '<label>Senha</label><input id="senha" type="password" autocomplete="current-password" placeholder="••••••••"/>' +
+          '<label>Senha</label><div class="pw-wrap"><input id="senha" type="password" autocomplete="current-password" placeholder="••••••••"/>' +
+          '<button type="button" class="pw-eye" id="verSenha" aria-label="Mostrar senha">👁️</button></div>' +
           '<div class="err" id="loginErr">' + esc(erro || '') + '</div>' +
           '<button class="btn" id="entrar" style="margin-top:14px">Entrar</button>' +
           '</div></div>';
         el('entrar').onclick = fazerLogin;
         el('senha').onkeydown = function (e) { if (e.key === 'Enter') fazerLogin(); };
+        el('verSenha').onclick = function () {
+          var inp = el('senha');
+          var mostrar = inp.type === 'password';
+          inp.type = mostrar ? 'text' : 'password';
+          this.textContent = mostrar ? '🙈' : '👁️';
+        };
       }
       async function fazerLogin() {
         var email = el('email').value.trim();
