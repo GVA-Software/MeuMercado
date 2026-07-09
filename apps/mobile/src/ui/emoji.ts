@@ -1,11 +1,12 @@
 /**
- * Emoji automático para um produto a partir do nome (a NFC-e traz abreviações em
- * caixa alta, ex.: "PRES.MAG.COZ.SEARA"). Heurística leve e 100% local — sem
- * custo de API. Usada como fallback quando o produto não tem emoji próprio.
+ * Emoji automático para um produto a partir do nome. A NFC-e traz abreviações em
+ * caixa alta (ex.: "SAB.LIQ.LUX", "DES.REXONA", "CR.DENTAL", "AMAC.YPE"), então o
+ * dicionário reconhece tanto o nome completo quanto as abreviações comuns.
+ * Heurística leve e 100% local — sem custo de API.
  *
- * A ORDEM importa: regras mais específicas/compostas vêm antes das genéricas, para
- * "molho de tomate" virar 🍅 (não 🫙), "chocolate ao leite" 🍫 (não 🥛),
- * "batata doce" 🍠 (não 🥔), "pimentão" 🫑 (não 🌶️) etc.
+ * A ORDEM importa: regras compostas/específicas vêm antes das genéricas, e o nome
+ * é envolto por espaços para casar limites de palavra (ex.: " sal " não casa
+ * "salsicha"; " alho " não casa "chocalho").
  */
 
 function normaliza(nome: string): string {
@@ -13,24 +14,29 @@ function normaliza(nome: string): string {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
-    .replace(/[.\-_/(),]/g, ' ')
+    .replace(/[.\-_/(),=]/g, ' ')
     .replace(/\s+/g, ' ');
 }
 
 /** [palavras-chave, emoji] — a primeira que casar (substring) vence. */
 const REGRAS: Array<[readonly string[], string]> = [
-  // ---------- Casa / limpeza / utilidades (raramente colidem com comida) ----------
-  [['saco de lixo', 'saco lixo', 'embalixo', 'pa de lixo', 'saco p lixo', 'saco para lixo'], '🗑️'],
-  [['papel higien'], '🧻'],
-  [['papel toalha', 'papel aluminio', 'papel alumin ', 'filme pvc', 'filme plastico', 'papel manteiga'], '🧻'],
+  // ---------- Casa / limpeza / descartáveis ----------
+  [['saco de lixo', 'saco lixo', 'sac lixo', 'sac inst', 'embalixo', 'pa de lixo', 'saco p lixo', 'saco para lixo'], '🗑️'],
+  [['papel higien', 'papel hig', 'p hig'], '🧻'],
+  [['papel toalha', 'papel aluminio', 'papel alumin', 'filme pvc', 'filme de pvc', 'filme', 'pvc', 'papel manteiga', 'interfolha'], '🧻'],
+  [['absorvente', 'abs '], '🧻'],
   [['guardanapo'], '🍽️'],
+  [['prato fundo', 'prato raso', 'prato sobrem', 'prato desc', 'prato de papel'], '🍽️'],
+  [['copo'], '🥤'],
+  [['talher', 'garfo desc', 'faca desc', 'colher desc'], '🍴'],
+  [['caldeirao', 'panela', 'frigideira', 'frigid', 'wok'], '🍲'],
   [['saco zip', 'saco ziploc', 'saco para freezer', 'saco freezer', 'sacola', 'saco de compras'], '🛍️'],
   [['prendedor'], '📎'],
   [['fosforo', 'isqueiro'], '🔥'],
   [['velas', 'vela perfum', 'vela aromat', 'vela de'], '🕯️'],
   [['pilha', 'bateria'], '🔋'],
   [['lampada'], '💡'],
-  [['inseticida', 'formicida', 'barata'], '🪳'],
+  [['inseticida', 'inset ', 'formicida', 'barata', 'raid'], '🪳'],
   [['repelente', 'mosquito'], '🦟'],
   [['esponja de aco', 'esponja aco', 'bombril'], '🧽'],
   [['esponja'], '🧽'],
@@ -40,21 +46,21 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['sabao em po', 'sabao po'], '🧼'],
   [['agua sanitaria', 'agua sanit', 'candida'], '🧴'],
   [
-    ['amaciante', 'detergente', 'desengordur', 'multiuso', 'desinfet', 'limpa vidro', 'limpador', 'tira mancha', 'alvejante', 'lustra', 'cera liquida', 'sabao liquido', 'sabao'],
+    ['amaciante', 'amac', 'detergente', 'det ', 'desengordur', 'multiuso', 'multi uso', 'desinfet', 'desinf', 'desifet', 'des ', 'desod', 'limpa vidro', 'limpador', 'limp ', 'tira mancha', 'alvejante', 'lustra', 'cera liquida', 'sabao liquido', 'sab liq', 'sabao', 'lava r', 'lava rpa', 'lava roupa', 'pedra sanit', 'bloco sanit', 'past ades', 'pastilha ades', 'pastilha sanit', 'antissep', 'difusor', 'aromatiz'],
     '🧴',
   ],
 
   // ---------- Higiene pessoal / beleza ----------
-  [['creme dental', 'pasta de dente', 'pasta dental', 'gel dental'], '🪥'],
-  [['escova de dente', 'escova dental'], '🪥'],
+  [['creme dental', 'cr dental', 'cr dent', 'gel dental', 'gel d sorriso', 'pasta de dente', 'pasta dental'], '🪥'],
+  [['escova de dente', 'escova dental', 'esc dental', 'esc dent'], '🪥'],
   [['fio dental'], '🦷'],
-  [['aparelho de barbear', 'gilete', 'lamina de barbear'], '🪒'],
+  [['aparelho de barbear', 'ap barb', 'apar barb', 'gilete', 'lamina de barbear'], '🪒'],
   [['algodao'], '⚪'],
-  [['cotonete', 'haste flexivel'], '🧴'],
+  [['cotonete', 'haste'], '🧴'],
   [['sabonete liquido'], '🧴'],
-  [['sabonete'], '🧼'],
+  [['sabonete', 'sab '], '🧼'],
   [
-    ['shampoo', 'xampu', 'condicionador', 'creme para pentear', 'creme pentear', 'enxaguante', 'antisseptico bucal', 'desodorante', 'hidratante', 'protetor solar', 'pos barba', 'espuma de barb', 'talco', 'pomada', 'perfume', 'colonia', 'locao'],
+    ['shampoo', 'shamp', 'xampu', 'xamp', 'condicionador', 'cond seda', 'cond dove', 'cond elseve', 'cond pantene', 'cond clear', 'cond nivea', 'creme pent', 'creme para pentear', 'enxaguante', 'antisseptico bucal', 'desodorante', 'hidratante', 'protetor solar', 'pos barba', 'espuma de barb', 'talco', 'pomada', 'perfume', 'colonia', 'locao'],
     '🧴',
   ],
   [['batom'], '💄'],
@@ -64,7 +70,8 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['corretivo', 'po compacto', 'blush', 'mascara de cilios', 'rimel', 'base facial', ' base ', 'primer', 'mascara facial', 'creme facial', 'serum facial'], '🧴'],
 
   // ---------- Bebê ----------
-  [['fralda', 'lenco umedecido', 'lencos umedecidos'], '👶'],
+  [['fralda', 'lenco umedecido', 'lencos umedecidos', 'toalha ume', 'toalha umed', 'assadura'], '👶'],
+  [['chocalho'], '🧸'],
   [['mamadeira', 'chupeta'], '🍼'],
   [['papinha'], '🥣'],
   [['formula infantil', 'leite em po infantil'], '🥛'],
@@ -72,22 +79,20 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['sabonete infantil'], '🧼'],
 
   // ---------- Pet ----------
-  [['racao para gato', 'racao gato', 'racao gatos', 'sache para gato', 'sache gato', 'areia sanit', 'areia para gato', 'arranhador'], '🐱'],
+  [['racao para gato', 'racao gato', 'racao gatos', 'sache para gato', 'sache gato', 'areia sanit', 'arranhador'], '🐱'],
   [['racao para cao', 'racao para caes', 'racao cao', 'racao caes', 'racao'], '🐶'],
-  [['petisco', 'bifinho', 'osso para'], '🦴'],
+  [['petisco', 'bifinho', 'osso para', 'sache para cao', 'sache cachorro'], '🦴'],
   [['coleira', 'guia peitoral'], '🦮'],
   [['tapete higienico'], '🟦'],
   [['brinquedo'], '🧸'],
-  [['sache'], '🥫'],
 
-  // ---------- Açougue / frios / peixaria (compostos primeiro) ----------
+  // ---------- Açougue / frios / peixaria ----------
   [['pao de queijo'], '🧀'],
-  [['requeijao'], '🧀'],
-  [['queijo', 'mussarela', 'mucarela', 'muzarela', 'parmesao', 'provolone', 'gorgonzola', 'cheddar', 'catupiry'], '🧀'],
-  // chocolate cedo para vencer "leite" em "chocolate ao leite"
+  [['requeijao', 'req '], '🧀'],
+  [['queijo', 'qjo', 'mussarela', 'mucarela', 'muzarela', 'parmesao', 'provolone', 'gorgonzola', 'cheddar', 'catupiry'], '🧀'],
   [['chocolate', 'bombom', 'brigadeiro', 'nutella', 'chocotone'], '🍫'],
   [['presunt', 'apresunt', 'pres mag', 'mortadela', 'salame', 'peito de peru', 'blanquet'], '🍖'],
-  [['linguica', 'salsich'], '🌭'],
+  [['linguica', 'ling ', 'salsich'], '🌭'],
   [['bacon', 'toucinho', 'panceta'], '🥓'],
   [['hamburguer', 'hamburg'], '🍔'],
   [['frango', 'coxa', 'sobrecoxa', 'peito de frango', 'file de frango', 'asa de frango'], '🍗'],
@@ -105,18 +110,18 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['ovos', ' ovo '], '🥚'],
 
   // ---------- Laticínios ----------
-  [['leite condensado'], '🥛'],
-  [['creme de leite'], '🥛'],
+  [['leite condensado', 'leite cond', 'l cond', 'cond pirac', 'cond moca', 'condensado'], '🥛'],
+  [['creme de leite', 'cr leite'], '🥛'],
   [['doce de leite'], '🍮'],
-  [['iogurte', 'nescau', 'achocolatado', 'toddy'], '🥛'],
-  [['manteiga', 'margarina'], '🧈'],
+  [['iogurte', 'iog ', 'nescau', 'achocolatado', 'achoc', 'toddy', 'beb lac', 'bebida lactea', 'leite ferm'], '🥛'],
+  [['manteiga', 'margarina', 'marg '], '🧈'],
   [['leite'], '🥛'],
 
   // ---------- Padaria ----------
   [['baguete'], '🥖'],
   [['croissant'], '🥐'],
   [['rosquinha', 'donut', 'sonho'], '🍩'],
-  [['bolo', 'panetone', 'torta', ' cuca '], '🎂'],
+  [['bolo', 'mist bol', 'panetone', 'torta', ' cuca '], '🎂'],
   [['torrada'], '🍞'],
   [['pao', 'bisnaga'], '🍞'],
 
@@ -125,18 +130,19 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['feijao', 'lentilha', 'grao de bico'], '🫘'],
   [['ervilha'], '🫛'],
   [['canjica'], '🌽'],
+  [['pizza'], '🍕'],
   [['miojo', 'macarrao instant', 'lamen', 'ramen'], '🍜'],
-  [['macarrao', 'espaguete', 'espaguet', 'penne', 'parafuso', 'talharim', 'lasanha', 'nhoque', 'massa '], '🍝'],
+  [['macarrao', 'mac ', 'espaguete', 'espaguet', 'penne', 'parafuso', 'talharim', 'lasanha', 'nhoque', 'massa '], '🍝'],
+  [['farinha', 'farofa', 'trigo', 'amido de milho', 'polvilho', 'aveia', 'tapioca', 'goma', 'ferm ', 'fermento'], '🌾'],
   [['fuba'], '🌽'],
-  [['farinha', 'trigo', 'amido de milho', 'polvilho', 'aveia', 'tapioca', 'goma'], '🌾'],
 
   // ---------- Óleos e molhos ----------
   [['azeite', 'azeitona'], '🫒'],
-  [['extrato de tomate', 'molho de tomate', 'molho tomate', 'polpa de tomate', 'tomate pelado', 'tomate'], '🍅'],
+  [['extrato de tomate', 'molho de tomate', 'molho tomate', 'molho tom', 'polpa de tomate', 'tomate pelado', 'tomate'], '🍅'],
   [['molho de alho'], '🧄'],
   [['molho de pimenta'], '🌶️'],
   [['oleo', 'banha'], '🫙'],
-  [['vinagre', 'shoyu', 'molho ingles', 'barbecue', 'ketchup', 'catchup', 'mostarda', 'maionese', 'molho', 'tempero', 'caldo '], '🫙'],
+  [['vinagre', 'shoyu', 'molho ingles', 'barbecue', 'ketchup', 'catchup', 'mostarda', 'maionese', 'maion', 'molho', 'tempero', 'temp ', 'oregano', 'caldo '], '🫙'],
 
   // ---------- Enlatados ----------
   [['palmito', 'seleta', 'cogumelo', 'champignon'], '🥫'],
@@ -146,24 +152,25 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['marshmallow'], '🍡'],
   [['pacoca', 'pe de moleque', 'amendoim'], '🥜'],
   [['geleia'], '🫙'],
-  [['goiabada', 'bala', 'chiclete', 'jujuba', 'caramelo'], '🍬'],
+  [['gelatina'], '🍮'],
+  [['goiabada', 'bala', 'chiclete', 'chicl', 'jujuba', 'caramelo', 'pastilha'], '🍬'],
   [['mel ', 'mel de', 'mel silvestre', 'mel puro'], '🍯'],
 
   // ---------- Snacks ----------
   [['batata chips', 'batata palha', 'chips'], '🥔'],
-  [['salgadinho', 'salgadin', 'doritos', 'cheetos', 'fandangos'], '🍟'],
+  [['salgadinho', 'salgadin', 'salg ', 'doritos', 'cheetos', 'fandangos'], '🍟'],
   [['pipoca'], '🍿'],
   [['castanha', 'noz ', 'nozes', 'amendoa', 'avela'], '🌰'],
   [['barra de cereal'], '🥣'],
-  [['cereal', 'granola', 'sucrilhos', 'flocos de milho'], '🥣'],
-  [['biscoito', 'bolacha', 'cookie', 'wafer', 'waffer'], '🍪'],
+  [['cereal', 'cer mat', 'granola', 'sucrilhos', 'flocos de milho'], '🥣'],
+  [['biscoito', 'bisc ', 'bolacha', 'cookie', 'wafer', 'waffer'], '🍪'],
 
   // ---------- Bebidas ----------
   [['agua de coco', 'coco'], '🥥'],
   [['agua com gas', 'agua mineral', 'agua '], '💧'],
-  [['refrigerante', 'coca', 'guarana', 'fanta', 'sprite', 'pepsi', 'soda', 'tonica'], '🥤'],
+  [['refrigerante', 'ref ', 'refri', 'coca', 'guarana', 'fanta', 'sprite', 'pepsi', 'soda', 'tonica', 'sukita', 'kuat', 'isoto', 'powerade'], '🥤'],
   [['suco', 'nectar'], '🧃'],
-  [['cafe'], '☕'],
+  [['cafe', 'filtro papel', 'filtro de cafe'], '☕'],
   [['cha verde', 'cha preto', 'cha mate', 'cha branco', 'cha de', 'camomila', 'erva mate'], '🍵'],
   [['energetico', 'isotonico', 'gatorade', 'red bull', 'redbull'], '🥤'],
   [['cerveja', 'chopp'], '🍺'],
@@ -209,11 +216,11 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['pimentao'], '🫑'],
   [['pimenta'], '🌶️'],
   [['cebola'], '🧅'],
-  [['alho'], '🧄'],
+  [[' alho '], '🧄'],
   [['milho'], '🌽'],
 
   // ---------- Básicos ----------
-  [['acucar'], '🍬'],
+  [['acucar', 'acuc'], '🍬'],
   [[' sal ', 'sal refinado', 'sal grosso', 'sal marinho'], '🧂'],
 ];
 
