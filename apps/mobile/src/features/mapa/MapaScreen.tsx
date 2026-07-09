@@ -544,55 +544,44 @@ function LocalSheet({
   );
 }
 
-/** Loading do mapa: um carrinho (nosso logo) enchendo de compras. */
+/** Loading do mapa: nosso logo animado sobre o fundo desfocado. */
 function CartLoading() {
-  const itens = ['🍎', '🥛', '🍞', '🧀', '🥫'];
   return (
     <div
       style={{
         position: 'absolute',
         inset: 0,
         zIndex: 6,
-        background: 'rgba(0,0,0,0.4)',
+        background: 'rgba(0,0,0,0.22)',
+        backdropFilter: 'blur(5px)',
+        WebkitBackdropFilter: 'blur(5px)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 14,
+        gap: 18,
       }}
     >
-      <div
+      <img
+        src="/cart.png"
+        alt=""
+        width={92}
+        height={92}
         style={{
-          position: 'relative',
-          width: 120,
-          height: 74,
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'center',
+          borderRadius: 22,
+          animation: 'mm-logo-bob 1s ease-in-out infinite, mm-logo-glow 1.6s ease-in-out infinite',
         }}
-      >
-        <div style={{ position: 'absolute', top: 0, display: 'flex', gap: 3 }}>
-          {itens.map((e, i) => (
-            <span
-              key={i}
-              style={{ fontSize: 20, animation: `mm-item-drop 1.3s ${i * 0.18}s infinite` }}
-            >
-              {e}
-            </span>
-          ))}
-        </div>
-        <span style={{ fontSize: 52, animation: 'mm-cart-bob 1s ease-in-out infinite' }}>🛒</span>
-      </div>
+      />
       <p
         style={{
           color: '#FFF',
           fontSize: 14,
-          fontWeight: 700,
-          textShadow: '0 1px 4px #000',
+          fontWeight: 800,
+          textShadow: '0 1px 6px rgba(0,0,0,0.8)',
           margin: 0,
         }}
       >
-        Enchendo o carrinho de mercados…
+        Buscando mercados perto de você…
       </p>
     </div>
   );

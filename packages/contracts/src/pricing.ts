@@ -81,3 +81,10 @@ export const PriceHistorySchema = z.object({
   pontos: z.array(PriceHistoryPointSchema),
 });
 export type PriceHistoryDTO = z.infer<typeof PriceHistorySchema>;
+
+/** Um mercado presente na base (para o filtro da tabela de preços). */
+export const MercadoResumoSchema = z.object({
+  nome: z.string(),
+  count: z.number().int().nonnegative(),
+});
+export type MercadoResumoDTO = z.infer<typeof MercadoResumoSchema>;

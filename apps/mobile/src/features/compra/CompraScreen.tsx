@@ -116,28 +116,6 @@ export function CompraScreen() {
         >
           <AppLogo size={18} inverted />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              onClick={() => setComprasOpen(true)}
-              aria-label="Minhas compras"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                background: 'rgba(255,255,255,0.92)',
-                color: '#111',
-                border: 'none',
-                borderRadius: 14,
-                height: 44,
-                padding: '0 12px',
-                fontSize: 13,
-                fontWeight: 800,
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <span style={{ fontSize: 16 }}>🧾</span> Compras
-            </button>
             <ThemeToggle />
             <button
               onClick={() => setAddOpen((v) => !v)}
@@ -229,6 +207,28 @@ export function CompraScreen() {
 
       <div style={{ padding: '14px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {cart && <MercadoDaCompra cart={cart} onCart={setCart} />}
+
+        <button
+          onClick={() => setComprasOpen(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            width: '100%',
+            background: T.surface,
+            border: `1px solid ${T.border}`,
+            borderRadius: 14,
+            padding: '12px 14px',
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
+          <span style={{ fontSize: 18 }}>🧾</span>
+          <span style={{ flex: 1, color: T.text, fontSize: 14, fontWeight: 700 }}>
+            Minhas compras
+          </span>
+          <span style={{ color: T.muted, fontSize: 13 }}>histórico ›</span>
+        </button>
 
         {addOpen && (
           <AddPanel produtos={produtos} onAdd={adicionar} onClose={() => setAddOpen(false)} />

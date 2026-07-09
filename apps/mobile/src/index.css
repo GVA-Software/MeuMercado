@@ -61,28 +61,22 @@ input:-webkit-autofill:active {
   display: none;
 }
 
-/* Loading "carrinho enchendo" (aba Mapa, durante a busca de mercados). */
-@keyframes mm-cart-bob {
+/* Loading do logo (aba Mapa, durante a busca de mercados). */
+@keyframes mm-logo-bob {
   0%,
   100% {
-    transform: translateY(0) rotate(-2deg);
+    transform: translateY(0) scale(1);
   }
   50% {
-    transform: translateY(-8px) rotate(2deg);
+    transform: translateY(-10px) scale(1.05);
   }
 }
-@keyframes mm-item-drop {
-  0% {
-    transform: translateY(-16px) scale(0.4);
-    opacity: 0;
-  }
-  40% {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
-  80%,
+@keyframes mm-logo-glow {
+  0%,
   100% {
-    transform: translateY(0) scale(1);
-    opacity: 1;
+    box-shadow: 0 8px 22px rgba(255, 107, 43, 0.35);
+  }
+  50% {
+    box-shadow: 0 12px 34px rgba(255, 107, 43, 0.6);
   }
 }

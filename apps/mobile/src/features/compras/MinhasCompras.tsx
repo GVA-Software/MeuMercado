@@ -16,6 +16,10 @@ function dataLabel(iso: string): string {
     year: 'numeric',
   });
 }
+function ordDe(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
 /** Histórico de compras do usuário: economia, gasto por mês e a lista. */
 export function MinhasCompras({ onClose }: { onClose: () => void }) {
@@ -23,6 +27,7 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
   const [compras, setCompras] = useState<CompraDTO[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aberta, setAberta] = useState<string | null>(null);
+  const [mesFiltro, setMesFiltro] = useState<string | null>(null);
 
   useEffect(() => {
     void api
@@ -165,39 +170,93 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
                 >
                   GASTO POR MÊS
                 </p>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 110 }}>
-                  {resumo.meses.map((m) => (
-                    <div
-                      key={m.ord}
-                      style={{
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                    >
-                      <span style={{ color: T.sub, fontSize: 10, fontWeight: 700 }}>
-                        {(m.cents / 100).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
-                      </span>
-                      <div
+                <div
+                  className="no-scrollbar"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    gap: 10,
+                    height: 116,
+                    overflowX: 'auto',
+                  }}
+                >
+                  {resumo.meses.map((m) => {
+                    const sel = mesFiltro === m.ord;
+                    return (
+                      <button
+                        key={m.ord}
+                        onClick={() => setMesFiltro((f) => (f === m.ord ? null : m.ord))}
                         style={{
-                          width: '70%',
-                          height: `${Math.max(6, (m.cents / maxMes) * 74)}px`,
-                          background: T.primary,
-                          borderRadius: '6px 6px 0 0',
+                          flex: '0 0 auto',
+                          width: 66,
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: 6,
                         }}
-                      />
-                      <span style={{ color: T.muted, fontSize: 10 }}>{m.label}</span>
-                    </div>
-                  ))}
+                      >
+                        <span
+                          style={{
+                            color: sel ? T.primary : T.sub,
+                            fontSize: 10,
+                            fontWeight: 800,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {formatBRL(m.cents)}
+                        </span>
+                        <div
+                          style={{
+                            width: '100%',
+                            height: `${Math.max(6, (m.cents / maxMes) * 74)}px`,
+                            background: sel ? T.primary : `${T.primary}88`,
+                            border: sel ? `2px solid ${T.primary}` : 'none',
+                            borderRadius: '6px 6px 0 0',
+                            transition: 'background 0.15s',
+                          }}
+                        />
+                        <span
+                          style={{
+                            color: sel ? T.text : T.muted,
+                            fontSize: 10,
+                            fontWeight: sel ? 700 : 400,
+                          }}
+                        >
+                          {m.label}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
+                {mesFiltro && (
+                  <button
+                    onClick={() => setMesFiltro(null)}
+                    style={{
+                      marginTop: 12,
+                      background: T.card,
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 99,
+                      padding: '6px 12px',
+                      color: T.primary,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ✕ Limpar filtro do mês
+                  </button>
+                )}
               </div>
             )}
 
             {/* Lista */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {compras.map((c) => (
+              {(mesFiltro ? compras.filter((c) => ordDe(c.criadaEm) === mesFiltro) : compras).map(
+                (c) => (
                 <div
                   key={c.id}
                   style={{

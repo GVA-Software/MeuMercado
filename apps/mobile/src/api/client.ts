@@ -9,6 +9,7 @@ import type {
   InsightsResponse,
   LoginInput,
   MercadoDTO,
+  MercadoResumoDTO,
   NfceDraftDTO,
   NfceImportRequest,
   NfceImportResult,
@@ -125,8 +126,13 @@ export class ApiClient {
   reportarPreco(input: ReportPriceInput): Promise<PriceSummaryDTO> {
     return this.request('/prices', { method: 'POST', body: JSON.stringify(input) });
   }
-  tabelaPrecos(q?: string): Promise<PriceTableRowDTO[]> {
-    return this.request(`/prices/table${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+  tabelaPrecos(mercado?: string): Promise<PriceTableRowDTO[]> {
+    return this.request(
+      `/prices/table${mercado ? `?mercado=${encodeURIComponent(mercado)}` : ''}`,
+    );
+  }
+  mercadosPreco(): Promise<MercadoResumoDTO[]> {
+    return this.request('/prices/mercados');
   }
   historicoPreco(produtoId: string): Promise<PriceHistoryDTO> {
     return this.request(`/prices/${encodeURIComponent(produtoId)}/history`);

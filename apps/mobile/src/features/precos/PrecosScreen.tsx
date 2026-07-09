@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type {
   MercadoDTO,
+  MercadoResumoDTO,
   PriceHistoryDTO,
   PriceHistoryPointDTO,
   PriceTableRowDTO,
@@ -11,7 +12,7 @@ import type {
 import { api, formatBRL } from '../../api/client';
 import { useTheme, type Theme } from '../../theme/theme';
 import { AppLogo, Btn, CurrencyInput, EmptyState, SLabel } from '../../ui/kit';
-import { MarketTag } from '../../ui/market';
+import { MarketTag, marcaMercado } from '../../ui/market';
 import { useNav } from '../../app/nav';
 import { NfceFlow } from '../nfce/NfceFlow';
 
@@ -39,22 +40,36 @@ export function PrecosScreen() {
   const [entry, setEntry] = useState<{ open: boolean; produto?: ProdutoDTO }>({ open: false });
   const [detalhe, setDetalhe] = useState<PriceTableRowDTO | null>(null);
   const [nfceOpen, setNfceOpen] = useState(false);
+  const [mercadoFiltro, setMercadoFiltro] = useState<string | null>(null);
+  const [mercadosDisp, setMercadosDisp] = useState<MercadoResumoDTO[]>([]);
 
-  async function carregar() {
+  const carregar = useCallback(async () => {
     try {
-      setRows(await api.tabelaPrecos());
+      setRows(await api.tabelaPrecos(mercadoFiltro ?? undefined));
     } catch (e) {
       setErro(e instanceof Error ? e.message : String(e));
     }
-  }
+  }, [mercadoFiltro]);
 
+  const carregarMercados = useCallback(() => {
+    void api
+      .mercadosPreco()
+      .then(setMercadosDisp)
+      .catch(() => {});
+  }, []);
+
+  // Recarrega a tabela sempre que o filtro de mercado muda.
   useEffect(() => {
     void carregar();
+  }, [carregar]);
+
+  useEffect(() => {
+    carregarMercados();
     void api
       .listarProdutos()
       .then(setProdutos)
       .catch(() => {});
-  }, []);
+  }, [carregarMercados]);
 
   const filtradas = useMemo(() => {
     if (!rows) return null;
@@ -162,9 +177,76 @@ export function PrecosScreen() {
           </div>
         )}
 
+        {mercadosDisp.length > 0 && (
+          <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
+            <button
+              onClick={() => setMercadoFiltro(null)}
+              style={{
+                flexShrink: 0,
+                background: mercadoFiltro === null ? T.primaryBg : T.card,
+                color: mercadoFiltro === null ? T.primary : T.sub,
+                border: `1px solid ${mercadoFiltro === null ? T.primary : T.border}`,
+                borderRadius: 99,
+                padding: '7px 13px',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Todos
+            </button>
+            {mercadosDisp.map((m) => {
+              const sel = mercadoFiltro === m.nome;
+              const { label, cor } = marcaMercado(m.nome);
+              return (
+                <button
+                  key={m.nome}
+                  onClick={() => setMercadoFiltro(sel ? null : m.nome)}
+                  style={{
+                    flexShrink: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: sel ? cor : `${cor}18`,
+                    color: sel ? '#FFF' : cor,
+                    border: `1px solid ${sel ? cor : `${cor}55`}`,
+                    borderRadius: 99,
+                    padding: '7px 12px',
+                    fontSize: 12,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: 99,
+                      background: sel ? '#FFF' : cor,
+                      flexShrink: 0,
+                    }}
+                  />
+                  {label}
+                  <span style={{ opacity: 0.7, fontWeight: 700 }}>{m.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {!erro && rows === null && <p style={{ color: T.muted }}>Carregando…</p>}
 
-        {rows && rows.length === 0 && (
+        {rows && rows.length === 0 && mercadoFiltro && (
+          <EmptyState
+            emoji="🔍"
+            titulo="Nenhum preço nesse mercado"
+            sub={`Não há preços reportados em ${marcaMercado(mercadoFiltro).label}. Toque em “Todos” para ver a base completa.`}
+          />
+        )}
+
+        {rows && rows.length === 0 && !mercadoFiltro && (
           <EmptyState
             emoji="🏷️"
             titulo="Nenhum preço ainda"
@@ -197,6 +279,7 @@ export function PrecosScreen() {
           onDone={() => {
             setEntry({ open: false });
             void carregar();
+            carregarMercados();
           }}
         />
       )}
@@ -214,6 +297,7 @@ export function PrecosScreen() {
           onClose={() => setNfceOpen(false)}
           onImported={() => {
             void carregar();
+            carregarMercados();
           }}
         />
       )}

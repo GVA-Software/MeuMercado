@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { Money, PriceObservation, PriceStatistics } from '@meumercado/domain';
 import type {
+  MercadoResumoDTO,
   PriceHistoryDTO,
   PriceSummaryDTO,
   PriceTableRowDTO,
@@ -74,9 +75,11 @@ export class PricingService {
    * estatística regional. Opcionalmente filtrada por busca. Ordena pelos mais
    * reportados (mais confiáveis) primeiro. Uma leitura só, agrupada em memória.
    */
-  async tabela(q?: string, asOf: Date = new Date()): Promise<PriceTableRowDTO[]> {
+  async tabela(q?: string, mercado?: string, asOf: Date = new Date()): Promise<PriceTableRowDTO[]> {
+    const todas = this.reais(await this.repo.all());
+    const observacoes = mercado ? todas.filter((o) => o.mercadoNome === mercado) : todas;
     const porProduto = new Map<string, PriceObservation[]>();
-    for (const o of this.reais(await this.repo.all())) {
+    for (const o of observacoes) {
       const arr = porProduto.get(o.produtoId);
       if (arr) arr.push(o);
       else porProduto.set(o.produtoId, [o]);
@@ -111,6 +114,18 @@ export class PricingService {
       ? rows.filter((r) => r.produto.nome.toLowerCase().includes(termo))
       : rows;
     return filtradas.sort((a, b) => b.amostras - a.amostras);
+  }
+
+  /** Mercados presentes na base (para o filtro da tabela) — mais reportados primeiro. */
+  async mercados(): Promise<MercadoResumoDTO[]> {
+    const contagem = new Map<string, number>();
+    for (const o of this.reais(await this.repo.all())) {
+      if (!o.mercadoNome) continue;
+      contagem.set(o.mercadoNome, (contagem.get(o.mercadoNome) ?? 0) + 1);
+    }
+    return [...contagem]
+      .map(([nome, count]) => ({ nome, count }))
+      .sort((a, b) => b.count - a.count);
   }
 
   /** Série histórica (ordem cronológica) de um produto — base do gráfico. */

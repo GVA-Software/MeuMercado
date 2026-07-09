@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ReportPriceSchema,
+  type MercadoResumoDTO,
   type PriceHistoryDTO,
   type PriceSummaryDTO,
   type PriceTableRowDTO,
@@ -28,8 +29,17 @@ export class PricingController {
 
   /** Tabela de preços colaborativa (produtos com preço reportado). */
   @Get('table')
-  tabela(@Query('q') q?: string): Promise<PriceTableRowDTO[]> {
-    return this.service.tabela(q);
+  tabela(
+    @Query('q') q?: string,
+    @Query('mercado') mercado?: string,
+  ): Promise<PriceTableRowDTO[]> {
+    return this.service.tabela(q, mercado);
+  }
+
+  /** Mercados presentes na base (para o filtro da tabela). */
+  @Get('mercados')
+  mercados(): Promise<MercadoResumoDTO[]> {
+    return this.service.mercados();
   }
 
   /** Série histórica de um produto (para o gráfico). */
