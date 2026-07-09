@@ -21,11 +21,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [subscription, setSubscription] = useState<SubscriptionDTO | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const applyAuth = useCallback(async (accessToken: string, u: UserDTO) => {
+  const applyAuth = useCallback((accessToken: string, u: UserDTO) => {
     localStorage.setItem(TOKEN_KEY, accessToken);
     api.setToken(accessToken);
     setUser(u);
-    setSubscription(await api.billingMe());
+    // A assinatura não bloqueia a abertura do app: carrega em segundo plano
+    // (uma ida a menos ao servidor no "cold start" do Render → boot mais rápido).
+    void api
+      .billingMe()
+      .then(setSubscription)
+      .catch(() => {});
   }, []);
 
   // Mantém a sessão ativa: no boot, renova pelo cookie httpOnly de refresh (14
@@ -35,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         const r = await api.refresh();
-        await applyAuth(r.accessToken, r.user);
+        applyAuth(r.accessToken, r.user);
       } catch {
         localStorage.removeItem(TOKEN_KEY);
         api.setToken(null);
@@ -48,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, senha: string) => {
       const r = await api.login({ email, senha });
-      await applyAuth(r.accessToken, r.user);
+      applyAuth(r.accessToken, r.user);
     },
     [applyAuth],
   );
@@ -56,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     async (email: string, nome: string, senha: string) => {
       const r = await api.register({ email, nome, senha });
-      await applyAuth(r.accessToken, r.user);
+      applyAuth(r.accessToken, r.user);
     },
     [applyAuth],
   );

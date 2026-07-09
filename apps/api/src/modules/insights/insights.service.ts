@@ -57,20 +57,27 @@ export class InsightsService {
 
     const insights: InsightDTO[] = this.engine.generate(context).map((i) => i.toJSON());
 
-    // Nunca deixa a Nina "vazia" quando já há dados reais: um card-resumo mostra
-    // que ela está viva e guia o usuário enquanto ainda não há observações
-    // suficientes para os alertas de comparação (mesmo produto em 2+ mercados/datas).
-    if (insights.length === 0 && observations.length > 0) {
+    // Panorama honesto da base — sempre presente quando há dados reais. Também
+    // reconcilia "preços" (observações) x "produtos" (itens distintos): são
+    // contagens diferentes, pois um mesmo produto pode ter vários preços (datas
+    // ou mercados diferentes). Fica por último, como rodapé-resumo da análise.
+    if (observations.length > 0) {
       const nMercados = new Set(observations.map((o) => o.mercadoId)).size;
+      const nProdutos = new Set(observations.map((o) => o.produtoId)).size;
       const maisCara = observations.reduce((a, b) => (b.price.cents > a.price.cents ? b : a));
       const nomeProd =
         produtosDeInteresse.find((p) => p.id === maisCara.produtoId)?.nome ?? 'um item';
+      const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
+      const explicaContagem =
+        observations.length > nProdutos
+          ? `Alguns produtos têm mais de um preço (datas/mercados diferentes), por isso são ${observations.length} preços para ${nProdutos} produtos. `
+          : '';
       insights.push({
         type: 'resumo',
         urgente: false,
         emoji: '🧾',
-        titulo: `${observations.length} ${observations.length === 1 ? 'preço registrado' : 'preços registrados'} em ${nMercados} ${nMercados === 1 ? 'mercado' : 'mercados'}`,
-        sub: `A Nina já está de olho. Quando o mesmo produto aparecer em mais de um mercado ou em datas diferentes, ela começa a comparar e avisar as melhores ofertas. Registre mais notas para turbinar. (Mais caro até agora: ${nomeProd}.)`,
+        titulo: `${plural(observations.length, 'preço', 'preços')} · ${plural(nProdutos, 'produto', 'produtos')} · ${plural(nMercados, 'mercado', 'mercados')}`,
+        sub: `${explicaContagem}Registre o mesmo item em mais de um mercado para a Nina comparar e achar o mais barato. (Item mais caro até agora: ${nomeProd}.)`,
       });
     }
 

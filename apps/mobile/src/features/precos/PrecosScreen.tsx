@@ -11,7 +11,7 @@ import type {
 } from '@meumercado/contracts';
 import { api, formatBRL } from '../../api/client';
 import { useTheme, type Theme } from '../../theme/theme';
-import { AppLogo, Btn, CurrencyInput, EmptyState, SLabel } from '../../ui/kit';
+import { AppLogo, Btn, CartLoader, CurrencyInput, EmptyState, SLabel } from '../../ui/kit';
 import { MarketTag, marcaMercado } from '../../ui/market';
 import { useNav } from '../../app/nav';
 import { NfceFlow } from '../nfce/NfceFlow';
@@ -236,7 +236,7 @@ export function PrecosScreen() {
           </div>
         )}
 
-        {!erro && rows === null && <p style={{ color: T.muted }}>Carregando…</p>}
+        {!erro && rows === null && <CartLoader label="Carregando preços…" />}
 
         {rows && rows.length === 0 && mercadoFiltro && (
           <EmptyState
@@ -395,12 +395,14 @@ function TabelaRow({ row, onClick }: { row: PriceTableRowDTO; onClick: () => voi
   );
 }
 
-/** Gráfico de linha simples (SVG) da evolução do preço. */
+/** Gráfico de linha (SVG) da evolução do preço, com área de plotagem e grade. */
 function Sparkline({ pontos, color }: { pontos: PriceHistoryPointDTO[]; color: string }) {
   const { T } = useTheme();
   const W = 320;
-  const H = 110;
-  const pad = 14;
+  const H = 132;
+  const padX = 14;
+  const padTop = 16;
+  const padBottom = 22;
   if (pontos.length === 0) return null;
 
   const vals = pontos.map((p) => p.priceCents);
@@ -408,34 +410,62 @@ function Sparkline({ pontos, color }: { pontos: PriceHistoryPointDTO[]; color: s
   const max = Math.max(...vals);
   const span = max - min || 1;
   const n = pontos.length;
+  const plotH = H - padTop - padBottom;
   const coords = pontos.map((p, i) => {
-    const x = n === 1 ? W / 2 : pad + (i / (n - 1)) * (W - 2 * pad);
-    const y = pad + (1 - (p.priceCents - min) / span) * (H - 2 * pad);
+    const x = n === 1 ? W / 2 : padX + (i / (n - 1)) * (W - 2 * padX);
+    const y = padTop + (1 - (p.priceCents - min) / span) * plotH;
     return [x, y] as const;
   });
   const linha = coords.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-  const area = `${coords[0]![0].toFixed(1)},${H - pad} ${linha} ${coords[n - 1]![0].toFixed(1)},${
-    H - pad
-  }`;
+  const base = padTop + plotH;
+  const area = `${coords[0]![0].toFixed(1)},${base} ${linha} ${coords[n - 1]![0].toFixed(1)},${base}`;
+  // Linhas de grade horizontais (4 faixas).
+  const grades = [0, 0.25, 0.5, 0.75, 1].map((f) => padTop + f * plotH);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-      <polygon points={area} fill={`${color}22`} stroke="none" />
-      {n > 1 && (
-        <polyline
-          points={linha}
-          fill="none"
-          stroke={color}
-          strokeWidth={2.5}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          vectorEffect="non-scaling-stroke"
-        />
-      )}
-      {coords.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r={3.2} fill={color} stroke={T.surface} strokeWidth={1.5} />
-      ))}
-    </svg>
+    <div
+      style={{
+        background: T.card,
+        borderRadius: 14,
+        border: `1px solid ${T.border}`,
+        padding: '8px 10px 4px',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+        <span style={{ color: T.muted, fontSize: 10, fontWeight: 700 }}>máx {formatBRL(max)}</span>
+        <span style={{ color: T.muted, fontSize: 10, fontWeight: 700 }}>mín {formatBRL(min)}</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+        {grades.map((y, i) => (
+          <line
+            key={i}
+            x1={padX}
+            y1={y}
+            x2={W - padX}
+            y2={y}
+            stroke={T.border}
+            strokeWidth={1}
+            strokeDasharray="2 5"
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        <polygon points={area} fill={`${color}22`} stroke="none" />
+        {n > 1 && (
+          <polyline
+            points={linha}
+            fill="none"
+            stroke={color}
+            strokeWidth={2.5}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
+        {coords.map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r={3.2} fill={color} stroke={T.card} strokeWidth={1.5} />
+        ))}
+      </svg>
+    </div>
   );
 }
 

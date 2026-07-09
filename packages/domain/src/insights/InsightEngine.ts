@@ -53,6 +53,9 @@ const DEFAULT_CONFIG: InsightEngineConfig = {
   minSavings: Money.fromReais(1),
 };
 
+/** Abaixo disso é ruído/estável; não vira insight de variação. */
+const MIN_MOVE_PCT = 2;
+
 /**
  * Motor de insights baseado em estatística — 100% explicável e sem custo de API.
  * Cada método privado é uma "regra" isolada e testável.
@@ -67,6 +70,7 @@ export class StatisticalInsightEngine implements InsightEngine {
   generate(context: InsightContext): Insight[] {
     const insights: Insight[] = [
       ...this.trendAlerts(context),
+      ...this.priceMovements(context),
       ...this.cheapestMarketTips(context),
       ...this.historicalLows(context),
     ];
@@ -136,6 +140,37 @@ export class StatisticalInsightEngine implements InsightEngine {
           }),
         );
       }
+    }
+    return out;
+  }
+
+  /**
+   * Regra 1b: variação perceptível de preço (entre o limiar mínimo e o de alerta).
+   * Garante que a Nina traga algo útil mesmo com poucos dados / um só mercado —
+   * qualquer item registrado em 2+ datas com preço diferente vira um card honesto.
+   * (Movimentos ≥ trendAlertPct já são tratados como alerta urgente na Regra 1.)
+   */
+  private priceMovements(context: InsightContext): Insight[] {
+    const out: Insight[] = [];
+    for (const produto of context.produtosDeInteresse) {
+      const stats = new PriceStatistics(this.observationsFor(context, produto.id));
+      const pct = stats.trendPercent(context.asOf, this.config.windowDays);
+      if (pct === null) continue;
+      const abs = Math.abs(pct);
+      if (abs < MIN_MOVE_PCT || abs >= this.config.trendAlertPct) continue;
+      const subiu = pct > 0;
+      out.push(
+        new Insight({
+          type: subiu ? 'tendencia-alta' : 'tendencia-baixa',
+          urgente: false,
+          emoji: produto.emoji ?? (subiu ? '📈' : '📉'),
+          titulo: `${produto.nome} ${subiu ? 'subiu' : 'caiu'} ${Math.round(abs)}% nos seus registros`,
+          sub: subiu
+            ? 'Leve alta entre suas últimas compras — vale comparar antes de estocar.'
+            : 'Leve queda entre suas últimas compras — pode ser um bom momento.',
+          produtoId: produto.id,
+        }),
+      );
     }
     return out;
   }

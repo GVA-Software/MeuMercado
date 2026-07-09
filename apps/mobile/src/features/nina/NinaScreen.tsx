@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { InsightDTO } from '@meumercado/contracts';
 import { api, formatBRL } from '../../api/client';
 import { useTheme } from '../../theme/theme';
-import { EmptyState, SLabel } from '../../ui/kit';
+import { CartLoader, EmptyState, SLabel } from '../../ui/kit';
 
 export function NinaScreen() {
   const { T } = useTheme();
@@ -62,7 +62,7 @@ export function NinaScreen() {
       <div style={{ padding: '16px 16px 0' }}>
         <SLabel>Alertas</SLabel>
         {error && <EmptyState emoji="⚠️" titulo="Falha ao carregar" sub={error} />}
-        {!error && insights === null && <p style={{ color: T.muted }}>Analisando…</p>}
+        {!error && insights === null && <CartLoader label="Analisando seus preços…" />}
         {insights?.length === 0 && (
           <EmptyState
             emoji="✨"

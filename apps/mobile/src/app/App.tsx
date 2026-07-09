@@ -9,6 +9,7 @@ import { PrecosScreen } from '../features/precos/PrecosScreen';
 import { PerfilScreen } from '../features/perfil/PerfilScreen';
 import { AuthScreen } from '../features/auth/AuthScreen';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
+import { CartLoader } from '../ui/kit';
 
 // Mapa em chunk separado (carrega o MapLibre só ao abrir a aba Mapa).
 const MapaScreen = lazy(() =>
@@ -39,7 +40,7 @@ export function App() {
           color: T.muted,
         }}
       >
-        Carregando…
+        <CartLoader label="Carregando…" />
       </div>
     );
   }
@@ -54,7 +55,7 @@ export function App() {
         <div className="app-scroll" key={tab}>
           {tab === 'compra' && <CompraScreen />}
           {tab === 'mapa' && (
-            <Suspense fallback={<p style={{ padding: 20, color: T.muted }}>Carregando mapa…</p>}>
+            <Suspense fallback={<CartLoader label="Carregando mapa…" center />}>
               <MapaScreen focus={mapFocus} />
             </Suspense>
           )}

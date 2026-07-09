@@ -4,7 +4,7 @@ import jsQR from 'jsqr';
 import type { NfceDraftDTO } from '@meumercado/contracts';
 import { api, formatBRL } from '../../api/client';
 import { useTheme } from '../../theme/theme';
-import { Btn } from '../../ui/kit';
+import { Btn, CartLoader } from '../../ui/kit';
 
 type Step = 'scan' | 'loading' | 'review' | 'erro' | 'done' | 'colar';
 
@@ -173,9 +173,7 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
       {step === 'loading' && (
         <div style={sheet(T)}>
           <Handle T={T} />
-          <p style={{ color: T.text, textAlign: 'center', padding: '20px 0' }}>
-            Lendo a nota na SEFAZ…
-          </p>
+          <CartLoader label="Lendo a nota na SEFAZ…" />
         </div>
       )}
 
@@ -216,7 +214,14 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
         </div>
       )}
 
-      {step === 'review' && draft && (
+      {step === 'review' && draft && importando && (
+        <div style={sheet(T)}>
+          <Handle T={T} />
+          <CartLoader label="Importando seus preços…" />
+        </div>
+      )}
+
+      {step === 'review' && draft && !importando && (
         <div style={{ ...sheet(T), maxHeight: '88vh', overflowY: 'auto' }}>
           <Handle T={T} />
           <p style={{ color: T.text, fontSize: 17, fontWeight: 800, margin: '0 0 2px' }}>
