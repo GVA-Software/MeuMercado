@@ -236,12 +236,14 @@
         document.getElementById('root').innerHTML =
           '<div class="loading"><img src="/Loading.png" alt=""/><p>Carregando o painel…</p></div>';
         try {
-          var res = await Promise.all([apiFetch('/admin/stats'), apiFetch('/admin/users?limit=500')]);
+          var res = await Promise.all([apiFetch('/admin/stats'), apiFetch('/admin/users?limit=100')]);
           state.stats = res[0];
           state.users = res[1].items;
           renderDashboard();
         } catch (e) {
-          renderLogin(e.message || 'Falha ao carregar. Faça login novamente.');
+          // Já autenticado: mostra o erro no painel (não volta pro login).
+          if (token) { state.erro = e.message || 'Falha ao carregar os dados.'; renderDashboard(); }
+          else renderLogin(e.message || 'Falha ao carregar. Faça login novamente.');
         }
       }
 
