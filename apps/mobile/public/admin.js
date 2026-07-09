@@ -63,7 +63,10 @@
         var email = el('email').value.trim();
         var senha = el('senha').value;
         var btn = el('entrar');
-        el('loginErr').textContent = '';
+        var errEl = el('loginErr');
+        errEl.textContent = '';
+        if (!email || !senha) { errEl.textContent = 'Preencha e-mail e senha.'; return; }
+        if (email.indexOf('@') < 0) { errEl.textContent = 'Informe um e-mail válido.'; el('email').focus(); return; }
         btn.disabled = true; btn.textContent = 'Entrando…';
         try {
           var r = await apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email: email, senha: senha }) });
@@ -74,7 +77,10 @@
           token = r.accessToken;
           await carregar();
         } catch (e) {
-          el('loginErr').textContent = e.message || 'Falha ao entrar.';
+          var msg = e.message || 'Falha ao entrar.';
+          if (msg === 'Falha de validação') msg = 'E-mail inválido. Confira e tente de novo.';
+          else if (msg === 'Credenciais inválidas') msg = 'E-mail ou senha incorretos.';
+          errEl.textContent = msg;
           btn.disabled = false; btn.textContent = 'Entrar';
         }
       }
