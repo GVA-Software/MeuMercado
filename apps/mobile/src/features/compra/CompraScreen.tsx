@@ -2,14 +2,33 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CartDTO, CartMercadoDTO, MercadoDTO, ProdutoDTO } from '@meumercado/contracts';
 import { api, formatBRL } from '../../api/client';
+import { useAuth } from '../../auth/AuthContext';
 import { useTheme } from '../../theme/theme';
 import { AppLogo, Btn, Card, CurrencyInput, EmptyState, SLabel, ThemeToggle } from '../../ui/kit';
 import { MarketTag } from '../../ui/market';
 import { emojiDe } from '../../ui/emoji';
 import { MinhasCompras } from '../compras/MinhasCompras';
 
+/** Saudação conforme a hora do dia. */
+function saudacaoDoDia(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Bom dia';
+  if (h < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
+/** Frase acolhedora (tom da Nina) conforme a hora. */
+function fraseAcolhedora(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Bora começar o dia economizando? 🌱';
+  if (h < 18) return 'Pronto pra fazer aquela compra inteligente? 💚';
+  return 'A Nina está de olho nas melhores ofertas ✨';
+}
+
 export function CompraScreen() {
   const { T } = useTheme();
+  const { user } = useAuth();
+  const primeiroNome = user?.nome?.trim().split(/\s+/)[0] ?? '';
   const [cart, setCart] = useState<CartDTO | null>(null);
   const [produtos, setProdutos] = useState<ProdutoDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +156,25 @@ export function CompraScreen() {
               +
             </button>
           </div>
+        </div>
+
+        {/* Saudação acolhedora (tom da Nina) */}
+        <div style={{ marginBottom: 16 }}>
+          <p
+            style={{
+              color: T.headerText,
+              fontSize: 22,
+              fontWeight: 800,
+              margin: 0,
+              letterSpacing: -0.3,
+            }}
+          >
+            {saudacaoDoDia()}
+            {primeiroNome ? `, ${primeiroNome}` : ''}
+          </p>
+          <p style={{ color: T.headerText, opacity: 0.75, fontSize: 13, margin: '4px 0 0' }}>
+            {fraseAcolhedora()}
+          </p>
         </div>
 
         <div
