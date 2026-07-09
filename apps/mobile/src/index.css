@@ -74,9 +74,9 @@ input:-webkit-autofill:active {
 @keyframes mm-logo-glow {
   0%,
   100% {
-    box-shadow: 0 8px 22px rgba(255, 107, 43, 0.35);
+    filter: drop-shadow(0 6px 14px rgba(255, 107, 43, 0.35));
   }
   50% {
-    box-shadow: 0 12px 34px rgba(255, 107, 43, 0.6);
+    filter: drop-shadow(0 10px 22px rgba(255, 107, 43, 0.6));
   }
 }

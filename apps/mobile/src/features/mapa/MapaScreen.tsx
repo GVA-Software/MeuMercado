@@ -563,12 +563,11 @@ function CartLoading() {
       }}
     >
       <img
-        src="/cart.png"
+        src="/Loading.png"
         alt=""
-        width={92}
-        height={92}
+        width={112}
+        height={112}
         style={{
-          borderRadius: 22,
           animation: 'mm-logo-bob 1s ease-in-out infinite, mm-logo-glow 1.6s ease-in-out infinite',
         }}
       />
