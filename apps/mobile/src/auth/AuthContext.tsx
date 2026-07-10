@@ -33,6 +33,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, []);
 
+  /** Reconsulta a assinatura (plano) do servidor e atualiza o estado. */
+  const refreshSubscription = useCallback(async () => {
+    try {
+      setSubscription(await api.billingMe());
+    } catch {
+      /* mantém o estado atual em caso de falha */
+    }
+  }, []);
+
   // Mantém a sessão ativa: no boot, renova pelo cookie httpOnly de refresh (14
   // dias, renovado a cada abertura). Só desloga quando o usuário clica em "Sair"
   // — sem pedir login toda vez que reabre o app.
@@ -85,6 +94,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const cancelar = useCallback(async () => {
     setSubscription(await api.cancelar());
   }, []);
+
+  // Propaga em TEMPO REAL mudanças de plano (ex.: o ADM liberou/encerrou o Pro)
+  // enquanto o app está aberto: reconsulta ao voltar o foco, num intervalo leve,
+  // e imediatamente quando o service worker avisa que chegou um push.
+  useEffect(() => {
+    if (!user) return;
+    const atualizar = () => {
+      if (document.visibilityState === 'visible') void refreshSubscription();
+    };
+    const id = window.setInterval(atualizar, 60_000);
+    document.addEventListener('visibilitychange', atualizar);
+    const sw = navigator.serviceWorker;
+    const onMsg = (e: MessageEvent) => {
+      if ((e.data as { type?: string } | null)?.type === 'mm-refresh-billing') {
+        void refreshSubscription();
+      }
+    };
+    sw?.addEventListener?.('message', onMsg);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', atualizar);
+      sw?.removeEventListener?.('message', onMsg);
+    };
+  }, [user, refreshSubscription]);
 
   return (
     <Ctx.Provider

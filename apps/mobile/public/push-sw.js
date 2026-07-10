@@ -14,7 +14,17 @@ self.addEventListener('push', function (event) {
     data: { url: data.url || '/' },
     vibrate: [80, 40, 80],
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, options),
+      // Avisa o app aberto para reconsultar o plano na hora (ex.: Pro liberado).
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+        for (var i = 0; i < list.length; i++) {
+          list[i].postMessage({ type: 'mm-refresh-billing' });
+        }
+      }),
+    ]),
+  );
 });
 
 self.addEventListener('notificationclick', function (event) {
