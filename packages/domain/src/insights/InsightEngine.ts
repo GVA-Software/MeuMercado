@@ -116,8 +116,11 @@ export class StatisticalInsightEngine implements InsightEngine {
   private trendAlerts(context: InsightContext): Insight[] {
     const out: Insight[] = [];
     for (const produto of context.produtosDeInteresse) {
-      const pct = new PriceStatistics(this.observationsFor(context, produto.id)).variacaoTotalPct();
+      const stats = new PriceStatistics(this.observationsFor(context, produto.id));
+      const pct = stats.variacaoTotalPct();
       if (pct === null) continue;
+      const de = stats.primeira()?.price.format() ?? '';
+      const para = stats.latest()?.price.format() ?? '';
       if (pct >= this.config.trendAlertPct) {
         out.push(
           new Insight({
@@ -125,7 +128,7 @@ export class StatisticalInsightEngine implements InsightEngine {
             urgente: true,
             emoji: produto.emoji ?? '📈',
             titulo: `${produto.nome} subiu ${Math.round(pct)}%`,
-            sub: 'Considere trocar de marca ou aproveitar promoções em maior quantidade.',
+            sub: `Passou de ${de} para ${para} nos seus registros. Antes de repor, vale comparar em outro mercado ou considerar outra marca.`,
             produtoId: produto.id,
           }),
         );
@@ -136,7 +139,7 @@ export class StatisticalInsightEngine implements InsightEngine {
             urgente: false,
             emoji: produto.emoji ?? '📉',
             titulo: `${produto.nome} caiu ${Math.round(Math.abs(pct))}%`,
-            sub: 'Bom momento para comprar em quantidade.',
+            sub: `Caiu de ${de} para ${para} nos seus registros. Se você usa com frequência, é um bom momento para comprar em maior quantidade.`,
             produtoId: produto.id,
           }),
         );
@@ -154,20 +157,23 @@ export class StatisticalInsightEngine implements InsightEngine {
   private priceMovements(context: InsightContext): Insight[] {
     const out: Insight[] = [];
     for (const produto of context.produtosDeInteresse) {
-      const pct = new PriceStatistics(this.observationsFor(context, produto.id)).variacaoTotalPct();
+      const stats = new PriceStatistics(this.observationsFor(context, produto.id));
+      const pct = stats.variacaoTotalPct();
       if (pct === null) continue;
       const abs = Math.abs(pct);
       if (abs < MIN_MOVE_PCT || abs >= this.config.trendAlertPct) continue;
       const subiu = pct > 0;
+      const de = stats.primeira()?.price.format() ?? '';
+      const para = stats.latest()?.price.format() ?? '';
       out.push(
         new Insight({
           type: subiu ? 'tendencia-alta' : 'tendencia-baixa',
           urgente: false,
           emoji: produto.emoji ?? (subiu ? '📈' : '📉'),
-          titulo: `${produto.nome} ${subiu ? 'subiu' : 'caiu'} ${Math.round(abs)}% nos seus registros`,
+          titulo: `${produto.nome} ${subiu ? 'subiu' : 'caiu'} ${Math.round(abs)}%`,
           sub: subiu
-            ? 'Leve alta entre suas últimas compras — vale comparar antes de estocar.'
-            : 'Leve queda entre suas últimas compras — pode ser um bom momento.',
+            ? `Foi de ${de} para ${para} entre seus registros. Alta pequena — confira o preço em outro mercado antes de comprar.`
+            : `Foi de ${de} para ${para} entre seus registros. Queda pequena — se for repor, está um pouco mais barato que antes.`,
           produtoId: produto.id,
         }),
       );
@@ -203,7 +209,7 @@ export class StatisticalInsightEngine implements InsightEngine {
             urgente: false,
             emoji: produto.emoji ?? '🏷️',
             titulo: `${produto.nome} mais barato no ${this.marketName(context, cheapestId)}`,
-            sub: `Você economizaria ${economia.format()} por unidade vs a média.`,
+            sub: `Sai por ${cheapest.format()} lá — ${economia.format()} abaixo da média dos seus registros (${overall.format()}). É onde vale comprar.`,
             produtoId: produto.id,
             mercadoId: cheapestId,
             economia,
@@ -229,7 +235,7 @@ export class StatisticalInsightEngine implements InsightEngine {
             urgente: false,
             emoji: produto.emoji ?? '⬇️',
             titulo: `${produto.nome} no menor preço do histórico`,
-            sub: `Hoje por ${latest.price.format()}. Bom momento para estocar.`,
+            sub: `Está em ${latest.price.format()} — o menor que você já registrou. Bom momento para estocar.`,
             produtoId: produto.id,
             mercadoId: latest.mercadoId,
           }),

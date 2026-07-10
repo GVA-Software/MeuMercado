@@ -55,6 +55,11 @@ export class PriceStatistics {
     );
   }
 
+  /** Observação mais antiga (primeiro registro). */
+  primeira(): PriceObservation | null {
+    return this.observations.length > 0 ? this.observations[0]! : null;
+  }
+
   /** Observação mais recente. */
   latest(): PriceObservation | null {
     return this.observations.length > 0 ? this.observations[this.observations.length - 1]! : null;
