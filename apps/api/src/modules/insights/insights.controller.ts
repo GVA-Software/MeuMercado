@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import type { InsightsResponse } from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { ProGuard } from '../billing/pro.guard.js';
 import { InsightsService } from './insights.service.js';
 
 const BasketSchema = z.object({
@@ -16,7 +18,9 @@ const BasketSchema = z.object({
     .max(200),
 });
 
+// Nina IA é um recurso Pro: exige login + assinatura ativa (trial ou paga).
 @Controller('insights')
+@UseGuards(JwtAuthGuard, ProGuard)
 export class InsightsController {
   constructor(private readonly service: InsightsService) {}
 

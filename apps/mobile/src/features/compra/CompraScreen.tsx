@@ -4,7 +4,16 @@ import type { CartDTO, CartMercadoDTO, MercadoDTO, ProdutoDTO } from '@meumercad
 import { api, formatBRL } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 import { useTheme } from '../../theme/theme';
-import { AppLogo, Btn, Card, CurrencyInput, EmptyState, SLabel, ThemeToggle } from '../../ui/kit';
+import {
+  AppLogo,
+  Btn,
+  Card,
+  CartLoader,
+  CurrencyInput,
+  EmptyState,
+  SLabel,
+  ThemeToggle,
+} from '../../ui/kit';
 import { MarketTag } from '../../ui/market';
 import { emojiDe } from '../../ui/emoji';
 import { MinhasCompras } from '../compras/MinhasCompras';
@@ -657,7 +666,20 @@ function AddPanel({
 function MercadoDaCompra({ cart, onCart }: { cart: CartDTO; onCart: (c: CartDTO) => void }) {
   const { T } = useTheme();
   const [open, setOpen] = useState(false);
+  const [removendo, setRemovendo] = useState(false);
   const m = cart.mercado;
+
+  async function remover() {
+    setRemovendo(true);
+    try {
+      onCart(await api.removerMercadoCarrinho(cart.id));
+    } catch {
+      /* mantém o mercado atual em caso de erro */
+    } finally {
+      setRemovendo(false);
+    }
+  }
+
   return (
     <>
       {m ? (
@@ -677,19 +699,36 @@ function MercadoDaCompra({ cart, onCart }: { cart: CartDTO; onCart: (c: CartDTO)
             <p style={{ color: T.muted, fontSize: 11, margin: '0 0 4px' }}>Comprando em</p>
             <MarketTag nome={m.nome} />
           </div>
-          <button
-            onClick={() => setOpen(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: T.primary,
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            trocar
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+            <button
+              onClick={() => setOpen(true)}
+              disabled={removendo}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: T.primary,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              trocar
+            </button>
+            <button
+              onClick={() => void remover()}
+              disabled={removendo}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: T.muted,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {removendo ? '…' : 'remover'}
+            </button>
+          </div>
         </div>
       ) : (
         <button
@@ -764,7 +803,9 @@ function MercadoSheet({
         setErro('Não consegui sua localização — digite o mercado abaixo.');
         setLocalizando(false);
       },
-      { enableHighAccuracy: true, timeout: 8000 },
+      // maximumAge reaproveita uma posição recente (bem mais rápido em nova abertura);
+      // timeout maior evita o "às vezes não carrega" quando o GPS demora a responder.
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
     );
   }, []);
 
@@ -845,7 +886,15 @@ function MercadoSheet({
           colaborativa — sem redigitar.
         </p>
 
-        {localizando && <p style={{ color: T.muted, fontSize: 13 }}>📍 Localizando você…</p>}
+        {localizando && (
+          <CartLoader label="Localizando você e buscando mercados por perto…" size={72} />
+        )}
+
+        {!localizando && nearby !== null && nearby.length === 0 && (
+          <p style={{ color: T.muted, fontSize: 13, margin: '4px 0 14px' }}>
+            Não encontrei mercados aqui perto — digite o nome do mercado abaixo.
+          </p>
+        )}
 
         {lista[0] && (
           <div

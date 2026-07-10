@@ -64,6 +64,13 @@ export class CartController {
     return this.service.definirMercado(id, body);
   }
 
+  /** Desvincula o mercado da compra (volta ao estado "sem mercado"). */
+  @Delete(':id/mercado')
+  @UseGuards(JwtAuthGuard)
+  removerMercado(@Param('id') id: string): Promise<CartDTO> {
+    return this.service.definirMercado(id, null);
+  }
+
   /** Fecha a compra: guarda no histórico e esvazia o carrinho. */
   @Post(':id/finalizar')
   @HttpCode(201)

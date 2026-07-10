@@ -57,30 +57,6 @@ export class InsightsService {
 
     const insights: InsightDTO[] = this.engine.generate(context).map((i) => i.toJSON());
 
-    // Panorama honesto da base — sempre presente quando há dados reais. Também
-    // reconcilia "preços" (observações) x "produtos" (itens distintos): são
-    // contagens diferentes, pois um mesmo produto pode ter vários preços (datas
-    // ou mercados diferentes). Fica por último, como rodapé-resumo da análise.
-    if (observations.length > 0) {
-      const nMercados = new Set(observations.map((o) => o.mercadoId)).size;
-      const nProdutos = new Set(observations.map((o) => o.produtoId)).size;
-      const maisCara = observations.reduce((a, b) => (b.price.cents > a.price.cents ? b : a));
-      const nomeProd =
-        produtosDeInteresse.find((p) => p.id === maisCara.produtoId)?.nome ?? 'um item';
-      const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
-      const explicaContagem =
-        observations.length > nProdutos
-          ? `Alguns produtos têm mais de um preço (datas/mercados diferentes), por isso são ${observations.length} preços para ${nProdutos} produtos. `
-          : '';
-      insights.push({
-        type: 'resumo',
-        urgente: false,
-        emoji: '🧾',
-        titulo: `${plural(observations.length, 'preço', 'preços')} · ${plural(nProdutos, 'produto', 'produtos')} · ${plural(nMercados, 'mercado', 'mercados')}`,
-        sub: `${explicaContagem}Registre o mesmo item em mais de um mercado para a Nina comparar e achar o mais barato. (Item mais caro até agora: ${nomeProd}.)`,
-      });
-    }
-
     return { insights, geradoEm: asOf.toISOString() };
   }
 }

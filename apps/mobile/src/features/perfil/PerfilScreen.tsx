@@ -448,11 +448,6 @@ export function PerfilScreen() {
               )}
             </Card>
 
-            <Card>
-              <p style={{ color: T.text, fontWeight: 700, margin: '0 0 8px' }}>Aparência</p>
-              <ThemeToggle />
-            </Card>
-
             <Btn variant="ghost" full onClick={() => void logout()}>
               Sair
             </Btn>

@@ -173,6 +173,9 @@ export class ApiClient {
   definirMercadoCarrinho(id: string, mercado: CartMercadoDTO): Promise<CartDTO> {
     return this.request(`/carts/${id}/mercado`, { method: 'PUT', body: JSON.stringify(mercado) });
   }
+  removerMercadoCarrinho(id: string): Promise<CartDTO> {
+    return this.request(`/carts/${id}/mercado`, { method: 'DELETE' });
+  }
   finalizarCompra(id: string): Promise<CompraDTO> {
     return this.request(`/carts/${id}/finalizar`, { method: 'POST' });
   }
