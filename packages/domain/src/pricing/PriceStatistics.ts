@@ -60,6 +60,21 @@ export class PriceStatistics {
     return this.observations.length > 0 ? this.observations[this.observations.length - 1]! : null;
   }
 
+  /**
+   * Variação % do PRIMEIRO ao ÚLTIMO registro (independe de janela de tempo).
+   * Robusto para dados antigos: enquanto houver 2+ registros em datas diferentes,
+   * a Nina consegue apontar a variação. `null` se não der para comparar.
+   */
+  variacaoTotalPct(): number | null {
+    if (this.observations.length < 2) return null;
+    const primeiro = this.observations[0]!;
+    const ultimo = this.observations[this.observations.length - 1]!;
+    if (primeiro.observedAt.getTime() === ultimo.observedAt.getTime()) return null;
+    const de = primeiro.price.cents;
+    if (de === 0) return null;
+    return ((ultimo.price.cents - de) / de) * 100;
+  }
+
   private windowAverage(asOf: Date, startDaysAgo: number, endDaysAgo: number): Money | null {
     const end = asOf.getTime() - endDaysAgo * DAY_MS;
     const start = asOf.getTime() - startDaysAgo * DAY_MS;

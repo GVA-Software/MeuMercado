@@ -73,6 +73,7 @@ export class StatisticalInsightEngine implements InsightEngine {
       ...this.priceMovements(context),
       ...this.cheapestMarketTips(context),
       ...this.historicalLows(context),
+      ...this.highlights(context),
     ];
     const basket = this.basketOptimization(context);
     if (basket) insights.push(basket);
@@ -88,12 +89,13 @@ export class StatisticalInsightEngine implements InsightEngine {
     return context.observations.filter((o) => o.produtoId === produtoId);
   }
 
-  /** Média por mercado (na janela recente) para um produto. */
-  private averageByMarket(obs: readonly PriceObservation[], asOf: Date): Map<string, Money> {
-    const cutoff = asOf.getTime() - this.config.windowDays * 24 * 60 * 60 * 1000;
+  /**
+   * Média por mercado para um produto (todos os registros — sem janela de tempo).
+   * Comparar "onde está mais barato" faz sentido mesmo com dados de semanas atrás.
+   */
+  private averageByMarket(obs: readonly PriceObservation[]): Map<string, Money> {
     const byMarket = new Map<string, { sum: number; n: number }>();
     for (const o of obs) {
-      if (o.observedAt.getTime() < cutoff) continue;
       const acc = byMarket.get(o.mercadoId) ?? { sum: 0, n: 0 };
       acc.sum += o.price.cents;
       acc.n += 1;
@@ -110,12 +112,11 @@ export class StatisticalInsightEngine implements InsightEngine {
     return context.mercados.find((m) => m.id === mercadoId)?.nome ?? 'outro mercado';
   }
 
-  /** Regra 1: produto de interesse subiu acima do limiar na janela. */
+  /** Regra 1: produto de interesse com variação forte (≥ limiar) entre registros. */
   private trendAlerts(context: InsightContext): Insight[] {
     const out: Insight[] = [];
     for (const produto of context.produtosDeInteresse) {
-      const stats = new PriceStatistics(this.observationsFor(context, produto.id));
-      const pct = stats.trendPercent(context.asOf, this.config.windowDays);
+      const pct = new PriceStatistics(this.observationsFor(context, produto.id)).variacaoTotalPct();
       if (pct === null) continue;
       if (pct >= this.config.trendAlertPct) {
         out.push(
@@ -123,7 +124,7 @@ export class StatisticalInsightEngine implements InsightEngine {
             type: 'tendencia-alta',
             urgente: true,
             emoji: produto.emoji ?? '📈',
-            titulo: `${produto.nome} subiu ${Math.round(pct)}% recentemente`,
+            titulo: `${produto.nome} subiu ${Math.round(pct)}%`,
             sub: 'Considere trocar de marca ou aproveitar promoções em maior quantidade.',
             produtoId: produto.id,
           }),
@@ -153,8 +154,7 @@ export class StatisticalInsightEngine implements InsightEngine {
   private priceMovements(context: InsightContext): Insight[] {
     const out: Insight[] = [];
     for (const produto of context.produtosDeInteresse) {
-      const stats = new PriceStatistics(this.observationsFor(context, produto.id));
-      const pct = stats.trendPercent(context.asOf, this.config.windowDays);
+      const pct = new PriceStatistics(this.observationsFor(context, produto.id)).variacaoTotalPct();
       if (pct === null) continue;
       const abs = Math.abs(pct);
       if (abs < MIN_MOVE_PCT || abs >= this.config.trendAlertPct) continue;
@@ -181,7 +181,7 @@ export class StatisticalInsightEngine implements InsightEngine {
     for (const produto of context.produtosDeInteresse) {
       const obs = this.observationsFor(context, produto.id);
       const overall = new PriceStatistics(obs).average();
-      const byMarket = this.averageByMarket(obs, context.asOf);
+      const byMarket = this.averageByMarket(obs);
       if (overall === null || byMarket.size < 2) continue;
 
       let cheapestId: string | null = null;
@@ -240,6 +240,31 @@ export class StatisticalInsightEngine implements InsightEngine {
   }
 
   /**
+   * Regra 5 (destaque): o item mais caro que o usuário registrou. Sempre existe
+   * quando há dados — dá "vida" à Nina mesmo quando a maioria dos produtos tem um
+   * único registro, e é onde comparar preço entre mercados rende mais.
+   */
+  private highlights(context: InsightContext): Insight[] {
+    let cara: PriceObservation | null = null;
+    for (const o of context.observations) {
+      if (cara === null || o.price.isGreaterThan(cara.price)) cara = o;
+    }
+    if (!cara) return [];
+    const produto = context.produtosDeInteresse.find((p) => p.id === cara!.produtoId);
+    if (!produto) return [];
+    return [
+      new Insight({
+        type: 'destaque',
+        urgente: false,
+        emoji: produto.emoji ?? '💸',
+        titulo: `${produto.nome} é seu item mais caro (${cara.price.format()})`,
+        sub: 'É onde comparar preço entre mercados rende mais. Registre-o em outra loja e a Nina acha o mais barato para você.',
+        produtoId: produto.id,
+      }),
+    ];
+  }
+
+  /**
    * Regra 4 (cesta ótima): compara comprar tudo no melhor mercado único vs
    * distribuir cada item no mercado mais barato. Retorna a economia total.
    */
@@ -247,12 +272,12 @@ export class StatisticalInsightEngine implements InsightEngine {
     const cesta = context.cesta ?? [];
     if (cesta.length === 0) return null;
 
-    // preço (média recente) de cada produto em cada mercado
+    // preço (média) de cada produto em cada mercado
     const priceOf = new Map<string, Map<string, Money>>();
     for (const line of cesta) {
       priceOf.set(
         line.produtoId,
-        this.averageByMarket(this.observationsFor(context, line.produtoId), context.asOf),
+        this.averageByMarket(this.observationsFor(context, line.produtoId)),
       );
     }
 

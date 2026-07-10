@@ -1,7 +1,12 @@
 import { Money, MoneyJSON } from '../money/Money.js';
 
 export type InsightType =
-  'tendencia-alta' | 'tendencia-baixa' | 'mais-barato-em' | 'menor-preco-historico' | 'cesta-otima';
+  | 'tendencia-alta'
+  | 'tendencia-baixa'
+  | 'mais-barato-em'
+  | 'menor-preco-historico'
+  | 'cesta-otima'
+  | 'destaque';
 
 export interface InsightJSON {
   readonly type: InsightType;

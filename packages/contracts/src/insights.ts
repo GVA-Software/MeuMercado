@@ -7,6 +7,7 @@ export const InsightTypeSchema = z.enum([
   'mais-barato-em',
   'menor-preco-historico',
   'cesta-otima',
+  'destaque',
   'resumo',
 ]);
 export type InsightTypeDTO = z.infer<typeof InsightTypeSchema>;
