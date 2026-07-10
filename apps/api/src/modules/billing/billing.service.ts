@@ -1,15 +1,40 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Assinatura, type Periodo } from '@meumercado/domain';
-import type { SubscriptionDTO } from '@meumercado/contracts';
+import { PLANOS, type SubscriptionDTO } from '@meumercado/contracts';
+import { PushService } from '../push/push.service.js';
 import { SUBSCRIPTION_REPOSITORY, type SubscriptionRepository } from './subscription.repository.js';
 
 @Injectable()
 export class BillingService {
-  constructor(@Inject(SUBSCRIPTION_REPOSITORY) private readonly repo: SubscriptionRepository) {}
+  constructor(
+    @Inject(SUBSCRIPTION_REPOSITORY) private readonly repo: SubscriptionRepository,
+    private readonly push: PushService,
+  ) {}
 
   /** Assinatura do usuário (free por padrão, se nunca assinou). */
   async forUser(usuarioId: string): Promise<Assinatura> {
     return (await this.repo.get(usuarioId)) ?? Assinatura.free(usuarioId);
+  }
+
+  /**
+   * Retorna o DTO da assinatura, detectando de forma preguiçosa a EXPIRAÇÃO: se
+   * o Pro (trial/pago) acabou de vencer, marca como expirada e avisa o usuário
+   * com um push de renovação. Chamado no /billing/me (abertura do app).
+   */
+  async minhaComExpiracao(usuarioId: string, agora: Date = new Date()): Promise<SubscriptionDTO> {
+    const a = await this.forUser(usuarioId);
+    const venceu = (a.status === 'ativa' || a.status === 'trial') && !a.isProAtivo(agora);
+    if (venceu) {
+      const expirada = a.expirar();
+      await this.repo.save(expirada);
+      await this.push.enviarPara(usuarioId, {
+        title: 'Seu Pro terminou 😢',
+        body: `A Nina IA foi bloqueada. Renove por apenas ${PLANOS.mensal.label} e volte a economizar com tudo desbloqueado.`,
+        url: '/',
+      });
+      return this.toDTO(expirada, agora);
+    }
+    return this.toDTO(a, agora);
   }
 
   async iniciarTrial(usuarioId: string, agora: Date = new Date()): Promise<Assinatura> {

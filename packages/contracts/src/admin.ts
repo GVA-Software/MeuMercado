@@ -10,6 +10,7 @@ export const AdminUserSchema = z.object({
   criadoEm: z.string().datetime(),
   isAdmin: z.boolean(),
   plano: PlanoSchema,
+  periodo: PeriodoSchema.nullable(),
   status: StatusAssinaturaSchema,
   isPro: z.boolean(),
   diasRestantes: z.number().int().nonnegative(),

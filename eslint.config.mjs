@@ -13,6 +13,8 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/dev-dist/**',
       '**/*.config.*',
+      // Scripts vanilla de navegador/service worker (fora do app TS/React).
+      'apps/mobile/public/**',
     ],
   },
   js.configs.recommended,

@@ -107,7 +107,11 @@
       function chipHtml(u) {
         var cor = '#8a93a3', label = 'FREE';
         if (u.isPro && u.status === 'trial') { cor = '#38bdf8'; label = 'TESTE · ' + u.diasRestantes + 'd'; }
-        else if (u.isPro) { cor = '#22c55e'; label = 'PRO · ' + esc(u.status); }
+        else if (u.isPro) {
+          cor = '#22c55e';
+          var plano = u.periodo ? esc(u.periodo).toUpperCase() : esc(u.status);
+          label = 'PRO ' + plano + ' · ' + u.diasRestantes + 'd';
+        }
         return '<span class="chip" style="background:' + cor + '22;color:' + cor + '">' + label + '</span>';
       }
       function dataLabel(iso) {

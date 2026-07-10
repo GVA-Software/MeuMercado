@@ -427,7 +427,11 @@ export function PerfilScreen() {
               >
                 <p style={{ color: T.text, fontWeight: 700, margin: 0 }}>Plano</p>
                 {subscription?.isPro ? (
-                  <Pill color="#7C3AED" bg="#7C3AED22" label={`PRO · ${subscription.status}`} />
+                  <Pill
+                    color="#7C3AED"
+                    bg="#7C3AED22"
+                    label={`PRO · ${subscription.periodo ?? subscription.status}`}
+                  />
                 ) : (
                   <Pill color={T.muted} bg={T.card} label="FREE" />
                 )}

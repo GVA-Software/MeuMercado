@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Periodo } from '@meumercado/domain';
-import type { AdminStatsDTO, AdminUserDTO, AdminUsersResponse } from '@meumercado/contracts';
+import { PLANOS, type AdminStatsDTO, type AdminUserDTO, type AdminUsersResponse } from '@meumercado/contracts';
 import { isAdminEmail } from '../../common/admin-emails.js';
 import type { Env } from '../../config/env.schema.js';
 import type { AuthedUser } from '../auth/jwt-auth.guard.js';
@@ -43,6 +43,7 @@ export class AdminService {
       criadoEm: user.criadoEm.toISOString(),
       isAdmin: isAdminEmail(user.email, this.adminCsv),
       plano: dto.plano,
+      periodo: dto.periodo,
       status: dto.status,
       isPro: dto.isPro,
       diasRestantes: dto.diasRestantes,
@@ -128,7 +129,15 @@ export class AdminService {
 
   async revogar(targetId: string): Promise<AdminUserDTO> {
     const user = await this.exigirUsuario(targetId);
+    const eraPro = (await this.billing.forUser(targetId)).isProAtivo(new Date());
     await this.billing.cancelar(targetId);
+    if (eraPro) {
+      await this.push.enviarPara(targetId, {
+        title: 'Seu plano Pro foi encerrado',
+        body: `${primeiroNome(user.nome)}, a Nina IA foi bloqueada. Você pode renovar por apenas ${PLANOS.mensal.label}.`,
+        url: '/',
+      });
+    }
     return this.toAdminUser(user);
   }
 

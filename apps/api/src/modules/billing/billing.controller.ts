@@ -11,8 +11,8 @@ export class BillingController {
   constructor(private readonly service: BillingService) {}
 
   @Get('me')
-  async minha(@CurrentUser() user: AuthedUser): Promise<SubscriptionDTO> {
-    return this.service.toDTO(await this.service.forUser(user.id));
+  minha(@CurrentUser() user: AuthedUser): Promise<SubscriptionDTO> {
+    return this.service.minhaComExpiracao(user.id);
   }
 
   // A concessão de Pro / Nina IA (trial ou assinatura) é feita SOMENTE pelo painel

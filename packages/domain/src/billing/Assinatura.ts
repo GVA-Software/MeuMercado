@@ -88,6 +88,18 @@ export class Assinatura {
     });
   }
 
+  /** Marca como expirada (o trial/período chegou ao fim). */
+  expirar(): Assinatura {
+    return new Assinatura({
+      usuarioId: this.usuarioId,
+      plano: this.plano,
+      periodo: this.periodo,
+      status: 'expirada',
+      trialFim: this.trialFim,
+      periodoFim: this.periodoFim,
+    });
+  }
+
   /** É Pro e ainda vigente neste instante? Cobre trial e período pago. */
   isProAtivo(agora: Date): boolean {
     if (this.plano !== 'pro') return false;
