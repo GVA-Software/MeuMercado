@@ -46,12 +46,12 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['sabao em po', 'sabao po'], '🧼'],
   [['agua sanitaria', 'agua sanit', 'candida'], '🧴'],
   [
-    ['amaciante', 'amac', 'detergente', 'det ', 'desengordur', 'multiuso', 'multi uso', 'desinfet', 'desinf', 'desifet', 'des ', 'desod', 'limpa vidro', 'limpador', 'limp ', 'tira mancha', 'alvejante', 'lustra', 'cera liquida', 'sabao liquido', 'sab liq', 'sabao', 'lava r', 'lava rpa', 'lava roupa', 'pedra sanit', 'bloco sanit', 'past ades', 'pastilha ades', 'pastilha sanit', 'antissep', 'difusor', 'aromatiz'],
+    ['amaciante', 'amac', 'detergente', 'det ', 'desengordur', 'multiuso', 'multi uso', 'desinfet', 'desinf', 'desifet', 'des ', 'desod', 'limpa vidro', 'limpador', 'limp ', 'tira mancha', 'alvejante', 'lustra', 'cera liquida', 'sabao liquido', 'sab liq', 'sabao', 'lava r', 'lava rpa', 'lava roupa', 'pedra sanit', 'bloco sanit', 'past ades', 'pastilha ades', 'pastilha sanit', 'antissep', 'difusor', 'aromatiz', 'cloro', 'saponaceo', 'sapolio', 'agua sanit'],
     '🧴',
   ],
 
   // ---------- Higiene pessoal / beleza ----------
-  [['creme dental', 'cr dental', 'cr dent', 'gel dental', 'gel d sorriso', 'pasta de dente', 'pasta dental'], '🪥'],
+  [['creme dental', 'cr dental', 'cr dent', 'crm dent', 'crm dental', 'gel dental', 'gel d sorriso', 'pasta de dente', 'pasta dental'], '🪥'],
   [['escova de dente', 'escova dental', 'esc dental', 'esc dent'], '🪥'],
   [['fio dental'], '🦷'],
   [['aparelho de barbear', 'ap barb', 'apar barb', 'gilete', 'lamina de barbear'], '🪒'],
@@ -113,7 +113,7 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['leite condensado', 'leite cond', 'l cond', 'cond pirac', 'cond moca', 'condensado'], '🥛'],
   [['creme de leite', 'cr leite'], '🥛'],
   [['doce de leite'], '🍮'],
-  [['iogurte', 'iog ', 'nescau', 'achocolatado', 'achoc', 'toddy', 'beb lac', 'bebida lactea', 'leite ferm'], '🥛'],
+  [['iogurte', 'iog ', 'danone', 'grego', 'nescau', 'achocolatado', 'achoc', 'toddy', 'beb lac', 'bebida lactea', 'leite ferm'], '🥛'],
   [['manteiga', 'margarina', 'marg '], '🧈'],
   [['leite'], '🥛'],
 
@@ -133,7 +133,7 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['pizza'], '🍕'],
   [['miojo', 'macarrao instant', 'lamen', 'ramen'], '🍜'],
   [['macarrao', 'mac ', 'espaguete', 'espaguet', 'penne', 'parafuso', 'talharim', 'lasanha', 'nhoque', 'massa '], '🍝'],
-  [['farinha', 'farofa', 'trigo', 'amido de milho', 'polvilho', 'aveia', 'tapioca', 'goma', 'ferm ', 'fermento'], '🌾'],
+  [['farinha', 'farofa', 'trigo', 'amido de milho', 'polvilho', 'aveia', 'tapioca', 'goma de tapioca', 'ferm ', 'fermento'], '🌾'],
   [['fuba'], '🌽'],
 
   // ---------- Óleos e molhos ----------
@@ -153,7 +153,7 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['pacoca', 'pe de moleque', 'amendoim'], '🥜'],
   [['geleia'], '🫙'],
   [['gelatina'], '🍮'],
-  [['goiabada', 'bala', 'chiclete', 'chicl', 'jujuba', 'caramelo', 'pastilha'], '🍬'],
+  [['goiabada', 'bala', 'chiclete', 'chicl', 'goma mascar', 'goma de mascar', 'jujuba', 'caramelo', 'pastilha'], '🍬'],
   [['mel ', 'mel de', 'mel silvestre', 'mel puro'], '🍯'],
 
   // ---------- Snacks ----------
@@ -207,7 +207,7 @@ const REGRAS: Array<[readonly string[], string]> = [
 
   // ---------- Hortifrúti: legumes ----------
   [['batata doce', 'batata-doce'], '🍠'],
-  [['batata', 'mandioca', 'aipim', 'inhame'], '🥔'],
+  [['batata', 'mandioca', 'mandioquinha', 'aipim', 'inhame'], '🥔'],
   [['cenoura'], '🥕'],
   [['beterraba'], '🟣'],
   [['pepino', 'abobrinha', 'chuchu'], '🥒'],
