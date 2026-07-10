@@ -36,6 +36,17 @@ export const envSchema = z.object({
   ADMIN_EMAILS: z.string().default(''),
 
   /**
+   * Web Push (VAPID). Chaves default embutidas para funcionar sem configuração;
+   * em produção pode-se sobrescrever por env no Render. A privada não expõe dados
+   * (só permite enviar notificações aos próprios inscritos).
+   */
+  VAPID_PUBLIC_KEY: z
+    .string()
+    .default('BGc4QFZFZ82nLeTgLlDT0n_CYEWVmXeZM-AuzOBM4iDzqlWuD2ZEgBhjsVqPX5u-QYakvAcC4b9TdjErxA7Eiv0'),
+  VAPID_PRIVATE_KEY: z.string().default('Nt1nOi2pGURXIZPk3aZSgg7Ij25n1IOGNKCv-CRbxs4'),
+  VAPID_SUBJECT: z.string().default('mailto:dsoaresdeavila@gmail.com'),
+
+  /**
    * Postgres (TypeORM). Se definido → usa banco (dados persistem).
    * Se ausente → repositórios em memória (dev local sem banco).
    */

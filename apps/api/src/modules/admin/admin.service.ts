@@ -13,14 +13,20 @@ import type { Env } from '../../config/env.schema.js';
 import type { AuthedUser } from '../auth/jwt-auth.guard.js';
 import { USER_REPOSITORY, type StoredUser, type UserRepository } from '../auth/user.repository.js';
 import { BillingService } from '../billing/billing.service.js';
+import { PushService } from '../push/push.service.js';
 
 const DIA_MS = 24 * 60 * 60 * 1000;
+
+function primeiroNome(nome: string): string {
+  return nome.trim().split(/\s+/)[0] ?? nome;
+}
 
 @Injectable()
 export class AdminService {
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     private readonly billing: BillingService,
+    private readonly push: PushService,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
@@ -100,13 +106,23 @@ export class AdminService {
 
   async concederTrial(targetId: string): Promise<AdminUserDTO> {
     const user = await this.exigirUsuario(targetId);
-    await this.billing.iniciarTrial(targetId);
+    const dto = this.billing.toDTO(await this.billing.iniciarTrial(targetId));
+    await this.push.enviarPara(targetId, {
+      title: '🎁 Teste da Nina IA liberado!',
+      body: `${primeiroNome(user.nome)}, você ganhou ${dto.diasRestantes} dias grátis de Nina IA. Aproveite!`,
+      url: '/',
+    });
     return this.toAdminUser(user);
   }
 
   async concederPro(targetId: string, periodo: Periodo): Promise<AdminUserDTO> {
     const user = await this.exigirUsuario(targetId);
-    await this.billing.assinar(targetId, periodo);
+    const dto = this.billing.toDTO(await this.billing.assinar(targetId, periodo));
+    await this.push.enviarPara(targetId, {
+      title: '🎉 Você agora é Pro!',
+      body: `${primeiroNome(user.nome)}, seu plano ${periodo} foi liberado — ${dto.diasRestantes} dias de Nina IA e tudo desbloqueado. Bom proveito!`,
+      url: '/',
+    });
     return this.toAdminUser(user);
   }
 

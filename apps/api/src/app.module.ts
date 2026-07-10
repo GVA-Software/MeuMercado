@@ -20,6 +20,7 @@ import { NfceModule } from './modules/nfce/nfce.module.js';
 import { CartModule } from './modules/cart/cart.module.js';
 import { ComprasModule } from './modules/compras/compras.module.js';
 import { InsightsModule } from './modules/insights/insights.module.js';
+import { PushModule } from './modules/push/push.module.js';
 
 type ModuleImport = Type | DynamicModule | Promise<DynamicModule> | ForwardReference;
 
@@ -51,6 +52,7 @@ const imports: ModuleImport[] = [
   CartModule,
   ComprasModule,
   InsightsModule,
+  PushModule,
 ];
 
 // Em PRODUÇÃO num host de processo (Render/Docker), a API serve o build estático

@@ -231,6 +231,17 @@ export class ApiClient {
     return this.request('/auth/me', { method: 'PATCH', body: JSON.stringify({ nome }) });
   }
 
+  // ---- Push notifications ----
+  pushPublicKey(): Promise<{ publicKey: string }> {
+    return this.request('/push/public-key');
+  }
+  pushSubscribe(sub: PushSubscriptionJSON): Promise<void> {
+    return this.request('/push/subscribe', { method: 'POST', body: JSON.stringify(sub) });
+  }
+  pushUnsubscribe(endpoint: string): Promise<void> {
+    return this.request('/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint }) });
+  }
+
   // ---- Billing / assinatura ----
   // Conceder Pro/Nina é exclusivo do painel de ADM; o app só consulta e cancela.
   billingMe(): Promise<SubscriptionDTO> {

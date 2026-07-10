@@ -27,6 +27,8 @@ export default defineConfig({
         // O painel de ADM (/admin.html) é uma página separada, fora do SPA:
         // impede o service worker de reescrever a navegação para o index do app.
         navigateFallbackDenylist: [/^\/admin/],
+        // Handlers de Web Push (push + notificationclick) importados no SW gerado.
+        importScripts: ['push-sw.js'],
       },
     }),
   ],
