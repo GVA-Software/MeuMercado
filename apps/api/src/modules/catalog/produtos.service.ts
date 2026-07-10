@@ -1,12 +1,19 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Produto } from '@meumercado/domain';
 import type { CreateProdutoInput, ProdutoDTO } from '@meumercado/contracts';
+import {
+  PRICE_OBSERVATION_REPOSITORY,
+  type PriceObservationRepository,
+} from '../pricing/price-observation.repository.js';
 import { PRODUTO_REPOSITORY, type ProdutoRepository } from './produtos.repository.js';
 
 @Injectable()
 export class ProdutosService {
-  constructor(@Inject(PRODUTO_REPOSITORY) private readonly repo: ProdutoRepository) {}
+  constructor(
+    @Inject(PRODUTO_REPOSITORY) private readonly repo: ProdutoRepository,
+    @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly observations: PriceObservationRepository,
+  ) {}
 
   async listar(): Promise<ProdutoDTO[]> {
     return (await this.repo.findAll()).map((p) => p.toJSON());
@@ -35,5 +42,24 @@ export class ProdutosService {
     });
     await this.repo.add(produto);
     return produto.toJSON();
+  }
+
+  /**
+   * Junta dois produtos duplicados: move todas as observações de preço de `fromId`
+   * para `intoId` e remove o produto `fromId`. Fica com um único produto (o de
+   * `intoId`) reunindo os preços dos dois — útil quando a mesma mercadoria vem com
+   * nomes diferentes de mercados diferentes.
+   */
+  async merge(fromId: string, intoId: string): Promise<ProdutoDTO> {
+    if (fromId === intoId) {
+      throw new BadRequestException('Selecione dois produtos diferentes.');
+    }
+    const from = await this.repo.findById(fromId);
+    const into = await this.repo.findById(intoId);
+    if (!from) throw new NotFoundException('Produto a juntar não encontrado.');
+    if (!into) throw new NotFoundException('Produto de destino não encontrado.');
+    await this.observations.reassignProduto(fromId, intoId);
+    await this.repo.delete(fromId);
+    return into.toJSON();
   }
 }

@@ -12,6 +12,8 @@ export interface ProdutoRepository {
   findById(id: string): Promise<Produto | null>;
   search(termo: string, limit: number): Promise<Produto[]>;
   add(produto: Produto): Promise<void>;
+  /** Remove um produto do catálogo (usado ao juntar duplicados). */
+  delete(id: string): Promise<void>;
 }
 
 export const PRODUTO_REPOSITORY = 'PRODUTO_REPOSITORY';
@@ -42,6 +44,12 @@ export class InMemoryProdutoRepository implements ProdutoRepository {
 
   add(produto: Produto): Promise<void> {
     this.produtos.push(produto);
+    return Promise.resolve();
+  }
+
+  delete(id: string): Promise<void> {
+    const i = this.produtos.findIndex((p) => p.id === id);
+    if (i >= 0) this.produtos.splice(i, 1);
     return Promise.resolve();
   }
 }

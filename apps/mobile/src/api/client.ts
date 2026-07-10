@@ -117,6 +117,13 @@ export class ApiClient {
   criarProduto(input: CreateProdutoInput): Promise<ProdutoDTO> {
     return this.request('/produtos', { method: 'POST', body: JSON.stringify(input) });
   }
+  /** Junta o produto `fromId` em `intoId` (move os preços). Só administradores. */
+  juntarProduto(fromId: string, intoId: string): Promise<ProdutoDTO> {
+    return this.request(`/produtos/${encodeURIComponent(fromId)}/merge`, {
+      method: 'POST',
+      body: JSON.stringify({ intoId }),
+    });
+  }
 
   // ---- Preços ----
   resumoPreco(produtoId: string): Promise<PriceSummaryDTO> {

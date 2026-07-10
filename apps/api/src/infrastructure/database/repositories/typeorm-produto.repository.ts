@@ -65,4 +65,10 @@ export class TypeOrmProdutoRepository implements ProdutoRepository {
       codigoExterno: produto.codigoExterno ?? null,
     });
   }
+
+  async delete(id: string): Promise<void> {
+    // Itens do seed são fixos (não estão no banco) — não há o que remover.
+    if (this.seedIds.has(id)) return;
+    await this.repo.delete(id);
+  }
 }

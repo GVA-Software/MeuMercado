@@ -6,6 +6,7 @@ import {
   type ProdutoDTO,
 } from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
+import { AdminGuard } from '../admin/admin.guard.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { ProdutosService } from './produtos.service.js';
 
@@ -13,6 +14,8 @@ const SearchQuerySchema = z.object({
   q: z.string().min(1).max(120),
   limit: z.coerce.number().int().min(1).max(50).default(10),
 });
+
+const MergeSchema = z.object({ intoId: z.string().min(1).max(128) });
 
 @Controller('produtos')
 export class ProdutosController {
@@ -38,6 +41,16 @@ export class ProdutosController {
     @Body(new ZodValidationPipe(CreateProdutoSchema)) body: CreateProdutoInput,
   ): Promise<ProdutoDTO> {
     return this.service.criar(body);
+  }
+
+  /** Junta um produto duplicado em outro (move os preços). Só administradores. */
+  @Post(':id/merge')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  merge(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(MergeSchema)) body: z.infer<typeof MergeSchema>,
+  ): Promise<ProdutoDTO> {
+    return this.service.merge(id, body.intoId);
   }
 
   @Get(':id')

@@ -54,4 +54,8 @@ export class TypeOrmPriceObservationRepository implements PriceObservationReposi
     const rows = await this.repo.find();
     return rows.map((r) => this.toDomain(r));
   }
+
+  async reassignProduto(fromId: string, toId: string): Promise<void> {
+    await this.repo.update({ produtoId: fromId }, { produtoId: toId });
+  }
 }

@@ -11,6 +11,8 @@ export interface PriceObservationRepository {
   add(obs: PriceObservation): Promise<void>;
   findByProduto(produtoId: string): Promise<PriceObservation[]>;
   all(): Promise<PriceObservation[]>;
+  /** Move as observações de um produto para outro (ao juntar duplicados). */
+  reassignProduto(fromId: string, toId: string): Promise<void>;
 }
 
 export const PRICE_OBSERVATION_REPOSITORY = 'PRICE_OBSERVATION_REPOSITORY';
@@ -35,5 +37,26 @@ export class InMemoryPriceObservationRepository implements PriceObservationRepos
 
   all(): Promise<PriceObservation[]> {
     return Promise.resolve(this.observations);
+  }
+
+  reassignProduto(fromId: string, toId: string): Promise<void> {
+    for (let i = 0; i < this.observations.length; i++) {
+      const o = this.observations[i]!;
+      if (o.produtoId !== fromId) continue;
+      this.observations[i] = new PriceObservation({
+        id: o.id,
+        produtoId: toId,
+        mercadoId: o.mercadoId,
+        price: o.price,
+        source: o.source,
+        reporterId: o.reporterId,
+        observedAt: o.observedAt,
+        ...(o.mercadoNome !== undefined ? { mercadoNome: o.mercadoNome } : {}),
+        ...(o.mercadoEndereco !== undefined ? { mercadoEndereco: o.mercadoEndereco } : {}),
+        ...(o.mercadoLat !== undefined ? { mercadoLat: o.mercadoLat } : {}),
+        ...(o.mercadoLng !== undefined ? { mercadoLng: o.mercadoLng } : {}),
+      });
+    }
+    return Promise.resolve();
   }
 }

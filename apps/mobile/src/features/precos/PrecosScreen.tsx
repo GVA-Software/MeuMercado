@@ -15,6 +15,7 @@ import { AppLogo, Btn, CartLoader, CurrencyInput, EmptyState, SLabel } from '../
 import { MarketTag, marcaMercado } from '../../ui/market';
 import { emojiDe } from '../../ui/emoji';
 import { useNav } from '../../app/nav';
+import { useAuth } from '../../auth/AuthContext';
 import { NfceFlow } from '../nfce/NfceFlow';
 
 function fmtData(iso: string): string {
@@ -290,6 +291,11 @@ export function PrecosScreen() {
           row={detalhe}
           onClose={() => setDetalhe(null)}
           onRegistrar={(p) => abrirCadastro(p)}
+          onMerged={() => {
+            setDetalhe(null);
+            void carregar();
+            carregarMercados();
+          }}
         />
       )}
 
@@ -537,14 +543,22 @@ function DetailSheet({
   row,
   onClose,
   onRegistrar,
+  onMerged,
 }: {
   row: PriceTableRowDTO;
   onClose: () => void;
   onRegistrar: (p: ProdutoDTO) => void;
+  onMerged: () => void;
 }) {
   const { T }: { T: Theme } = useTheme();
   const { irParaMapa } = useNav();
+  const { user } = useAuth();
   const [hist, setHist] = useState<PriceHistoryDTO | null>(null);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeBusca, setMergeBusca] = useState('');
+  const [mergeResult, setMergeResult] = useState<ProdutoDTO[]>([]);
+  const [merging, setMerging] = useState(false);
+  const [mergeErro, setMergeErro] = useState<string | null>(null);
 
   useEffect(() => {
     void api
@@ -552,6 +566,38 @@ function DetailSheet({
       .then(setHist)
       .catch(() => setHist({ produtoId: row.produto.id, pontos: [] }));
   }, [row.produto.id]);
+
+  useEffect(() => {
+    const t = mergeBusca.trim();
+    if (t.length < 2) {
+      setMergeResult([]);
+      return;
+    }
+    let vivo = true;
+    void api
+      .buscarProdutos(t)
+      .then((r) => {
+        if (vivo) setMergeResult(r.filter((p) => p.id !== row.produto.id).slice(0, 6));
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [mergeBusca, row.produto.id]);
+
+  async function juntar(outro: ProdutoDTO) {
+    if (!window.confirm(`Juntar "${outro.nome}" em "${row.produto.nome}"? Os preços serão unidos e "${outro.nome}" deixa de existir.`)) return;
+    setMerging(true);
+    setMergeErro(null);
+    try {
+      // Move os preços do produto escolhido para ESTE (que fica).
+      await api.juntarProduto(outro.id, row.produto.id);
+      onMerged();
+    } catch (e) {
+      setMergeErro(e instanceof Error ? e.message : String(e));
+      setMerging(false);
+    }
+  }
 
   const recentes = hist ? [...hist.pontos].reverse().slice(0, 8) : [];
 
@@ -672,6 +718,97 @@ function DetailSheet({
       <Btn full onClick={() => onRegistrar(row.produto)}>
         ＋ Registrar preço deste produto
       </Btn>
+
+      {user?.isAdmin && (
+        <div style={{ marginTop: 12, borderTop: `1px solid ${T.border}`, paddingTop: 12 }}>
+          {!mergeOpen ? (
+            <button
+              onClick={() => setMergeOpen(true)}
+              style={{
+                width: '100%',
+                background: 'none',
+                border: `1px dashed ${T.border}`,
+                borderRadius: 12,
+                padding: '10px 12px',
+                color: T.muted,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              🔗 É o mesmo que outro produto? Juntar
+            </button>
+          ) : (
+            <div>
+              <p style={{ color: T.muted, fontSize: 12, margin: '0 0 8px', lineHeight: 1.5 }}>
+                Busque o produto duplicado — os preços dele entram em{' '}
+                <strong style={{ color: T.text }}>{row.produto.nome}</strong> e ele some.
+              </p>
+              <input
+                autoFocus
+                placeholder="Buscar produto para juntar…"
+                value={mergeBusca}
+                onChange={(e) => setMergeBusca(e.target.value)}
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  border: `1.5px solid ${T.border}`,
+                  borderRadius: 12,
+                  padding: '11px 14px',
+                  background: T.card,
+                  color: T.text,
+                  fontSize: 15,
+                  marginBottom: 8,
+                }}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {mergeResult.map((p) => (
+                  <button
+                    key={p.id}
+                    disabled={merging}
+                    onClick={() => void juntar(p)}
+                    style={{
+                      display: 'flex',
+                      gap: 10,
+                      alignItems: 'center',
+                      background: T.card,
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 12,
+                      padding: '10px 12px',
+                      cursor: merging ? 'wait' : 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>{emojiDe(p)}</span>
+                    <span style={{ color: T.text, fontSize: 14, flex: 1 }}>{p.nome}</span>
+                    <span style={{ color: T.primary, fontSize: 12, fontWeight: 700 }}>juntar ›</span>
+                  </button>
+                ))}
+              </div>
+              {mergeErro && (
+                <p style={{ color: T.danger, fontSize: 12, margin: '8px 0 0' }}>{mergeErro}</p>
+              )}
+              <button
+                onClick={() => {
+                  setMergeOpen(false);
+                  setMergeBusca('');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: T.muted,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  padding: '10px 0 0',
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </BottomSheet>
   );
 }
