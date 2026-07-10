@@ -30,7 +30,7 @@
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.20",
     "web-push": "^3.6.7",
-    "zod": "^3.24.1"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@nestjs/testing": "^10.4.15",
