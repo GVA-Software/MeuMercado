@@ -46,6 +46,9 @@ export const envSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().default('Nt1nOi2pGURXIZPk3aZSgg7Ij25n1IOGNKCv-CRbxs4'),
   VAPID_SUBJECT: z.string().default('mailto:dsoaresdeavila@gmail.com'),
 
+  /** Segredo para as rotas de cron (keep-warm + varredura de expiração). */
+  CRON_SECRET: z.string().default('mzv_8tNV1GBcU5qoVMFIdEBhhAPYQtm0'),
+
   /**
    * Postgres (TypeORM). Se definido → usa banco (dados persistem).
    * Se ausente → repositórios em memória (dev local sem banco).

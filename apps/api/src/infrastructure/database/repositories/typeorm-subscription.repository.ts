@@ -11,9 +11,7 @@ export class TypeOrmSubscriptionRepository implements SubscriptionRepository {
     @InjectRepository(SubscriptionEntity) private readonly repo: Repository<SubscriptionEntity>,
   ) {}
 
-  async get(usuarioId: string): Promise<Assinatura | null> {
-    const e = await this.repo.findOne({ where: { usuarioId } });
-    if (!e) return null;
+  private toDomain(e: SubscriptionEntity): Assinatura {
     return new Assinatura({
       usuarioId: e.usuarioId,
       plano: e.plano as Plano,
@@ -22,6 +20,15 @@ export class TypeOrmSubscriptionRepository implements SubscriptionRepository {
       trialFim: e.trialFim,
       periodoFim: e.periodoFim,
     });
+  }
+
+  async get(usuarioId: string): Promise<Assinatura | null> {
+    const e = await this.repo.findOne({ where: { usuarioId } });
+    return e ? this.toDomain(e) : null;
+  }
+
+  async todas(): Promise<Assinatura[]> {
+    return (await this.repo.find()).map((e) => this.toDomain(e));
   }
 
   async save(a: Assinatura): Promise<void> {

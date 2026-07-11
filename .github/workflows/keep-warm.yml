@@ -1,0 +1,27 @@
+name: keep-warm
+
+# Mantém o servidor free do Render "acordado" (evita o cold start de ~30-50s) e,
+# de quebra, roda a varredura de expiração de planos (avisa por push quem venceu).
+# Cobre ~06h-23h BRT (09-01 UTC) — horário de uso — para não gastar toda a cota
+# de horas do Render à toa. Para 24/7, troque por: '*/10 * * * *'.
+on:
+  schedule:
+    - cron: '*/10 9-23 * * *'
+    - cron: '*/10 0-1 * * *'
+  workflow_dispatch: {}
+
+# Segredo do cron: por padrão usa o valor embutido (funciona sem configurar). Para
+# endurecer, defina o secret CRON_SECRET no repo e a env CRON_SECRET no Render.
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acorda a API (keep-warm)
+        run: curl -fsS --max-time 90 https://meumercado-prod.onrender.com/api/health > /dev/null || true
+
+      - name: Varre expirações de plano
+        run: |
+          curl -fsS --max-time 90 -X POST https://meumercado-prod.onrender.com/api/cron/expiracoes \
+            -H "x-cron-secret: ${CRON_SECRET}" > /dev/null || true
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET || 'mzv_8tNV1GBcU5qoVMFIdEBhhAPYQtm0' }}

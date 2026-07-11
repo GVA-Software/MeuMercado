@@ -113,4 +113,24 @@ export class PriceStatistics {
     if (pct < -thresholdPct) return 'caiu';
     return 'estavel';
   }
+
+  /**
+   * Variação % ADAPTATIVA: prefere a janela recente (últimos `windowDays`); se
+   * não houver dado recente para comparar, cai para a variação total (1º→último
+   * registro). Assim preços de semanas atrás ainda geram sinal — a janela fica
+   * "aberta" até acumular dado recente, e volta aos `windowDays` quando houver.
+   */
+  trendPercentAdaptativo(asOf: Date, windowDays: number): number | null {
+    const janela = this.trendPercent(asOf, windowDays);
+    return janela !== null ? janela : this.variacaoTotalPct();
+  }
+
+  /** Tendência adaptativa (usa {@link trendPercentAdaptativo}). */
+  trendAdaptativo(asOf: Date, windowDays: number, thresholdPct = 3): Trend | null {
+    const pct = this.trendPercentAdaptativo(asOf, windowDays);
+    if (pct === null) return null;
+    if (pct > thresholdPct) return 'subiu';
+    if (pct < -thresholdPct) return 'caiu';
+    return 'estavel';
+  }
 }

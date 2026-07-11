@@ -5,6 +5,8 @@ import { Assinatura } from '@meumercado/domain';
 export interface SubscriptionRepository {
   get(usuarioId: string): Promise<Assinatura | null>;
   save(assinatura: Assinatura): Promise<void>;
+  /** Todas as assinaturas (varredura de expiração pelo cron). */
+  todas(): Promise<Assinatura[]>;
 }
 
 export const SUBSCRIPTION_REPOSITORY = 'SUBSCRIPTION_REPOSITORY';
@@ -19,5 +21,8 @@ export class InMemorySubscriptionRepository implements SubscriptionRepository {
   save(assinatura: Assinatura): Promise<void> {
     this.byUser.set(assinatura.usuarioId, assinatura);
     return Promise.resolve();
+  }
+  todas(): Promise<Assinatura[]> {
+    return Promise.resolve([...this.byUser.values()]);
   }
 }

@@ -16,25 +16,38 @@ export class BillingService {
     return (await this.repo.get(usuarioId)) ?? Assinatura.free(usuarioId);
   }
 
+  /** Se o Pro (trial/pago) acabou de vencer: marca como expirada e avisa por push. */
+  private async expirarSeVenceu(a: Assinatura, agora: Date): Promise<Assinatura> {
+    if ((a.status !== 'ativa' && a.status !== 'trial') || a.isProAtivo(agora)) return a;
+    const expirada = a.expirar();
+    await this.repo.save(expirada);
+    await this.push.enviarPara(a.usuarioId, {
+      title: 'Seu Pro terminou 😢',
+      body: `A Nina IA foi bloqueada. Renove por apenas ${PLANOS.mensal.label} e volte a economizar com tudo desbloqueado.`,
+      url: '/',
+    });
+    return expirada;
+  }
+
   /**
-   * Retorna o DTO da assinatura, detectando de forma preguiçosa a EXPIRAÇÃO: se
-   * o Pro (trial/pago) acabou de vencer, marca como expirada e avisa o usuário
-   * com um push de renovação. Chamado no /billing/me (abertura do app).
+   * DTO da assinatura, detectando de forma preguiçosa a EXPIRAÇÃO (abertura do app,
+   * via /billing/me). O cron cobre quem não abre o app.
    */
   async minhaComExpiracao(usuarioId: string, agora: Date = new Date()): Promise<SubscriptionDTO> {
-    const a = await this.forUser(usuarioId);
-    const venceu = (a.status === 'ativa' || a.status === 'trial') && !a.isProAtivo(agora);
-    if (venceu) {
-      const expirada = a.expirar();
-      await this.repo.save(expirada);
-      await this.push.enviarPara(usuarioId, {
-        title: 'Seu Pro terminou 😢',
-        body: `A Nina IA foi bloqueada. Renove por apenas ${PLANOS.mensal.label} e volte a economizar com tudo desbloqueado.`,
-        url: '/',
-      });
-      return this.toDTO(expirada, agora);
-    }
+    const a = await this.expirarSeVenceu(await this.forUser(usuarioId), agora);
     return this.toDTO(a, agora);
+  }
+
+  /** Varredura global (cron): expira e avisa todos que venceram. Retorna quantos. */
+  async verificarExpiracoesGlobais(agora: Date = new Date()): Promise<number> {
+    const subs = await this.repo.todas();
+    let expirados = 0;
+    for (const a of subs) {
+      const antes = a.status;
+      const depois = await this.expirarSeVenceu(a, agora);
+      if (depois.status !== antes) expirados += 1;
+    }
+    return expirados;
   }
 
   async iniciarTrial(usuarioId: string, agora: Date = new Date()): Promise<Assinatura> {

@@ -2,13 +2,14 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { PushModule } from '../push/push.module.js';
 import { BillingController } from './billing.controller.js';
+import { CronController } from './cron.controller.js';
 import { BillingService } from './billing.service.js';
 import { ProGuard } from './pro.guard.js';
 
 // SUBSCRIPTION_REPOSITORY é fornecido globalmente pelo PersistenceModule.
 @Module({
   imports: [AuthModule, PushModule], // JwtAuthGuard + PushService (aviso de expiração)
-  controllers: [BillingController],
+  controllers: [BillingController, CronController],
   providers: [BillingService, ProGuard],
   exports: [BillingService], // outros módulos podem gatilhar features Pro
 })

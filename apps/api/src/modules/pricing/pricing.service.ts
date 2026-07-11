@@ -64,8 +64,8 @@ export class PricingService {
       mediaCents: stats.average()?.cents ?? null,
       minCents: stats.min()?.cents ?? null,
       maxCents: stats.max()?.cents ?? null,
-      trend: stats.trend(asOf, TREND_WINDOW_DAYS),
-      trendPct: stats.trendPercent(asOf, TREND_WINDOW_DAYS),
+      trend: stats.trendAdaptativo(asOf, TREND_WINDOW_DAYS),
+      trendPct: stats.trendPercentAdaptativo(asOf, TREND_WINDOW_DAYS),
       amostras: stats.count,
     };
   }
