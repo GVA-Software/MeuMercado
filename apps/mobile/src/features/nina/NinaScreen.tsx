@@ -12,8 +12,8 @@ const BENEFICIOS = [
   '📊 Histórico e economia acumulada',
 ];
 
-// Altura da BottomNav (fixa) — o composer do chat fica logo acima dela.
-const NAV_H = 84;
+// Folga para a BottomNav (fixa) — o composer do chat fica confortavelmente acima.
+const NAV_H = 98;
 
 export function NinaScreen() {
   const { T } = useTheme();

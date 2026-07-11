@@ -5,6 +5,7 @@ import { Produto, type Categoria, type Unidade } from '@meumercado/domain';
 import { SEED_DATA } from '../../../data/data.module.js';
 import type { SeedData } from '../../../data/seed.js';
 import type { ProdutoRepository } from '../../../modules/catalog/produtos.repository.js';
+import { semAcento } from '../../../common/texto.js';
 import { ProdutoEntity } from '../entities/produto.entity.js';
 
 /**
@@ -49,10 +50,10 @@ export class TypeOrmProdutoRepository implements ProdutoRepository {
   }
 
   async search(termo: string, limit: number): Promise<Produto[]> {
-    const t = termo.trim().toLowerCase();
+    const t = semAcento(termo);
     if (t.length === 0) return [];
     const todos = await this.findAll();
-    return todos.filter((p) => p.nome.toLowerCase().includes(t)).slice(0, limit);
+    return todos.filter((p) => semAcento(p.nome).includes(t)).slice(0, limit);
   }
 
   async add(produto: Produto): Promise<void> {

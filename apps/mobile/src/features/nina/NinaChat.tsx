@@ -67,13 +67,15 @@ export function NinaChat({ T }: { T: Theme }) {
           kind: 'text',
           text: `Não encontrei "${termo}" ainda. Tente outro nome — ou registre o preço e ele passa a existir na base.`,
         });
-      } else if (achados.length === 1) {
-        await consultarMercados(achados[0]!);
       } else {
+        // Nunca escolhe sozinho: mostra o(s) que achou pra você tocar.
         empurrar({
           from: 'nina',
           kind: 'text',
-          text: `Achei ${achados.length} opções de "${termo}". Qual você quer?`,
+          text:
+            achados.length === 1
+              ? `Encontrei "${achados[0]!.nome}". É esse que você quer?`
+              : `Achei ${achados.length} tipos de "${termo}". Qual você quer?`,
         });
         empurrar({ from: 'nina', kind: 'produtos', produtos: achados });
       }
@@ -234,65 +236,67 @@ export function NinaChat({ T }: { T: Theme }) {
         </div>
       </div>
 
-      {/* Ações rápidas (os insights viram um botão). */}
-      <div style={{ display: 'flex', gap: 8, padding: '8px 12px 0' }}>
-        <button
-          onClick={() => void verAlertas()}
-          disabled={ocupada}
-          style={{
-            background: T.ninaBg,
-            color: T.nina,
-            border: `1px solid ${T.nina}44`,
-            borderRadius: 99,
-            padding: '8px 14px',
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: ocupada ? 'default' : 'pointer',
-          }}
-        >
-          ✨ Meus alertas
-        </button>
-      </div>
+      {/* Barra de baixo (separada das mensagens e da navegação): ações + composer. */}
+      <div style={{ flexShrink: 0, borderTop: `1px solid ${T.border}`, background: T.surface }}>
+        <div style={{ display: 'flex', gap: 8, padding: '10px 12px 0' }}>
+          <button
+            onClick={() => void verAlertas()}
+            disabled={ocupada}
+            style={{
+              background: T.ninaBg,
+              color: T.nina,
+              border: `1px solid ${T.nina}44`,
+              borderRadius: 99,
+              padding: '8px 14px',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: ocupada ? 'default' : 'pointer',
+            }}
+          >
+            ✨ Meus alertas
+          </button>
+        </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void enviarTermo(texto);
-        }}
-        style={{ display: 'flex', gap: 8, padding: 12 }}
-      >
-        <input
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          placeholder="Ex.: café, arroz, sabão…"
-          style={{
-            flex: 1,
-            border: `1.5px solid ${T.border}`,
-            borderRadius: 22,
-            padding: '11px 16px',
-            background: T.card,
-            color: T.text,
-            fontSize: 15,
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void enviarTermo(texto);
           }}
-        />
-        <button
-          type="submit"
-          disabled={ocupada || texto.trim().length === 0}
-          style={{
-            flexShrink: 0,
-            width: 44,
-            background: texto.trim() && !ocupada ? T.primary : T.border,
-            color: '#FFF',
-            border: 'none',
-            borderRadius: '50%',
-            fontSize: 16,
-            fontWeight: 800,
-            cursor: ocupada || !texto.trim() ? 'default' : 'pointer',
-          }}
+          style={{ display: 'flex', gap: 8, padding: '10px 12px' }}
         >
-          ➤
-        </button>
-      </form>
+          <input
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            placeholder="Ex.: café, arroz, sabão…"
+            style={{
+              flex: 1,
+              border: `1.5px solid ${T.border}`,
+              borderRadius: 22,
+              padding: '11px 16px',
+              background: T.card,
+              color: T.text,
+              fontSize: 15,
+            }}
+          />
+          <button
+            type="submit"
+            disabled={ocupada || texto.trim().length === 0}
+            style={{
+              flexShrink: 0,
+              width: 44,
+              background: texto.trim() && !ocupada ? T.primary : T.border,
+              color: '#FFF',
+              border: 'none',
+              borderRadius: '50%',
+              fontSize: 16,
+              fontWeight: 800,
+              cursor: ocupada || !texto.trim() ? 'default' : 'pointer',
+            }}
+          >
+            ➤
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

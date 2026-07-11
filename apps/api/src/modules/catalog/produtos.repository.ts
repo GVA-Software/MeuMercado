@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Produto } from '@meumercado/domain';
 import { SEED_DATA } from '../../data/data.module.js';
 import type { SeedData } from '../../data/seed.js';
+import { semAcento } from '../../common/texto.js';
 
 /**
  * Porta de acesso a produtos (implementação trocável: memória → Postgres).
@@ -35,10 +36,10 @@ export class InMemoryProdutoRepository implements ProdutoRepository {
   }
 
   search(termo: string, limit: number): Promise<Produto[]> {
-    const t = termo.trim().toLowerCase();
+    const t = semAcento(termo);
     if (t.length === 0) return Promise.resolve([]);
     return Promise.resolve(
-      this.produtos.filter((p) => p.nome.toLowerCase().includes(t)).slice(0, limit),
+      this.produtos.filter((p) => semAcento(p.nome).includes(t)).slice(0, limit),
     );
   }
 

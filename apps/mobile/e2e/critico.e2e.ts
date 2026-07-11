@@ -83,7 +83,7 @@ test.describe('Meu Mercado — jornada crítica', () => {
     const composer = page.getByPlaceholder('Ex.: café, arroz, sabão…');
     await composer.fill('café');
     await composer.press('Enter');
-    await expect(page.getByText(/Achei 2 opções de "café"/)).toBeVisible();
+    await expect(page.getByText(/Achei 2 tipos de "café"/)).toBeVisible();
 
     // Escolhe um tipo → mercados ranqueados (mais barato primeiro).
     await page.getByRole('button', { name: /CAFE PILAO 500G/ }).click();
