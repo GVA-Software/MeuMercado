@@ -258,92 +258,95 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {(mesFiltro ? compras.filter((c) => ordDe(c.criadaEm) === mesFiltro) : compras).map(
                 (c) => (
-                <div
-                  key={c.id}
-                  style={{
-                    background: T.surface,
-                    border: `1px solid ${T.border}`,
-                    borderRadius: 14,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <button
-                    onClick={() => setAberta((a) => (a === c.id ? null : c.id))}
+                  <div
+                    key={c.id}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      width: '100%',
-                      background: 'none',
-                      border: 'none',
-                      padding: '12px 14px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
+                      background: T.surface,
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 14,
+                      overflow: 'hidden',
                     }}
                   >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {c.mercadoNome ? (
-                        <MarketTag nome={c.mercadoNome} />
-                      ) : (
-                        <span style={{ color: T.text, fontSize: 13, fontWeight: 700 }}>Compra</span>
-                      )}
-                      <p style={{ color: T.muted, fontSize: 11, margin: '5px 0 0' }}>
-                        {dataLabel(c.criadaEm)} · {c.itens.length}{' '}
-                        {c.itens.length === 1 ? 'item' : 'itens'}
-                        {c.economiaCents > 0
-                          ? ` · 💰 economizou ${formatBRL(c.economiaCents)}`
-                          : ''}
-                      </p>
-                    </div>
-                    <span style={{ color: T.text, fontSize: 16, fontWeight: 800 }}>
-                      {formatBRL(c.totalCents)}
-                    </span>
-                    <span style={{ color: T.muted, fontSize: 14 }}>
-                      {aberta === c.id ? '▲' : '▼'}
-                    </span>
-                  </button>
-                  {aberta === c.id && (
-                    <div
+                    <button
+                      onClick={() => setAberta((a) => (a === c.id ? null : c.id))}
                       style={{
-                        borderTop: `1px solid ${T.border}`,
-                        padding: '10px 14px',
                         display: 'flex',
-                        flexDirection: 'column',
-                        gap: 6,
+                        alignItems: 'center',
+                        gap: 10,
+                        width: '100%',
+                        background: 'none',
+                        border: 'none',
+                        padding: '12px 14px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
                       }}
                     >
-                      {c.itens.map((it, i) => (
-                        <div
-                          key={i}
-                          style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}
-                        >
-                          <span
-                            style={{
-                              color: T.sub,
-                              fontSize: 13,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {emojiDe(it)} {it.nome} {it.quantity > 1 ? `×${it.quantity}` : ''}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {c.mercadoNome ? (
+                          <MarketTag nome={c.mercadoNome} />
+                        ) : (
+                          <span style={{ color: T.text, fontSize: 13, fontWeight: 700 }}>
+                            Compra
                           </span>
-                          <span
-                            style={{
-                              color: T.text,
-                              fontSize: 13,
-                              fontWeight: 600,
-                              whiteSpace: 'nowrap',
-                            }}
+                        )}
+                        <p style={{ color: T.muted, fontSize: 11, margin: '5px 0 0' }}>
+                          {dataLabel(c.criadaEm)} · {c.itens.length}{' '}
+                          {c.itens.length === 1 ? 'item' : 'itens'}
+                          {c.economiaCents > 0
+                            ? ` · 💰 economizou ${formatBRL(c.economiaCents)}`
+                            : ''}
+                        </p>
+                      </div>
+                      <span style={{ color: T.text, fontSize: 16, fontWeight: 800 }}>
+                        {formatBRL(c.totalCents)}
+                      </span>
+                      <span style={{ color: T.muted, fontSize: 14 }}>
+                        {aberta === c.id ? '▲' : '▼'}
+                      </span>
+                    </button>
+                    {aberta === c.id && (
+                      <div
+                        style={{
+                          borderTop: `1px solid ${T.border}`,
+                          padding: '10px 14px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 6,
+                        }}
+                      >
+                        {c.itens.map((it, i) => (
+                          <div
+                            key={i}
+                            style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}
                           >
-                            {formatBRL(it.unitPriceCents * it.quantity)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+                            <span
+                              style={{
+                                color: T.sub,
+                                fontSize: 13,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {emojiDe(it)} {it.nome} {it.quantity > 1 ? `×${it.quantity}` : ''}
+                            </span>
+                            <span
+                              style={{
+                                color: T.text,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {formatBRL(it.unitPriceCents * it.quantity)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ),
+              )}
             </div>
           </>
         )}

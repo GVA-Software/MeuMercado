@@ -62,7 +62,9 @@ export function CartLoader({
         }}
       />
       {label && (
-        <p style={{ color: T.muted, fontSize: 14, fontWeight: 700, margin: 0, textAlign: 'center' }}>
+        <p
+          style={{ color: T.muted, fontSize: 14, fontWeight: 700, margin: 0, textAlign: 'center' }}
+        >
           {label}
         </p>
       )}

@@ -6,5 +6,7 @@ pnpm-lock.yaml
 *.pmtiles
 *.osm.pbf
 apps/mobile/dev-dist
+apps/mobile/public/admin.html
+apps/mobile/public/admin.js
 playwright-report
 test-results

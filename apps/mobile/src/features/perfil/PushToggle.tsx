@@ -128,8 +128,8 @@ export function PushToggle() {
 
       {!suportado && (
         <p style={{ color: T.muted, fontSize: 12, margin: '10px 0 0', lineHeight: 1.5 }}>
-          📱 No iPhone, adicione o app à <strong>Tela de Início</strong> (compartilhar → “Adicionar à
-          Tela de Início”) para poder ativar as notificações.
+          📱 No iPhone, adicione o app à <strong>Tela de Início</strong> (compartilhar → “Adicionar
+          à Tela de Início”) para poder ativar as notificações.
         </p>
       )}
       {erro && <p style={{ color: T.danger, fontSize: 12, margin: '8px 0 0' }}>{erro}</p>}

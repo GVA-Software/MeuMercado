@@ -586,7 +586,12 @@ function DetailSheet({
   }, [mergeBusca, row.produto.id]);
 
   async function juntar(outro: ProdutoDTO) {
-    if (!window.confirm(`Juntar "${outro.nome}" em "${row.produto.nome}"? Os preços serão unidos e "${outro.nome}" deixa de existir.`)) return;
+    if (
+      !window.confirm(
+        `Juntar "${outro.nome}" em "${row.produto.nome}"? Os preços serão unidos e "${outro.nome}" deixa de existir.`,
+      )
+    )
+      return;
     setMerging(true);
     setMergeErro(null);
     try {
@@ -781,7 +786,9 @@ function DetailSheet({
                   >
                     <span style={{ fontSize: 18 }}>{emojiDe(p)}</span>
                     <span style={{ color: T.text, fontSize: 14, flex: 1 }}>{p.nome}</span>
-                    <span style={{ color: T.primary, fontSize: 12, fontWeight: 700 }}>juntar ›</span>
+                    <span style={{ color: T.primary, fontSize: 12, fontWeight: 700 }}>
+                      juntar ›
+                    </span>
                   </button>
                 ))}
               </div>

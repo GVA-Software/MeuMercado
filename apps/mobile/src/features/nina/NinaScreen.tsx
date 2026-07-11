@@ -182,7 +182,15 @@ function NinaBloqueada({ T }: { T: Theme }) {
           Assine para desbloquear os insights inteligentes dos seus preços.
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left', marginBottom: 20 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            textAlign: 'left',
+            marginBottom: 20,
+          }}
+        >
           {BENEFICIOS.map((b) => (
             <div key={b} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ color: T.green, fontSize: 15 }}>✓</span>

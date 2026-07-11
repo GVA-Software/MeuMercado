@@ -42,7 +42,9 @@ export const envSchema = z.object({
    */
   VAPID_PUBLIC_KEY: z
     .string()
-    .default('BGc4QFZFZ82nLeTgLlDT0n_CYEWVmXeZM-AuzOBM4iDzqlWuD2ZEgBhjsVqPX5u-QYakvAcC4b9TdjErxA7Eiv0'),
+    .default(
+      'BGc4QFZFZ82nLeTgLlDT0n_CYEWVmXeZM-AuzOBM4iDzqlWuD2ZEgBhjsVqPX5u-QYakvAcC4b9TdjErxA7Eiv0',
+    ),
   VAPID_PRIVATE_KEY: z.string().default('Nt1nOi2pGURXIZPk3aZSgg7Ij25n1IOGNKCv-CRbxs4'),
   VAPID_SUBJECT: z.string().default('mailto:dsoaresdeavila@gmail.com'),
 

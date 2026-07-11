@@ -29,10 +29,7 @@ export class PricingController {
 
   /** Tabela de preços colaborativa (produtos com preço reportado). */
   @Get('table')
-  tabela(
-    @Query('q') q?: string,
-    @Query('mercado') mercado?: string,
-  ): Promise<PriceTableRowDTO[]> {
+  tabela(@Query('q') q?: string, @Query('mercado') mercado?: string): Promise<PriceTableRowDTO[]> {
     return this.service.tabela(q, mercado);
   }
 

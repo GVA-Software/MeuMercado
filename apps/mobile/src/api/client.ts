@@ -133,9 +133,7 @@ export class ApiClient {
     return this.request('/prices', { method: 'POST', body: JSON.stringify(input) });
   }
   tabelaPrecos(mercado?: string): Promise<PriceTableRowDTO[]> {
-    return this.request(
-      `/prices/table${mercado ? `?mercado=${encodeURIComponent(mercado)}` : ''}`,
-    );
+    return this.request(`/prices/table${mercado ? `?mercado=${encodeURIComponent(mercado)}` : ''}`);
   }
   mercadosPreco(): Promise<MercadoResumoDTO[]> {
     return this.request('/prices/mercados');
@@ -246,7 +244,10 @@ export class ApiClient {
     return this.request('/push/subscribe', { method: 'POST', body: JSON.stringify(sub) });
   }
   pushUnsubscribe(endpoint: string): Promise<void> {
-    return this.request('/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint }) });
+    return this.request('/push/subscribe', {
+      method: 'DELETE',
+      body: JSON.stringify({ endpoint }),
+    });
   }
 
   // ---- Billing / assinatura ----

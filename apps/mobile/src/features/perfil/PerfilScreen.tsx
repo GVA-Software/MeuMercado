@@ -60,7 +60,12 @@ function CropModal({
   }
   function move(e: React.PointerEvent) {
     if (!drag.current) return;
-    setOff(clamp(drag.current.ox + (e.clientX - drag.current.x), drag.current.oy + (e.clientY - drag.current.y)));
+    setOff(
+      clamp(
+        drag.current.ox + (e.clientX - drag.current.x),
+        drag.current.oy + (e.clientY - drag.current.y),
+      ),
+    );
   }
   function up() {
     drag.current = null;
@@ -74,7 +79,17 @@ function CropModal({
     canvas.height = out;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.drawImage(img.el, -bgX / effScale, -bgY / effScale, V / effScale, V / effScale, 0, 0, out, out);
+    ctx.drawImage(
+      img.el,
+      -bgX / effScale,
+      -bgY / effScale,
+      V / effScale,
+      V / effScale,
+      0,
+      0,
+      out,
+      out,
+    );
     onSave(canvas.toDataURL('image/jpeg', 0.85));
   }
 
@@ -94,7 +109,14 @@ function CropModal({
       }}
     >
       <p style={{ color: '#FFF', fontSize: 16, fontWeight: 800, margin: 0 }}>Ajuste sua foto</p>
-      <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, margin: '-8px 0 0', textAlign: 'center' }}>
+      <p
+        style={{
+          color: 'rgba(255,255,255,0.7)',
+          fontSize: 13,
+          margin: '-8px 0 0',
+          textAlign: 'center',
+        }}
+      >
         Arraste para posicionar e use a barra para dar zoom.
       </p>
       <div
@@ -252,7 +274,13 @@ export function PerfilScreen() {
                       alt=""
                       width={60}
                       height={60}
-                      style={{ width: 60, height: 60, borderRadius: 18, objectFit: 'cover', display: 'block' }}
+                      style={{
+                        width: 60,
+                        height: 60,
+                        borderRadius: 18,
+                        objectFit: 'cover',
+                        display: 'block',
+                      }}
                     />
                   ) : (
                     <span
@@ -297,7 +325,9 @@ export function PerfilScreen() {
                 />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   {editandoNome ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 4 }}>
+                    <div
+                      style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 4 }}
+                    >
                       <input
                         autoFocus
                         value={nomeEdit}

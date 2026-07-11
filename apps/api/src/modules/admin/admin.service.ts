@@ -7,7 +7,12 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Periodo } from '@meumercado/domain';
-import { PLANOS, type AdminStatsDTO, type AdminUserDTO, type AdminUsersResponse } from '@meumercado/contracts';
+import {
+  PLANOS,
+  type AdminStatsDTO,
+  type AdminUserDTO,
+  type AdminUsersResponse,
+} from '@meumercado/contracts';
 import { isAdminEmail } from '../../common/admin-emails.js';
 import type { Env } from '../../config/env.schema.js';
 import type { AuthedUser } from '../auth/jwt-auth.guard.js';
@@ -54,7 +59,9 @@ export class AdminService {
 
   async listar(limit: number, offset: number): Promise<AdminUsersResponse> {
     const all = await this.users.findAll();
-    const items = await Promise.all(all.slice(offset, offset + limit).map((u) => this.toAdminUser(u)));
+    const items = await Promise.all(
+      all.slice(offset, offset + limit).map((u) => this.toAdminUser(u)),
+    );
     return { total: all.length, items };
   }
 

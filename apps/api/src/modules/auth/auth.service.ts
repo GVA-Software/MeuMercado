@@ -7,10 +7,7 @@ import type { Env } from '../../config/env.schema.js';
 import { isAdminEmail } from '../../common/admin-emails.js';
 import { PASSWORD_HASHER, type PasswordHasher } from './password.hasher.js';
 import { USER_REPOSITORY, type StoredUser, type UserRepository } from './user.repository.js';
-import {
-  NAME_CHANGE_REPOSITORY,
-  type NameChangeRepository,
-} from './name-change.repository.js';
+import { NAME_CHANGE_REPOSITORY, type NameChangeRepository } from './name-change.repository.js';
 import { TokenService } from './token.service.js';
 
 export interface AuthResult {
