@@ -7,6 +7,19 @@ import { installApiMocks } from './fixtures';
  * Fecha a pirâmide de testes na camada de UI, cobrindo os recursos que blindamos.
  */
 test.describe('Meu Mercado — jornada crítica', () => {
+  test('onboarding: primeira abertura mostra o valor da base e leva ao registro', async ({
+    page,
+  }) => {
+    await installApiMocks(page, { onboarded: false });
+    await page.goto('/');
+
+    await expect(page.getByText(/Bem-vindo/)).toBeVisible();
+    await expect(page.getByText('mercados')).toBeVisible(); // números da comunidade
+
+    await page.getByRole('button', { name: /Registrar meu primeiro preço/ }).click();
+    await expect(page.getByText(/Ajude a comunidade/)).toBeVisible(); // registro aberto
+  });
+
   test('login: entra com e-mail/senha e passa do portão', async ({ page }) => {
     await installApiMocks(page, { loggedIn: false }); // refresh 401 → tela de login
     await page.goto('/');

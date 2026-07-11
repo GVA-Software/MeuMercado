@@ -10,8 +10,9 @@ export interface MapFocus {
 
 interface NavCtx {
   irParaMapa: (foco: MapFocus) => void;
-  /** Abre a aba Preços já no registro de preço de um produto (deep-link da Nina). */
-  abrirRegistroPreco: (produtoId: string) => void;
+  /** Abre a aba Preços já no registro de preço. Com `produtoId`, pré-seleciona o
+   * produto (deep-link da Nina); sem argumento, abre o registro em branco. */
+  abrirRegistroPreco: (produtoId?: string) => void;
 }
 
 const Ctx = createContext<NavCtx>({

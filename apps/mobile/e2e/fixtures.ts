@@ -94,10 +94,23 @@ export interface MockOpts {
   loggedIn?: boolean;
   /** true → assinatura Pro (Nina liberada). Padrão: true. */
   pro?: boolean;
+  /** true (padrão) → marca as boas-vindas como já vistas, pra não cobrir o app.
+   *  false → deixa o onboarding aparecer (teste dedicado). */
+  onboarded?: boolean;
 }
 
 export async function installApiMocks(page: Page, opts: MockOpts = {}): Promise<void> {
-  const { loggedIn = true, pro = true } = opts;
+  const { loggedIn = true, pro = true, onboarded = true } = opts;
+
+  if (onboarded) {
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem('mm-onboarding-v1', '1');
+      } catch {
+        /* ignora */
+      }
+    });
+  }
 
   // Predicado exato: só as chamadas da API (`/api/...`). Um glob `**/api/**`
   // pegaria também os módulos do Vite em dev (ex.: `/src/api/client.ts`),

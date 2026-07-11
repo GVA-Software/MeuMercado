@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useTheme } from '../theme/theme';
 import { useAuth } from '../auth/AuthContext';
 import { NavProvider, type MapFocus } from './nav';
@@ -8,6 +8,8 @@ import { NinaScreen } from '../features/nina/NinaScreen';
 import { PrecosScreen } from '../features/precos/PrecosScreen';
 import { PerfilScreen } from '../features/perfil/PerfilScreen';
 import { AuthScreen } from '../features/auth/AuthScreen';
+import { Onboarding } from '../features/onboarding/Onboarding';
+import { onboardingVisto, marcarOnboardingVisto } from '../features/onboarding/onboardingStore';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
 import { CartLoader } from '../ui/kit';
 
@@ -21,19 +23,25 @@ export function App() {
   const { user, loading } = useAuth();
   const [tab, setTab] = useState<Tab>('compra');
   const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
-  const [precoFocus, setPrecoFocus] = useState<string | null>(null);
+  const [precoReq, setPrecoReq] = useState<{ produtoId?: string } | null>(null);
+  const [onboarding, setOnboarding] = useState(false);
 
   const irParaMapa = useCallback((foco: MapFocus) => {
     setMapFocus(foco);
     setTab('mapa');
   }, []);
 
-  const abrirRegistroPreco = useCallback((produtoId: string) => {
-    setPrecoFocus(produtoId);
+  const abrirRegistroPreco = useCallback((produtoId?: string) => {
+    setPrecoReq(produtoId ? { produtoId } : {});
     setTab('historico');
   }, []);
 
-  const consumirPrecoFocus = useCallback(() => setPrecoFocus(null), []);
+  const consumirPrecoReq = useCallback(() => setPrecoReq(null), []);
+
+  // Boas-vindas de primeira abertura (só depois de logado, uma vez por aparelho).
+  useEffect(() => {
+    if (user && !onboardingVisto()) setOnboarding(true);
+  }, [user]);
 
   // Portão: precisa estar logado para usar o app.
   if (loading) {
@@ -69,7 +77,7 @@ export function App() {
           )}
           {tab === 'nina' && <NinaScreen />}
           {tab === 'historico' && (
-            <PrecosScreen registrarProdutoId={precoFocus} onConsumeRegistro={consumirPrecoFocus} />
+            <PrecosScreen registrarReq={precoReq} onConsumeRegistro={consumirPrecoReq} />
           )}
           {tab === 'perfil' && <PerfilScreen />}
         </div>
@@ -82,6 +90,24 @@ export function App() {
         />
         <UpdatePrompt />
       </div>
+      {onboarding && (
+        <Onboarding
+          onRegistrar={() => {
+            marcarOnboardingVisto();
+            setOnboarding(false);
+            abrirRegistroPreco();
+          }}
+          onExplorar={() => {
+            marcarOnboardingVisto();
+            setOnboarding(false);
+            setTab('historico');
+          }}
+          onFechar={() => {
+            marcarOnboardingVisto();
+            setOnboarding(false);
+          }}
+        />
+      )}
     </NavProvider>
   );
 }

@@ -33,11 +33,12 @@ function slug(s: string): string {
 }
 
 export function PrecosScreen({
-  registrarProdutoId,
+  registrarReq,
   onConsumeRegistro,
 }: {
-  /** Se vier (deep-link da Nina), abre o registro de preço já neste produto. */
-  registrarProdutoId?: string | null;
+  /** Deep-link: abre o registro de preço. Com `produtoId`, pré-seleciona o
+   * produto (Nina); `{}` abre em branco (onboarding); `null` = nada. */
+  registrarReq?: { produtoId?: string } | null;
   onConsumeRegistro?: () => void;
 } = {}) {
   const { T } = useTheme();
@@ -105,19 +106,24 @@ export function PrecosScreen({
     setEntry({ open: true, ...(produto ? { produto } : {}) });
   }
 
-  // Deep-link da Nina: abre o registro já no produto pedido. Espera os produtos
-  // carregarem para pré-selecionar; consome o foco pra não reabrir sozinho depois.
+  // Deep-link (Nina/onboarding): abre o registro, pré-selecionando o produto se
+  // pedido. Espera os produtos carregarem; consome pra não reabrir sozinho depois.
   useEffect(() => {
-    if (!registrarProdutoId) return;
-    const alvo = produtos.find((p) => p.id === registrarProdutoId);
-    if (alvo) {
-      abrirCadastro(alvo);
-      onConsumeRegistro?.();
-    } else if (produtos.length > 0) {
-      abrirCadastro(); // carregou mas não achou → abre a busca de produto
+    if (!registrarReq) return;
+    if (registrarReq.produtoId) {
+      const alvo = produtos.find((p) => p.id === registrarReq.produtoId);
+      if (alvo) {
+        abrirCadastro(alvo);
+        onConsumeRegistro?.();
+      } else if (produtos.length > 0) {
+        abrirCadastro(); // carregou mas não achou → abre a busca de produto
+        onConsumeRegistro?.();
+      }
+    } else {
+      abrirCadastro(); // registro em branco (onboarding)
       onConsumeRegistro?.();
     }
-  }, [registrarProdutoId, produtos, onConsumeRegistro]);
+  }, [registrarReq, produtos, onConsumeRegistro]);
 
   return (
     <div style={{ paddingBottom: 100 }}>
