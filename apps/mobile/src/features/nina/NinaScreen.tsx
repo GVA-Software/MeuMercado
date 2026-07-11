@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { PLANOS, type InsightDTO, type Periodo } from '@meumercado/contracts';
 import { api, formatBRL } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
+import { useNav } from '../../app/nav';
 import { useTheme, type Theme } from '../../theme/theme';
 import { CartLoader, EmptyState, SLabel } from '../../ui/kit';
 
@@ -72,6 +73,7 @@ export function NinaScreen() {
 
 /** Nina liberada (Pro): mostra os insights reais. */
 function NinaInsights({ T }: { T: Theme }) {
+  const { abrirRegistroPreco } = useNav();
   const [insights, setInsights] = useState<InsightDTO[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,7 +105,13 @@ function NinaInsights({ T }: { T: Theme }) {
           sub="Registre preços (manual, QR da nota ou no carrinho). Assim que houver o que comparar, a Nina traz os alertas aqui."
         />
       )}
-      {lead && <NinaLead T={T} ins={lead} />}
+      {lead && (
+        <NinaLead
+          T={T}
+          ins={lead}
+          onAcao={lead.produtoId ? () => abrirRegistroPreco(lead.produtoId!) : undefined}
+        />
+      )}
       {rest.length > 0 && <SLabel>Alertas</SLabel>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {rest.map((ins, i) => (
@@ -169,9 +177,19 @@ function NinaInsights({ T }: { T: Theme }) {
 }
 
 /** Destaque proativo no topo da Nina — o "empurrãozinho" de maior impacto. */
-function NinaLead({ T, ins }: { T: Theme; ins: InsightDTO }) {
+function NinaLead({
+  T,
+  ins,
+  onAcao,
+}: {
+  T: Theme;
+  ins: InsightDTO;
+  onAcao?: (() => void) | undefined;
+}) {
   return (
     <div
+      onClick={onAcao}
+      role={onAcao ? 'button' : undefined}
       style={{
         background: T.ninaGrad,
         borderRadius: 18,
@@ -179,6 +197,7 @@ function NinaLead({ T, ins }: { T: Theme; ins: InsightDTO }) {
         marginBottom: 16,
         color: '#FFF',
         boxShadow: `0 6px 20px ${T.shadow}`,
+        cursor: onAcao ? 'pointer' : 'default',
       }}
     >
       <span
@@ -223,6 +242,23 @@ function NinaLead({ T, ins }: { T: Theme; ins: InsightDTO }) {
           )}
         </div>
       </div>
+      {onAcao && (
+        <div
+          style={{
+            marginTop: 12,
+            paddingTop: 12,
+            borderTop: '1px solid rgba(255,255,255,0.2)',
+            fontSize: 13,
+            fontWeight: 800,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <span>➕ Registrar preço</span>
+          <span>›</span>
+        </div>
+      )}
     </div>
   );
 }

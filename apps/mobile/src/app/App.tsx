@@ -21,11 +21,19 @@ export function App() {
   const { user, loading } = useAuth();
   const [tab, setTab] = useState<Tab>('compra');
   const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
+  const [precoFocus, setPrecoFocus] = useState<string | null>(null);
 
   const irParaMapa = useCallback((foco: MapFocus) => {
     setMapFocus(foco);
     setTab('mapa');
   }, []);
+
+  const abrirRegistroPreco = useCallback((produtoId: string) => {
+    setPrecoFocus(produtoId);
+    setTab('historico');
+  }, []);
+
+  const consumirPrecoFocus = useCallback(() => setPrecoFocus(null), []);
 
   // Portão: precisa estar logado para usar o app.
   if (loading) {
@@ -49,7 +57,7 @@ export function App() {
   }
 
   return (
-    <NavProvider value={{ irParaMapa }}>
+    <NavProvider value={{ irParaMapa, abrirRegistroPreco }}>
       <div className="app-shell" style={{ background: T.bg, color: T.text }}>
         {/* Só esta área rola; o header (sticky) de cada tela e a nav ficam fixos. */}
         <div className="app-scroll" key={tab}>
@@ -60,7 +68,9 @@ export function App() {
             </Suspense>
           )}
           {tab === 'nina' && <NinaScreen />}
-          {tab === 'historico' && <PrecosScreen />}
+          {tab === 'historico' && (
+            <PrecosScreen registrarProdutoId={precoFocus} onConsumeRegistro={consumirPrecoFocus} />
+          )}
           {tab === 'perfil' && <PerfilScreen />}
         </div>
         <BottomNav

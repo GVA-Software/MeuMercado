@@ -37,9 +37,21 @@ test.describe('Meu Mercado — jornada crítica', () => {
 
     // Empurrãozinho em destaque no topo + alerta citando preços reais na lista.
     await expect(page.getByText(/EMPURRÃOZINHO/)).toBeVisible();
-    await expect(page.getByText('Compare o FRALDA PAMPERS e economize')).toBeVisible();
+    await expect(page.getByText('Compare o ARROZ TIO JOAO e economize')).toBeVisible();
     await expect(page.getByText('ARROZ TIO JOAO subiu 4%')).toBeVisible();
     await expect(page.getByText(/Passou de R\$ 24,90 para R\$ 31,00/)).toBeVisible();
+  });
+
+  test('loop de cobertura: tocar o empurrãozinho abre o registro do produto', async ({ page }) => {
+    await installApiMocks(page, { pro: true });
+    await page.goto('/');
+
+    await page.getByRole('button', { name: /Nina IA/ }).click();
+    await page.getByText('Compare o ARROZ TIO JOAO e economize').click();
+
+    // Deep-link levou aos Preços com o registro aberto e o produto pré-selecionado.
+    await expect(page.getByText(/Ajude a comunidade/)).toBeVisible();
+    await expect(page.getByText('trocar')).toBeVisible(); // produto já selecionado
   });
 
   test('Nina (Free): mostra o paywall em vez dos insights', async ({ page }) => {

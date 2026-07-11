@@ -15,6 +15,7 @@ import { AppLogo, Btn, CartLoader, CurrencyInput, EmptyState, SLabel } from '../
 import { MarketTag, marcaMercado } from '../../ui/market';
 import { emojiDe } from '../../ui/emoji';
 import { useNav } from '../../app/nav';
+import { getRecentMarkets, pushRecentMarket } from './recentMarkets';
 import { useAuth } from '../../auth/AuthContext';
 import { NfceFlow } from '../nfce/NfceFlow';
 
@@ -31,7 +32,14 @@ function slug(s: string): string {
     .replace(/(^-|-$)/g, '');
 }
 
-export function PrecosScreen() {
+export function PrecosScreen({
+  registrarProdutoId,
+  onConsumeRegistro,
+}: {
+  /** Se vier (deep-link da Nina), abre o registro de preço já neste produto. */
+  registrarProdutoId?: string | null;
+  onConsumeRegistro?: () => void;
+} = {}) {
   const { T } = useTheme();
   const [rows, setRows] = useState<PriceTableRowDTO[] | null>(null);
   const [produtos, setProdutos] = useState<ProdutoDTO[]>([]);
@@ -96,6 +104,20 @@ export function PrecosScreen() {
     setDetalhe(null);
     setEntry({ open: true, ...(produto ? { produto } : {}) });
   }
+
+  // Deep-link da Nina: abre o registro já no produto pedido. Espera os produtos
+  // carregarem para pré-selecionar; consome o foco pra não reabrir sozinho depois.
+  useEffect(() => {
+    if (!registrarProdutoId) return;
+    const alvo = produtos.find((p) => p.id === registrarProdutoId);
+    if (alvo) {
+      abrirCadastro(alvo);
+      onConsumeRegistro?.();
+    } else if (produtos.length > 0) {
+      abrirCadastro(); // carregou mas não achou → abre a busca de produto
+      onConsumeRegistro?.();
+    }
+  }, [registrarProdutoId, produtos, onConsumeRegistro]);
 
   return (
     <div style={{ paddingBottom: 100 }}>
@@ -847,6 +869,24 @@ function PriceEntrySheet({
   const [precoCents, setPrecoCents] = useState(0);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [recentes] = useState(getRecentMarkets);
+
+  function escolherMercado(m: {
+    id: string | null;
+    nome: string;
+    endereco?: string;
+    lat?: number;
+    lng?: number;
+  }) {
+    setMercadoNome(m.nome);
+    setMercadoId(m.id);
+    setMercadoDados({
+      ...(m.endereco ? { endereco: m.endereco } : {}),
+      ...(m.lat !== undefined ? { lat: m.lat } : {}),
+      ...(m.lng !== undefined ? { lng: m.lng } : {}),
+    });
+    setNearby(null);
+  }
 
   const filtrados = useMemo(
     () =>
@@ -909,6 +949,11 @@ function PriceEntrySheet({
         ...(mercadoDados.lng !== undefined ? { mercadoLng: mercadoDados.lng } : {}),
         priceCents: precoCents,
         source: 'manual',
+      });
+      pushRecentMarket({
+        id: mercadoId,
+        nome: mercadoNome.trim(),
+        ...mercadoDados,
       });
       onDone();
     } catch (e) {
@@ -1037,6 +1082,31 @@ function PriceEntrySheet({
 
       {/* Mercado */}
       <SLabel>Mercado</SLabel>
+      {recentes.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+          {recentes.map((m) => {
+            const sel = mercadoNome.trim().toLowerCase() === m.nome.toLowerCase();
+            return (
+              <button
+                key={m.nome}
+                onClick={() => escolherMercado(m)}
+                style={{
+                  background: sel ? T.primary : T.primaryBg,
+                  color: sel ? '#FFF' : T.primary,
+                  border: `1px solid ${sel ? T.primary : `${T.primary}44`}`,
+                  borderRadius: 99,
+                  padding: '7px 12px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {m.nome}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
         <input
           placeholder="Nome do mercado"
@@ -1072,16 +1142,15 @@ function PriceEntrySheet({
           {nearby.map((m) => (
             <button
               key={m.id}
-              onClick={() => {
-                setMercadoNome(m.nome);
-                setMercadoId(m.id);
-                setMercadoDados({
+              onClick={() =>
+                escolherMercado({
+                  id: m.id,
+                  nome: m.nome,
                   ...(m.endereco ? { endereco: m.endereco } : {}),
                   lat: m.localizacao.lat,
                   lng: m.localizacao.lng,
-                });
-                setNearby(null);
-              }}
+                })
+              }
               style={{
                 background: mercadoId === m.id ? T.primary : T.card,
                 color: mercadoId === m.id ? '#FFF' : T.sub,

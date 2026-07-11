@@ -77,12 +77,14 @@ export const INSIGHT = {
   sub: 'Passou de R$ 24,90 para R$ 31,00 no Atacadao. Pode valer a pena estocar agora.',
   emoji: '📈',
 };
-/** Empurrãozinho proativo (coach) — vira o banner de destaque no topo da Nina. */
+/** Empurrãozinho proativo (coach) — vira o banner de destaque no topo da Nina.
+ *  `produtoId` casa com PRODUTO para o deep-link "registrar preço" achar o item. */
 export const COACH = {
   type: 'oportunidade',
   urgente: false,
-  titulo: 'Compare o FRALDA PAMPERS e economize',
-  sub: 'Você só tem 1 preço dele (R$ 99,90). Anote quanto custa em outro mercado e a Nina te diz onde compensa.',
+  produtoId: PRODUTO.id,
+  titulo: 'Compare o ARROZ TIO JOAO e economize',
+  sub: 'Você só tem 1 preço dele (R$ 28,90). Anote quanto custa em outro mercado e a Nina te diz onde compensa.',
   emoji: '💡',
 };
 export const INSIGHTS = { insights: [INSIGHT, COACH], geradoEm: '2026-07-11T12:00:00.000Z' };
