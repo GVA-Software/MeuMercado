@@ -48,6 +48,43 @@ jobs:
       - name: Test (unit + integração)
         run: pnpm -r run test
 
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: pnpm install --no-frozen-lockfile
+
+      # domain/contracts geram os dist que o dev server do mobile importa.
+      - name: Build
+        run: pnpm -r build
+
+      - name: Install Playwright browser
+        run: pnpm --filter @meumercado/mobile exec playwright install --with-deps chromium
+
+      - name: E2E (jornada crítica)
+        run: pnpm --filter @meumercado/mobile run e2e
+
+      - name: Upload report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/mobile/playwright-report
+          retention-days: 7
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest

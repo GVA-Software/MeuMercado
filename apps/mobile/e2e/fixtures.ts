@@ -1,0 +1,154 @@
+import type { Page, Route } from '@playwright/test';
+
+/**
+ * Fixtures + mock da API para os e2e.
+ *
+ * `installApiMocks` intercepta toda chamada a `/api/**` e responde com dados
+ * canônicos. Isso torna o teste determinístico e sem dependências (nem API nem
+ * Postgres), focando na fiação do front. Os dados batem de propósito com os
+ * recursos que blindamos: tendência de alta e insight da Nina citando preços.
+ */
+
+export const USER = {
+  id: 'u-e2e',
+  email: 'teste@meumercado.app',
+  nome: 'Gustavo Teste',
+  isAdmin: false,
+};
+
+export const AUTH = { accessToken: 'e2e-access-token', user: USER };
+
+const subBase = { usuarioId: USER.id, status: 'ativa' as const, trialFim: null };
+export const SUB_PRO = {
+  ...subBase,
+  plano: 'pro',
+  periodo: 'anual',
+  isPro: true,
+  diasRestantes: 200,
+  periodoFim: '2027-01-01T00:00:00.000Z',
+};
+export const SUB_FREE = {
+  ...subBase,
+  plano: 'free',
+  periodo: null,
+  isPro: false,
+  diasRestantes: 0,
+  periodoFim: null,
+};
+
+/** Carrinho vazio válido — a Home (Compra) lê total/limite/items no boot. */
+export const CART = {
+  id: 'cart-e2e',
+  items: [],
+  total: { cents: 0 },
+  limite: null,
+  mercado: null,
+  status: 'sem-limite',
+  progressPercent: 0,
+  remaining: null,
+};
+
+export const PRODUTO = {
+  id: 'p-arroz',
+  nome: 'ARROZ TIO JOAO 5KG',
+  categoria: 'Outros',
+  unidade: 'un',
+  emoji: '🍚',
+};
+
+/** Linha da tabela com tendência de ALTA — regressão do bug do trend=null. */
+export const TABLE_ROW = {
+  produto: PRODUTO,
+  mediaCents: 2890,
+  minCents: 2490,
+  maxCents: 3100,
+  trend: 'subiu',
+  trendPct: 4,
+  amostras: 3,
+  menorPrecoMercado: 'Atacadao',
+  atualizadoEm: '2026-07-10T12:00:00.000Z',
+};
+
+/** Insight da Nina citando preços reais (credibilidade da IA). */
+export const INSIGHT = {
+  type: 'tendencia-alta',
+  urgente: true,
+  titulo: 'ARROZ TIO JOAO subiu 4%',
+  sub: 'Passou de R$ 24,90 para R$ 31,00 no Atacadao. Pode valer a pena estocar agora.',
+  emoji: '📈',
+};
+export const INSIGHTS = { insights: [INSIGHT], geradoEm: '2026-07-11T12:00:00.000Z' };
+
+export interface MockOpts {
+  /** false → /auth/refresh responde 401 (mostra a tela de login). Padrão: true. */
+  loggedIn?: boolean;
+  /** true → assinatura Pro (Nina liberada). Padrão: true. */
+  pro?: boolean;
+}
+
+export async function installApiMocks(page: Page, opts: MockOpts = {}): Promise<void> {
+  const { loggedIn = true, pro = true } = opts;
+
+  // Predicado exato: só as chamadas da API (`/api/...`). Um glob `**/api/**`
+  // pegaria também os módulos do Vite em dev (ex.: `/src/api/client.ts`),
+  // devolvendo JSON no lugar do script e quebrando o boot do app.
+  await page.route(
+    (url) => url.pathname.startsWith('/api/'),
+    (route: Route) => {
+      const req = route.request();
+      const method = req.method();
+      const path = new URL(req.url()).pathname;
+
+      // Origem ecoada + credenciais: funciona same-origin e cross-origin.
+      const origin = req.headers()['origin'] ?? '*';
+      const cors = {
+        'access-control-allow-origin': origin,
+        'access-control-allow-credentials': 'true',
+      };
+      const json = (body: unknown, status = 200) =>
+        route.fulfill({
+          status,
+          contentType: 'application/json',
+          headers: cors,
+          body: JSON.stringify(body),
+        });
+
+      if (method === 'OPTIONS') {
+        return route.fulfill({
+          status: 204,
+          headers: {
+            ...cors,
+            'access-control-allow-headers': 'content-type,authorization',
+            'access-control-allow-methods': 'GET,POST,PATCH,PUT,DELETE,OPTIONS',
+          },
+        });
+      }
+
+      // ---- Auth ----
+      if (path.endsWith('/auth/refresh'))
+        return loggedIn ? json(AUTH) : json({ message: 'sem sessão' }, 401);
+      if (path.endsWith('/auth/login')) return json(AUTH);
+      if (path.endsWith('/auth/logout')) return json({ ok: true });
+      if (path.endsWith('/auth/me')) return json(USER);
+
+      // ---- Billing ----
+      if (path.endsWith('/billing/me')) return json(pro ? SUB_PRO : SUB_FREE);
+
+      // ---- Carrinho ----
+      if (path.includes('/carts')) return json(CART);
+
+      // ---- Catálogo ----
+      if (path.includes('/produtos')) return json([PRODUTO]);
+
+      // ---- Preços ----
+      if (path.includes('/prices/table')) return json([TABLE_ROW]);
+      if (path.endsWith('/prices/mercados')) return json([{ nome: 'Atacadao', count: 3 }]);
+
+      // ---- Nina ----
+      if (path.endsWith('/insights')) return json(INSIGHTS);
+
+      // Qualquer outra chamada: resposta benigna (não quebra render).
+      return json({});
+    },
+  );
+}
