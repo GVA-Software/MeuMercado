@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Periodo } from '@meumercado/domain';
 import {
   PLANOS,
+  type AdminFunnelDTO,
   type AdminStatsDTO,
   type AdminUserDTO,
   type AdminUsersResponse,
@@ -17,6 +18,14 @@ import { isAdminEmail } from '../../common/admin-emails.js';
 import type { Env } from '../../config/env.schema.js';
 import type { AuthedUser } from '../auth/jwt-auth.guard.js';
 import { USER_REPOSITORY, type StoredUser, type UserRepository } from '../auth/user.repository.js';
+import {
+  ANALYTICS_REPOSITORY,
+  type AnalyticsRepository,
+} from '../analytics/analytics.repository.js';
+import {
+  PRICE_OBSERVATION_REPOSITORY,
+  type PriceObservationRepository,
+} from '../pricing/price-observation.repository.js';
 import { BillingService } from '../billing/billing.service.js';
 import { PushService } from '../push/push.service.js';
 
@@ -33,7 +42,38 @@ export class AdminService {
     private readonly billing: BillingService,
     private readonly push: PushService,
     private readonly config: ConfigService<Env, true>,
+    @Inject(ANALYTICS_REPOSITORY) private readonly analytics: AnalyticsRepository,
+    @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly prices: PriceObservationRepository,
   ) {}
+
+  /**
+   * Funil de ativação: do cadastro ao 1º preço. A base já está ativa — "registrou
+   * preço" é derivado de `reporter_id` (sem seed); só o topo (onboarding) é evento.
+   */
+  async funil(): Promise<AdminFunnelDTO> {
+    const usuarios = await this.users.findAll();
+    const eventos = await this.analytics.resumo();
+    const distintos = (name: string): number => eventos.find((e) => e.name === name)?.usuarios ?? 0;
+
+    const observacoes = await this.prices.all();
+    const reporters = new Set(
+      observacoes.filter((o) => o.reporterId !== 'seed').map((o) => o.reporterId),
+    );
+    const vistos = new Set(await this.analytics.usuariosComEvento('onboarding_visto'));
+    let vistosQueRegistraram = 0;
+    for (const r of reporters) if (vistos.has(r)) vistosQueRegistraram += 1;
+
+    return {
+      totalUsuarios: usuarios.length,
+      onboardingVistos: distintos('onboarding_visto'),
+      clicaramRegistrar: distintos('onboarding_cta_registrar'),
+      explorar: distintos('onboarding_explorar'),
+      dispensaram: distintos('onboarding_dispensado'),
+      registraramPreco: reporters.size,
+      vistosQueRegistraram,
+      eventos,
+    };
+  }
 
   private get adminCsv(): string {
     return this.config.get('ADMIN_EMAILS', { infer: true });

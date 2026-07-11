@@ -21,6 +21,7 @@ import { CartModule } from './modules/cart/cart.module.js';
 import { ComprasModule } from './modules/compras/compras.module.js';
 import { InsightsModule } from './modules/insights/insights.module.js';
 import { PushModule } from './modules/push/push.module.js';
+import { AnalyticsModule } from './modules/analytics/analytics.module.js';
 
 type ModuleImport = Type | DynamicModule | Promise<DynamicModule> | ForwardReference;
 
@@ -53,6 +54,7 @@ const imports: ModuleImport[] = [
   ComprasModule,
   InsightsModule,
   PushModule,
+  AnalyticsModule,
 ];
 
 // Em PRODUÇÃO num host de processo (Render/Docker), a API serve o build estático

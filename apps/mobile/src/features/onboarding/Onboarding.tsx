@@ -29,6 +29,7 @@ export function Onboarding({
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
+    api.track('onboarding_visto');
     void Promise.all([api.listarProdutos(), api.mercadosPreco()])
       .then(([produtos, mercados]) =>
         setStats({
@@ -134,15 +135,31 @@ export function Onboarding({
           ))}
         </div>
 
-        <Btn full onClick={onRegistrar}>
+        <Btn
+          full
+          onClick={() => {
+            api.track('onboarding_cta_registrar');
+            onRegistrar();
+          }}
+        >
           ➕ Registrar meu primeiro preço
         </Btn>
         <div style={{ height: 10 }} />
-        <Btn full variant="soft" onClick={onExplorar}>
+        <Btn
+          full
+          variant="soft"
+          onClick={() => {
+            api.track('onboarding_explorar');
+            onExplorar();
+          }}
+        >
           👀 Explorar os preços
         </Btn>
         <button
-          onClick={onFechar}
+          onClick={() => {
+            api.track('onboarding_dispensado');
+            onFechar();
+          }}
           style={{
             width: '100%',
             background: 'none',

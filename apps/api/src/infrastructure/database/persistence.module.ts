@@ -30,6 +30,11 @@ import {
   COMPRA_REPOSITORY,
   InMemoryCompraRepository,
 } from '../../modules/compras/compra.repository.js';
+import {
+  ANALYTICS_REPOSITORY,
+  InMemoryAnalyticsRepository,
+} from '../../modules/analytics/analytics.repository.js';
+import { AnalyticsEventEntity } from './entities/analytics-event.entity.js';
 import { CartEntity, CartItemEntity } from './entities/cart.entity.js';
 import { CompraEntity } from './entities/compra.entity.js';
 import { NameChangeEntity } from './entities/name-change.entity.js';
@@ -48,6 +53,7 @@ import { TypeOrmSubscriptionRepository } from './repositories/typeorm-subscripti
 import { TypeOrmUserRepository } from './repositories/typeorm-user.repository.js';
 import { TypeOrmNameChangeRepository } from './repositories/typeorm-name-change.repository.js';
 import { TypeOrmPushSubscriptionRepository } from './repositories/typeorm-push-subscription.repository.js';
+import { TypeOrmAnalyticsRepository } from './repositories/typeorm-analytics.repository.js';
 
 const ENTITIES = [
   UserEntity,
@@ -60,6 +66,7 @@ const ENTITIES = [
   ProdutoEntity,
   NfceImportEntity,
   CompraEntity,
+  AnalyticsEventEntity,
 ];
 const TOKENS = [
   USER_REPOSITORY,
@@ -71,6 +78,7 @@ const TOKENS = [
   PRODUTO_REPOSITORY,
   NFCE_IMPORT_REPOSITORY,
   COMPRA_REPOSITORY,
+  ANALYTICS_REPOSITORY,
 ];
 
 /**
@@ -98,6 +106,7 @@ export class PersistenceModule {
           { provide: PRODUTO_REPOSITORY, useClass: InMemoryProdutoRepository },
           { provide: NFCE_IMPORT_REPOSITORY, useClass: InMemoryNfceImportRepository },
           { provide: COMPRA_REPOSITORY, useClass: InMemoryCompraRepository },
+          { provide: ANALYTICS_REPOSITORY, useClass: InMemoryAnalyticsRepository },
         ],
         exports: TOKENS,
       };
@@ -135,6 +144,7 @@ export class PersistenceModule {
         { provide: PRODUTO_REPOSITORY, useClass: TypeOrmProdutoRepository },
         { provide: NFCE_IMPORT_REPOSITORY, useClass: TypeOrmNfceImportRepository },
         { provide: COMPRA_REPOSITORY, useClass: TypeOrmCompraRepository },
+        { provide: ANALYTICS_REPOSITORY, useClass: TypeOrmAnalyticsRepository },
       ],
       exports: TOKENS,
     };

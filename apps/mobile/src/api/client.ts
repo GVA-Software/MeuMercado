@@ -6,6 +6,7 @@ import type {
   CompraDTO,
   ComprasResponse,
   CreateProdutoInput,
+  EventName,
   InsightsResponse,
   LoginInput,
   MercadoDTO,
@@ -248,6 +249,15 @@ export class ApiClient {
       method: 'DELETE',
       body: JSON.stringify({ endpoint }),
     });
+  }
+
+  // ---- Analytics (própria) ----
+  /** Registra um evento de uso. Fire-and-forget: nunca bloqueia nem quebra a UI. */
+  track(name: EventName, props?: Record<string, string | number | boolean>): void {
+    void this.request('/events', {
+      method: 'POST',
+      body: JSON.stringify({ name, ...(props ? { props } : {}) }),
+    }).catch(() => {});
   }
 
   // ---- Billing / assinatura ----

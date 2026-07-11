@@ -1,7 +1,7 @@
       'use strict';
       var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
       var token = null;
-      var state = { stats: null, users: [], busca: '', aberto: null, agindo: null, erro: '' };
+      var state = { stats: null, funil: null, users: [], busca: '', aberto: null, agindo: null, erro: '' };
 
       function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -125,6 +125,27 @@
       }
       function mini(n, l) { return '<div><p class="n">' + n + '</p><p class="l">' + l + '</p></div>'; }
 
+      function pct(n, base) { return base > 0 ? Math.round((n / base) * 100) + '%' : '—'; }
+      function funnelHtml(f) {
+        var base = f.totalUsuarios || 1;
+        function step(label, n, sub, cor) {
+          var w = Math.max(6, Math.min(100, Math.round((n / base) * 100)));
+          return '<div class="fstep">' +
+            '<div class="fmeta"><span>' + label + '</span><b>' + n +
+            (sub ? ' <i>' + sub + '</i>' : '') + '</b></div>' +
+            '<div class="ftrack"><div class="ffill" style="width:' + w + '%;background:' + cor + '"></div></div>' +
+            '</div>';
+        }
+        return '<div class="funnel"><p class="ftitle">Funil de ativação</p>' +
+          step('Cadastraram', f.totalUsuarios, '', '#ff6b2b') +
+          step('Viram as boas-vindas', f.onboardingVistos, pct(f.onboardingVistos, f.totalUsuarios), '#38bdf8') +
+          step('Clicaram “registrar 1º preço”', f.clicaramRegistrar, pct(f.clicaramRegistrar, f.onboardingVistos), '#a78bfa') +
+          step('Registraram 1º preço', f.registraramPreco, pct(f.registraramPreco, f.totalUsuarios), '#22c55e') +
+          '<p class="fnote">Coorte: <b>' + f.vistosQueRegistraram + '</b> dos que viram as boas-vindas registraram preço (' +
+          pct(f.vistosQueRegistraram, f.onboardingVistos) + ').</p>' +
+          '</div>';
+      }
+
       function usersFiltrados() {
         var t = state.busca.trim().toLowerCase();
         if (!t) return state.users;
@@ -179,6 +200,7 @@
             '<div class="mini">' + mini(s.cadastrosHoje, 'hoje') + mini(s.cadastros7d, '7 dias') +
               mini(s.cadastros30d, '30 dias') + mini(s.admins, 'admins') + '</div>'
           ) : '') +
+          (state.funil ? funnelHtml(state.funil) : '') +
           '<input class="search" id="busca" placeholder="Buscar por nome ou e-mail…" value="' + esc(state.busca) + '"/>' +
           '<div id="lista"></div></div>';
         el('sair').onclick = sair;
@@ -240,9 +262,14 @@
         document.getElementById('root').innerHTML =
           '<div class="loading"><img src="/Loading.png" alt=""/><p>Carregando o painel…</p></div>';
         try {
-          var res = await Promise.all([apiFetch('/admin/stats'), apiFetch('/admin/users?limit=100')]);
+          var res = await Promise.all([
+            apiFetch('/admin/stats'),
+            apiFetch('/admin/users?limit=100'),
+            apiFetch('/admin/funil').catch(function () { return null; }),
+          ]);
           state.stats = res[0];
           state.users = res[1].items;
+          state.funil = res[2];
           renderDashboard();
         } catch (e) {
           // Já autenticado: mostra o erro no painel (não volta pro login).

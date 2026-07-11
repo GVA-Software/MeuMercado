@@ -6,6 +6,8 @@ import type { Env } from '../../config/env.schema.js';
 import type { AuthedUser } from '../auth/jwt-auth.guard.js';
 import type { StoredUser, UserRepository } from '../auth/user.repository.js';
 import type { PushService } from '../push/push.service.js';
+import type { AnalyticsRepository } from '../analytics/analytics.repository.js';
+import type { PriceObservationRepository } from '../pricing/price-observation.repository.js';
 import { BillingService } from '../billing/billing.service.js';
 import { AdminService } from './admin.service.js';
 
@@ -19,7 +21,14 @@ const user = (id: string, email: string): StoredUser => ({
 
 const ACTING: AuthedUser = { id: 'me', email: 'admin@test.dev' };
 
-function makeService(usuarios: StoredUser[]) {
+function makeService(
+  usuarios: StoredUser[],
+  extra: {
+    resumo?: Array<{ name: string; usuarios: number; total: number }>;
+    vistos?: string[];
+    observacoes?: Array<{ reporterId: string }>;
+  } = {},
+) {
   const deleted: string[] = [];
   const users: UserRepository = {
     findByEmail: () => Promise.resolve(null),
@@ -52,11 +61,21 @@ function makeService(usuarios: StoredUser[]) {
   };
   const push = { enviarPara: vi.fn(() => Promise.resolve()) };
   const config = { get: () => 'admin@test.dev' } as unknown as ConfigService<Env, true>;
+  const analytics = {
+    registrar: vi.fn(() => Promise.resolve()),
+    resumo: () => Promise.resolve(extra.resumo ?? []),
+    usuariosComEvento: () => Promise.resolve(extra.vistos ?? []),
+  } as unknown as AnalyticsRepository;
+  const prices = {
+    all: () => Promise.resolve(extra.observacoes ?? []),
+  } as unknown as PriceObservationRepository;
   const service = new AdminService(
     users,
     billing as unknown as BillingService,
     push as unknown as PushService,
     config,
+    analytics,
+    prices,
   );
   return { service, deleted, push, billing };
 }
@@ -90,5 +109,24 @@ describe('AdminService — conceder plano', () => {
     await service.concederTrial('joe');
     expect(billing.iniciarTrial).toHaveBeenCalledWith('joe');
     expect(push.enviarPara).toHaveBeenCalledOnce();
+  });
+});
+
+describe('AdminService — funil de ativação', () => {
+  it('conta onboarding, registros (sem seed) e a coorte que viu e registrou', async () => {
+    const { service } = makeService([user('u1', 'a@a.com'), user('u2', 'b@b.com')], {
+      resumo: [
+        { name: 'onboarding_visto', usuarios: 2, total: 3 },
+        { name: 'onboarding_cta_registrar', usuarios: 1, total: 1 },
+      ],
+      vistos: ['u1', 'u2'],
+      observacoes: [{ reporterId: 'u1' }, { reporterId: 'u1' }, { reporterId: 'seed' }],
+    });
+    const f = await service.funil();
+    expect(f.totalUsuarios).toBe(2);
+    expect(f.onboardingVistos).toBe(2);
+    expect(f.clicaramRegistrar).toBe(1);
+    expect(f.registraramPreco).toBe(1); // u1 distinto; seed excluído
+    expect(f.vistosQueRegistraram).toBe(1); // u1 viu E registrou
   });
 });

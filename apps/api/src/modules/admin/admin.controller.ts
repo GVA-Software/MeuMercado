@@ -12,6 +12,7 @@ import {
 import {
   AdminGrantProSchema,
   PageQuerySchema,
+  type AdminFunnelDTO,
   type AdminGrantProInput,
   type AdminStatsDTO,
   type AdminUserDTO,
@@ -32,6 +33,11 @@ export class AdminController {
   @Get('stats')
   stats(): Promise<AdminStatsDTO> {
     return this.service.stats();
+  }
+
+  @Get('funil')
+  funil(): Promise<AdminFunnelDTO> {
+    return this.service.funil();
   }
 
   @Get('users')
