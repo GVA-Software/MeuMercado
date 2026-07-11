@@ -35,6 +35,9 @@ test.describe('Meu Mercado — jornada crítica', () => {
 
     await page.getByRole('button', { name: /Nina IA/ }).click();
 
+    // Empurrãozinho em destaque no topo + alerta citando preços reais na lista.
+    await expect(page.getByText(/EMPURRÃOZINHO/)).toBeVisible();
+    await expect(page.getByText('Compare o FRALDA PAMPERS e economize')).toBeVisible();
     await expect(page.getByText('ARROZ TIO JOAO subiu 4%')).toBeVisible();
     await expect(page.getByText(/Passou de R\$ 24,90 para R\$ 31,00/)).toBeVisible();
   });

@@ -86,9 +86,14 @@ function NinaInsights({ T }: { T: Theme }) {
     })();
   }, []);
 
+  // Empurrãozinho: o card de maior impacto vira destaque no topo. Preferimos uma
+  // economia concreta (tem `economia`); na falta, o coach proativo ('oportunidade').
+  const lead =
+    insights?.find((i) => i.economia) ?? insights?.find((i) => i.type === 'oportunidade') ?? null;
+  const rest = insights?.filter((i) => i !== lead) ?? [];
+
   return (
     <div style={{ padding: '16px 16px 0' }}>
-      <SLabel>Alertas</SLabel>
       {error && <EmptyState emoji="⚠️" titulo="Falha ao carregar" sub={error} />}
       {!error && insights === null && <CartLoader label="Analisando seus preços…" />}
       {insights?.length === 0 && (
@@ -98,8 +103,10 @@ function NinaInsights({ T }: { T: Theme }) {
           sub="Registre preços (manual, QR da nota ou no carrinho). Assim que houver o que comparar, a Nina traz os alertas aqui."
         />
       )}
+      {lead && <NinaLead T={T} ins={lead} />}
+      {rest.length > 0 && <SLabel>Alertas</SLabel>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {insights?.map((ins, i) => (
+        {rest.map((ins, i) => (
           <div
             key={i}
             style={{
@@ -156,6 +163,65 @@ function NinaInsights({ T }: { T: Theme }) {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** Destaque proativo no topo da Nina — o "empurrãozinho" de maior impacto. */
+function NinaLead({ T, ins }: { T: Theme; ins: InsightDTO }) {
+  return (
+    <div
+      style={{
+        background: T.ninaGrad,
+        borderRadius: 18,
+        padding: 16,
+        marginBottom: 16,
+        color: '#FFF',
+        boxShadow: `0 6px 20px ${T.shadow}`,
+      }}
+    >
+      <span
+        style={{
+          display: 'inline-block',
+          fontSize: 11,
+          fontWeight: 800,
+          letterSpacing: 0.5,
+          background: 'rgba(255,255,255,0.2)',
+          padding: '3px 8px',
+          borderRadius: 99,
+          marginBottom: 10,
+        }}
+      >
+        ✨ EMPURRÃOZINHO
+      </span>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            background: 'rgba(255,255,255,0.18)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 24,
+            flexShrink: 0,
+          }}
+        >
+          {ins.emoji}
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 15, fontWeight: 800, margin: '0 0 4px' }}>{ins.titulo}</p>
+          <p style={{ fontSize: 13, margin: 0, lineHeight: 1.5, color: 'rgba(255,255,255,0.9)' }}>
+            {ins.sub}
+          </p>
+          {ins.economia && (
+            <p style={{ fontSize: 14, fontWeight: 800, margin: '8px 0 0' }}>
+              💰 Economize {formatBRL(ins.economia.cents)}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

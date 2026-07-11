@@ -77,7 +77,15 @@ export const INSIGHT = {
   sub: 'Passou de R$ 24,90 para R$ 31,00 no Atacadao. Pode valer a pena estocar agora.',
   emoji: '📈',
 };
-export const INSIGHTS = { insights: [INSIGHT], geradoEm: '2026-07-11T12:00:00.000Z' };
+/** Empurrãozinho proativo (coach) — vira o banner de destaque no topo da Nina. */
+export const COACH = {
+  type: 'oportunidade',
+  urgente: false,
+  titulo: 'Compare o FRALDA PAMPERS e economize',
+  sub: 'Você só tem 1 preço dele (R$ 99,90). Anote quanto custa em outro mercado e a Nina te diz onde compensa.',
+  emoji: '💡',
+};
+export const INSIGHTS = { insights: [INSIGHT, COACH], geradoEm: '2026-07-11T12:00:00.000Z' };
 
 export interface MockOpts {
   /** false → /auth/refresh responde 401 (mostra a tela de login). Padrão: true. */

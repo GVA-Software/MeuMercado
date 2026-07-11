@@ -35,7 +35,10 @@ export interface InsightContext {
 export interface InsightEngineConfig {
   readonly windowDays: number;
   readonly trendAlertPct: number;
+  /** Economia mínima (em R$) para sugerir trocar de mercado. */
   readonly minSavings: Money;
+  /** Piso relativo (%) para a mesma sugestão — evita "economize 17 centavos". */
+  readonly minSavingsPct: number;
 }
 
 /**
@@ -50,11 +53,25 @@ export interface InsightEngine {
 const DEFAULT_CONFIG: InsightEngineConfig = {
   windowDays: 30,
   trendAlertPct: 10,
-  minSavings: Money.fromReais(1),
+  // Calibrado com dados reais: itens baratos tornam R$1 alto demais (esconde
+  // economias válidas), mas mostrar centavos mata a credibilidade. Piso duplo:
+  // ≥ R$0,50 E ≥ 3% do preço → toda dica economiza algo que vale a pena.
+  minSavings: Money.fromReais(0.5),
+  minSavingsPct: 3,
 };
 
-/** Abaixo disso é ruído/estável; não vira insight de variação. */
-const MIN_MOVE_PCT = 2;
+/**
+ * Abaixo disso é ruído/estável; não vira insight de variação. Com poucos
+ * registros por item, 2% é quase sempre arredondamento/promoção — 3% filtra melhor.
+ */
+const MIN_MOVE_PCT = 3;
+
+/**
+ * Teto do item que o empurrãozinho sugere comparar: a Nina foca em compras do
+ * dia a dia. Acima disso costuma ser durável de compra única (ex.: panela), onde
+ * comparar preço rende pouco ao longo do tempo — nudge menos crível.
+ */
+const MAX_COACH_PRICE = Money.fromReais(100);
 
 /**
  * Motor de insights baseado em estatística — 100% explicável e sem custo de API.
@@ -73,10 +90,14 @@ export class StatisticalInsightEngine implements InsightEngine {
       ...this.priceMovements(context),
       ...this.cheapestMarketTips(context),
       ...this.historicalLows(context),
-      ...this.highlights(context),
     ];
     const basket = this.basketOptimization(context);
     if (basket) insights.push(basket);
+    // Empurrãozinho proativo: quando ainda falta base para comparar, coacha o
+    // usuário a completar o dado de maior valor (vira "economize R$X" sozinho
+    // quando houver 2+ mercados). Fica por último no array; a UI o destaca.
+    const opp = this.opportunity(context);
+    if (opp) insights.push(opp);
 
     // Urgentes primeiro; depois por maior economia.
     return insights.sort((a, b) => {
@@ -201,8 +222,9 @@ export class StatisticalInsightEngine implements InsightEngine {
       if (cheapest === null || cheapestId === null) continue;
 
       const economia = overall.subtract(cheapest);
-      // "pelo menos minSavings" (limiar inclusivo).
-      if (!economia.isLessThan(this.config.minSavings)) {
+      const pct = overall.cents > 0 ? (economia.cents / overall.cents) * 100 : 0;
+      // Relevante em R$ (≥ minSavings) E em % (≥ minSavingsPct).
+      if (!economia.isLessThan(this.config.minSavings) && pct >= this.config.minSavingsPct) {
         out.push(
           new Insight({
             type: 'mais-barato-em',
@@ -246,28 +268,33 @@ export class StatisticalInsightEngine implements InsightEngine {
   }
 
   /**
-   * Regra 5 (destaque): o item mais caro que o usuário registrou. Sempre existe
-   * quando há dados — dá "vida" à Nina mesmo quando a maioria dos produtos tem um
-   * único registro, e é onde comparar preço entre mercados rende mais.
+   * Empurrãozinho (regra proativa): a maior oportunidade de economia AGORA.
+   * Escolhe o item de maior valor que só tem preço em UMA loja — é onde
+   * comparar rende mais reais — e coacha o usuário a completar a comparação.
+   * Quando o item passa a ter 2+ mercados, a regra `cheapestMarketTips` assume
+   * com a economia concreta; então este coach some sozinho (sem duplicar).
    */
-  private highlights(context: InsightContext): Insight[] {
-    let cara: PriceObservation | null = null;
-    for (const o of context.observations) {
-      if (cara === null || o.price.isGreaterThan(cara.price)) cara = o;
+  private opportunity(context: InsightContext): Insight | null {
+    let best: { produto: ProdutoRef; price: Money } | null = null;
+    for (const produto of context.produtosDeInteresse) {
+      const obs = this.observationsFor(context, produto.id);
+      if (obs.length === 0) continue;
+      const mercados = new Set(obs.map((o) => o.mercadoId));
+      if (mercados.size !== 1) continue; // já dá pra comparar → não é coach
+      let max = obs[0]!.price;
+      for (const o of obs) if (o.price.isGreaterThan(max)) max = o.price;
+      if (max.isGreaterThan(MAX_COACH_PRICE)) continue; // durável de compra única
+      if (best === null || max.isGreaterThan(best.price)) best = { produto, price: max };
     }
-    if (!cara) return [];
-    const produto = context.produtosDeInteresse.find((p) => p.id === cara!.produtoId);
-    if (!produto) return [];
-    return [
-      new Insight({
-        type: 'destaque',
-        urgente: false,
-        emoji: produto.emoji ?? '💸',
-        titulo: `${produto.nome} é seu item mais caro (${cara.price.format()})`,
-        sub: 'É onde comparar preço entre mercados rende mais. Registre-o em outra loja e a Nina acha o mais barato para você.',
-        produtoId: produto.id,
-      }),
-    ];
+    if (best === null) return null;
+    return new Insight({
+      type: 'oportunidade',
+      urgente: false,
+      emoji: '💡',
+      titulo: `Compare o ${best.produto.nome} e economize`,
+      sub: `Você só tem 1 preço dele (${best.price.format()}). Anote quanto custa em outro mercado e a Nina te diz na hora onde compensa comprar — nos itens mais caros a comparação rende mais.`,
+      produtoId: best.produto.id,
+    });
   }
 
   /**

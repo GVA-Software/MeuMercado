@@ -6,7 +6,8 @@ export type InsightType =
   | 'mais-barato-em'
   | 'menor-preco-historico'
   | 'cesta-otima'
-  | 'destaque';
+  | 'destaque'
+  | 'oportunidade';
 
 export interface InsightJSON {
   readonly type: InsightType;
