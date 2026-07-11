@@ -89,6 +89,34 @@ export const COACH = {
 };
 export const INSIGHTS = { insights: [INSIGHT, COACH], geradoEm: '2026-07-11T12:00:00.000Z' };
 
+/** Resposta de "onde eu compro?" — 2 mercados com preço para o produto. */
+export const ONDE_COMPRAR = {
+  produtoId: PRODUTO.id,
+  totalMercados: 2,
+  mercados: [
+    {
+      mercadoId: 'm1',
+      mercadoNome: 'Atacadao',
+      endereco: 'Av. Teste, 100',
+      lat: -23.56,
+      lng: -46.64,
+      priceCents: 1290,
+      distanciaMetros: 1200,
+      atualizadoEm: '2026-07-10T12:00:00.000Z',
+    },
+    {
+      mercadoId: 'm2',
+      mercadoNome: 'Rossi',
+      endereco: null,
+      lat: -23.55,
+      lng: -46.63,
+      priceCents: 1450,
+      distanciaMetros: 800,
+      atualizadoEm: '2026-07-09T12:00:00.000Z',
+    },
+  ],
+};
+
 export interface MockOpts {
   /** false → /auth/refresh responde 401 (mostra a tela de login). Padrão: true. */
   loggedIn?: boolean;
@@ -168,6 +196,7 @@ export async function installApiMocks(page: Page, opts: MockOpts = {}): Promise<
       if (path.endsWith('/prices/mercados')) return json([{ nome: 'Atacadao', count: 3 }]);
 
       // ---- Nina ----
+      if (path.endsWith('/insights/onde-comprar')) return json(ONDE_COMPRAR);
       if (path.endsWith('/insights')) return json(INSIGHTS);
 
       // Qualquer outra chamada: resposta benigna (não quebra render).

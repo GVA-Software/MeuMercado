@@ -12,3 +12,4 @@ export * from './auth.js';
 export * from './billing.js';
 export * from './admin.js';
 export * from './analytics.js';
+export * from './shopping.js';

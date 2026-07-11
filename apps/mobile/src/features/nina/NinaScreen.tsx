@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useNav } from '../../app/nav';
 import { useTheme, type Theme } from '../../theme/theme';
 import { CartLoader, EmptyState, SLabel } from '../../ui/kit';
+import { NinaOndeComprar } from './NinaOndeComprar';
 
 const BENEFICIOS = [
   '✨ Insights automáticos dos seus preços',
@@ -96,6 +97,7 @@ function NinaInsights({ T }: { T: Theme }) {
 
   return (
     <div style={{ padding: '16px 16px 0' }}>
+      <NinaOndeComprar T={T} />
       {error && <EmptyState emoji="⚠️" titulo="Falha ao carregar" sub={error} />}
       {!error && insights === null && <CartLoader label="Analisando seus preços…" />}
       {insights?.length === 0 && (

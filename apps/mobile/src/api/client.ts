@@ -14,6 +14,7 @@ import type {
   NfceDraftDTO,
   NfceImportRequest,
   NfceImportResult,
+  OndeComprarResponse,
   PriceHistoryDTO,
   PriceSummaryDTO,
   PriceTableRowDTO,
@@ -213,6 +214,17 @@ export class ApiClient {
     itens: Array<{ produtoId: string; nome: string; quantity: number }>,
   ): Promise<InsightsResponse> {
     return this.request('/insights/cesta', { method: 'POST', body: JSON.stringify({ itens }) });
+  }
+  /** "Onde eu compro este produto?" — melhores mercados por preço + distância. */
+  ondeComprar(produtoId: string, lat?: number, lng?: number): Promise<OndeComprarResponse> {
+    return this.request('/insights/onde-comprar', {
+      method: 'POST',
+      body: JSON.stringify({
+        produtoId,
+        ...(lat !== undefined ? { lat } : {}),
+        ...(lng !== undefined ? { lng } : {}),
+      }),
+    });
   }
 
   // ---- Auth ----

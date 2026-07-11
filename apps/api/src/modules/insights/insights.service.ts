@@ -1,12 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  GeoPoint,
   StatisticalInsightEngine,
+  melhoresMercadosPara,
   type BasketLine,
   type InsightContext,
   type MercadoRef,
   type ProdutoRef,
 } from '@meumercado/domain';
-import type { InsightDTO, InsightsResponse } from '@meumercado/contracts';
+import type { InsightDTO, InsightsResponse, OndeComprarResponse } from '@meumercado/contracts';
 import { SEED_DATA } from '../../data/data.module.js';
 import type { SeedData } from '../../data/seed.js';
 import {
@@ -58,5 +60,30 @@ export class InsightsService {
     const insights: InsightDTO[] = this.engine.generate(context).map((i) => i.toJSON());
 
     return { insights, geradoEm: asOf.toISOString() };
+  }
+
+  /**
+   * "Onde eu compro este produto?": ranqueia os mercados com preço para o produto
+   * por preço + distância. Só dados reais (o filtro de seed está no domínio).
+   */
+  async ondeComprar(produtoId: string, lat?: number, lng?: number): Promise<OndeComprarResponse> {
+    const observations = await this.prices.all();
+    const usuario = lat !== undefined && lng !== undefined ? new GeoPoint(lat, lng) : null;
+    const todos = melhoresMercadosPara(observations, produtoId, usuario);
+    const LIMITE = 3;
+    return {
+      produtoId,
+      totalMercados: todos.length,
+      mercados: todos.slice(0, LIMITE).map((m) => ({
+        mercadoId: m.mercadoId,
+        mercadoNome: m.mercadoNome,
+        endereco: m.endereco,
+        lat: m.lat,
+        lng: m.lng,
+        priceCents: m.priceCents,
+        distanciaMetros: m.distanciaMetros,
+        atualizadoEm: m.observedAt.toISOString(),
+      })),
+    };
   }
 }

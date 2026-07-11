@@ -67,6 +67,25 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await expect(page.getByText('trocar')).toBeVisible(); // produto já selecionado
   });
 
+  test('Nina "onde compro": produto → melhores mercados por preço e distância', async ({
+    page,
+  }) => {
+    await installApiMocks(page, { pro: true });
+    await page.context().grantPermissions(['geolocation']);
+    await page.context().setGeolocation({ latitude: -23.55, longitude: -46.63 });
+    await page.goto('/');
+
+    await page.getByRole('button', { name: /Nina IA/ }).click();
+    await page.getByPlaceholder('Buscar produto…').fill('arroz');
+    await page.getByText('ARROZ TIO JOAO 5KG').click();
+
+    // Mercados ranqueados aparecem (o mais barato primeiro). `exact` evita
+    // colidir com "Atacadao" citado no texto de um insight.
+    await expect(page.getByText('Atacadao', { exact: true })).toBeVisible();
+    await expect(page.getByText(/12,90/)).toBeVisible();
+    await expect(page.getByText('Rossi', { exact: true })).toBeVisible();
+  });
+
   test('Nina (Free): mostra o paywall em vez dos insights', async ({ page }) => {
     await installApiMocks(page, { pro: false });
     await page.goto('/');

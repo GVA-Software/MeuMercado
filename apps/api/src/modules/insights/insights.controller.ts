@@ -1,6 +1,11 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
-import type { InsightsResponse } from '@meumercado/contracts';
+import {
+  OndeComprarSchema,
+  type InsightsResponse,
+  type OndeComprarInput,
+  type OndeComprarResponse,
+} from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { ProGuard } from '../billing/pro.guard.js';
@@ -36,5 +41,13 @@ export class InsightsController {
     @Body(new ZodValidationPipe(BasketSchema)) body: z.infer<typeof BasketSchema>,
   ): Promise<InsightsResponse> {
     return this.service.gerar(body.itens);
+  }
+
+  /** "Onde eu compro este produto?" — melhores mercados por preço + distância. */
+  @Post('onde-comprar')
+  ondeComprar(
+    @Body(new ZodValidationPipe(OndeComprarSchema)) body: OndeComprarInput,
+  ): Promise<OndeComprarResponse> {
+    return this.service.ondeComprar(body.produtoId, body.lat, body.lng);
   }
 }

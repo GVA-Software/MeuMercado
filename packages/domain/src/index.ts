@@ -65,6 +65,9 @@ export {
   type BasketLine,
 } from './insights/InsightEngine.js';
 
+// Compra assistida ("onde eu compro este produto?")
+export { melhoresMercadosPara, type MercadoRankeado } from './shopping/OndeComprar.js';
+
 // Rotas (apoio à aba Mapa — "como chegar" ao mercado)
 export { Route } from './routing/Route.js';
 export { RouteStep, type ManeuverType } from './routing/RouteStep.js';
