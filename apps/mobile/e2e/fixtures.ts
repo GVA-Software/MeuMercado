@@ -56,6 +56,18 @@ export const PRODUTO = {
   emoji: '🍚',
 };
 
+/** Vários "tipos" para o chat da Nina mostrar as opções ao buscar um termo. */
+export const CAFES = [
+  { id: 'cafe-pilao', nome: 'CAFE PILAO 500G', categoria: 'Outros', unidade: 'un', emoji: '☕' },
+  {
+    id: 'cafe-3cor',
+    nome: 'CAFE 3 CORACOES 250G',
+    categoria: 'Outros',
+    unidade: 'un',
+    emoji: '☕',
+  },
+];
+
 /** Linha da tabela com tendência de ALTA — regressão do bug do trend=null. */
 export const TABLE_ROW = {
   produto: PRODUTO,
@@ -189,6 +201,7 @@ export async function installApiMocks(page: Page, opts: MockOpts = {}): Promise<
       if (path.includes('/carts')) return json(CART);
 
       // ---- Catálogo ----
+      if (path.includes('/produtos/search')) return json(CAFES);
       if (path.includes('/produtos')) return json([PRODUTO]);
 
       // ---- Preços ----

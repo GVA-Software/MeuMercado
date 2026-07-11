@@ -67,22 +67,24 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await expect(page.getByText('trocar')).toBeVisible(); // produto já selecionado
   });
 
-  test('Nina "onde compro": produto → melhores mercados por preço e distância', async ({
-    page,
-  }) => {
+  test('Nina "onde compro" (chat): termo → tipos → mercados ranqueados', async ({ page }) => {
     await installApiMocks(page, { pro: true });
     await page.context().grantPermissions(['geolocation']);
     await page.context().setGeolocation({ latitude: -23.55, longitude: -46.63 });
     await page.goto('/');
 
     await page.getByRole('button', { name: /Nina IA/ }).click();
-    await page.getByPlaceholder('Buscar produto…').fill('arroz');
-    await page.getByText('ARROZ TIO JOAO 5KG').click();
 
-    // Mercados ranqueados aparecem (o mais barato primeiro). `exact` evita
-    // colidir com "Atacadao" citado no texto de um insight.
+    // Bate-papo: escreve o termo → Nina mostra TODOS os tipos.
+    const composer = page.getByPlaceholder('Ex.: café, arroz, sabão…');
+    await composer.fill('café');
+    await composer.press('Enter');
+    await expect(page.getByText(/Achei 2 opções de "café"/)).toBeVisible();
+
+    // Escolhe um tipo → mercados ranqueados (mais barato primeiro).
+    await page.getByRole('button', { name: /CAFE PILAO 500G/ }).click();
     await expect(page.getByText('Atacadao', { exact: true })).toBeVisible();
-    await expect(page.getByText(/12,90/)).toBeVisible();
+    await expect(page.getByText(/12,90/).first()).toBeVisible(); // resumo + cartão
     await expect(page.getByText('Rossi', { exact: true })).toBeVisible();
   });
 
