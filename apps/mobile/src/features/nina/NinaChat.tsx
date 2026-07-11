@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { OndeComprarResponse, ProdutoDTO } from '@meumercado/contracts';
+import type { InsightDTO, OndeComprarResponse, ProdutoDTO } from '@meumercado/contracts';
 import { api, formatBRL } from '../../api/client';
 import { useNav } from '../../app/nav';
 import type { Theme } from '../../theme/theme';
@@ -16,8 +16,9 @@ function formatDistancia(m: number | null): string | null {
 type Msg =
   | { id: number; from: 'nina' | 'user'; kind: 'text'; text: string }
   | { id: number; from: 'nina'; kind: 'produtos'; produtos: ProdutoDTO[] }
-  | { id: number; from: 'nina'; kind: 'mercados'; resp: OndeComprarResponse; produto: ProdutoDTO }
-  | { id: number; from: 'nina'; kind: 'registrar'; produto: ProdutoDTO };
+  | { id: number; from: 'nina'; kind: 'mercados'; resp: OndeComprarResponse }
+  | { id: number; from: 'nina'; kind: 'registrar'; produto: ProdutoDTO }
+  | { id: number; from: 'nina'; kind: 'insight'; insight: InsightDTO };
 
 // Omit distributivo: preserva cada variante da união (Omit normal colapsa nos
 // campos comuns), pra `empurrar` aceitar uma mensagem sem o `id`.
@@ -27,15 +28,16 @@ const SAUDACAO: Msg = {
   id: 0,
   from: 'nina',
   kind: 'text',
-  text: 'Oi! Sou a Nina 💜 Me diz o que você quer comprar e eu acho os melhores mercados perto de você.',
+  text: 'Oi! Sou a Nina 💜 Escreva um produto que eu acho onde comprar mais barato perto de você — ou toque em ✨ Meus alertas.',
 };
 
 /**
- * Nina interativa em formato de bate-papo. Você escreve um termo (ex.: "café") →
- * ela mostra TODOS os tipos que encontrou → você escolhe → ela ranqueia os
- * mercados por preço + distância. Onde falta dado, convida a registrar.
+ * Nina em formato de bate-papo (tipo WhatsApp): mensagens de baixo pra cima,
+ * campo de envio embaixo. Você escreve um produto → ela mostra os tipos → ranqueia
+ * os mercados. Os insights não aparecem sozinhos: viram um botão ("Meus alertas")
+ * e a Nina os mostra na conversa quando você pede.
  */
-export function NinaOndeComprar({ T }: { T: Theme }) {
+export function NinaChat({ T }: { T: Theme }) {
   const { abrirRegistroPreco } = useNav();
   const [msgs, setMsgs] = useState<Msg[]>([SAUDACAO]);
   const [texto, setTexto] = useState('');
@@ -43,11 +45,9 @@ export function NinaOndeComprar({ T }: { T: Theme }) {
   const idRef = useRef(1);
   const listaRef = useRef<HTMLDivElement>(null);
 
-  const proximoId = () => idRef.current++;
   const empurrar = (m: SemId<Msg>) =>
-    setMsgs((atual) => [...atual, { ...m, id: proximoId() } as Msg]);
+    setMsgs((atual) => [...atual, { ...m, id: idRef.current++ } as Msg]);
 
-  // Mantém o chat rolado no fim a cada nova mensagem.
   useEffect(() => {
     const el = listaRef.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -117,7 +117,7 @@ export function NinaOndeComprar({ T }: { T: Theme }) {
           kind: 'text',
           text: `${produto.nome}: mais barato no ${barato.mercadoNome}, ${formatBRL(barato.priceCents)}. Veja as opções:`,
         });
-        empurrar({ from: 'nina', kind: 'mercados', resp, produto });
+        empurrar({ from: 'nina', kind: 'mercados', resp });
       }
     } catch {
       empurrar({
@@ -130,86 +130,128 @@ export function NinaOndeComprar({ T }: { T: Theme }) {
     }
   }
 
-  return (
-    <div
-      style={{
-        background: T.surface,
-        border: `1px solid ${T.border}`,
-        borderRadius: 18,
-        overflow: 'hidden',
-        marginBottom: 18,
-      }}
-    >
-      <div style={{ padding: '14px 16px', borderBottom: `1px solid ${T.border}` }}>
-        <p style={{ color: T.text, fontSize: 16, fontWeight: 800, margin: 0 }}>
-          🛒 Onde eu compro?
-        </p>
-      </div>
+  async function verAlertas() {
+    if (ocupada) return;
+    empurrar({ from: 'user', kind: 'text', text: '✨ Meus alertas' });
+    setOcupada(true);
+    try {
+      const { insights } = await api.insights();
+      if (insights.length === 0) {
+        empurrar({
+          from: 'nina',
+          kind: 'text',
+          text: 'Ainda não tenho alertas — registre alguns preços e eu começo a analisar 😉',
+        });
+      } else {
+        empurrar({ from: 'nina', kind: 'text', text: 'Olha o que encontrei nos seus preços 👇' });
+        for (const insight of insights) empurrar({ from: 'nina', kind: 'insight', insight });
+      }
+    } catch {
+      empurrar({ from: 'nina', kind: 'text', text: 'Não consegui carregar os alertas agora.' });
+    } finally {
+      setOcupada(false);
+    }
+  }
 
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div
         ref={listaRef}
-        style={{
-          maxHeight: 380,
-          overflowY: 'auto',
-          padding: 14,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-        }}
+        style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14, display: 'flex' }}
       >
-        {msgs.map((m) => (
-          <Bolha key={m.id} T={T} from={m.from}>
-            {m.kind === 'text' && m.text}
-            {m.kind === 'produtos' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {m.produtos.map((p) => (
-                  <button
-                    key={p.id}
-                    disabled={ocupada}
-                    onClick={() => void consultarMercados(p)}
-                    style={{
-                      display: 'flex',
-                      gap: 10,
-                      alignItems: 'center',
-                      background: T.card,
-                      border: `1px solid ${T.border}`,
-                      borderRadius: 10,
-                      padding: '9px 11px',
-                      cursor: ocupada ? 'default' : 'pointer',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <span style={{ fontSize: 18 }}>{emojiDe(p)}</span>
-                    <span style={{ color: T.text, fontSize: 13 }}>{p.nome}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {m.kind === 'mercados' && <Mercados T={T} resp={m.resp} />}
-            {m.kind === 'registrar' && (
-              <button
-                onClick={() => abrirRegistroPreco(m.produto.id)}
-                style={{
-                  background: T.primary,
-                  color: '#FFF',
-                  border: 'none',
-                  borderRadius: 10,
-                  padding: '10px 14px',
-                  fontSize: 13,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                ➕ Registrar preço do {m.produto.nome}
-              </button>
-            )}
-          </Bolha>
-        ))}
-        {ocupada && (
-          <Bolha T={T} from="nina">
-            <span style={{ color: T.muted }}>Nina está pensando…</span>
-          </Bolha>
-        )}
+        {/* marginTop:auto ancora as mensagens embaixo quando são poucas (estilo chat). */}
+        <div
+          style={{
+            marginTop: 'auto',
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+          }}
+        >
+          {msgs.map((m) => (
+            <Bolha key={m.id} T={T} from={m.from}>
+              {m.kind === 'text' && m.text}
+              {m.kind === 'produtos' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {m.produtos.map((p) => (
+                    <button
+                      key={p.id}
+                      disabled={ocupada}
+                      onClick={() => void consultarMercados(p)}
+                      style={{
+                        display: 'flex',
+                        gap: 10,
+                        alignItems: 'center',
+                        background: T.card,
+                        border: `1px solid ${T.border}`,
+                        borderRadius: 10,
+                        padding: '9px 11px',
+                        cursor: ocupada ? 'default' : 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span style={{ fontSize: 18 }}>{emojiDe(p)}</span>
+                      <span style={{ color: T.text, fontSize: 13 }}>{p.nome}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {m.kind === 'mercados' && <Mercados T={T} resp={m.resp} />}
+              {m.kind === 'insight' && (
+                <InsightCard
+                  T={T}
+                  insight={m.insight}
+                  onRegistrar={
+                    m.insight.produtoId ? () => abrirRegistroPreco(m.insight.produtoId!) : undefined
+                  }
+                />
+              )}
+              {m.kind === 'registrar' && (
+                <button
+                  onClick={() => abrirRegistroPreco(m.produto.id)}
+                  style={{
+                    background: T.primary,
+                    color: '#FFF',
+                    border: 'none',
+                    borderRadius: 10,
+                    padding: '10px 14px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ➕ Registrar preço do {m.produto.nome}
+                </button>
+              )}
+            </Bolha>
+          ))}
+          {ocupada && (
+            <Bolha T={T} from="nina">
+              <span style={{ color: T.muted }}>Nina está pensando…</span>
+            </Bolha>
+          )}
+        </div>
+      </div>
+
+      {/* Ações rápidas (os insights viram um botão). */}
+      <div style={{ display: 'flex', gap: 8, padding: '8px 12px 0' }}>
+        <button
+          onClick={() => void verAlertas()}
+          disabled={ocupada}
+          style={{
+            background: T.ninaBg,
+            color: T.nina,
+            border: `1px solid ${T.nina}44`,
+            borderRadius: 99,
+            padding: '8px 14px',
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: ocupada ? 'default' : 'pointer',
+          }}
+        >
+          ✨ Meus alertas
+        </button>
       </div>
 
       <form
@@ -217,7 +259,7 @@ export function NinaOndeComprar({ T }: { T: Theme }) {
           e.preventDefault();
           void enviarTermo(texto);
         }}
-        style={{ display: 'flex', gap: 8, padding: 12, borderTop: `1px solid ${T.border}` }}
+        style={{ display: 'flex', gap: 8, padding: 12 }}
       >
         <input
           value={texto}
@@ -226,8 +268,8 @@ export function NinaOndeComprar({ T }: { T: Theme }) {
           style={{
             flex: 1,
             border: `1.5px solid ${T.border}`,
-            borderRadius: 12,
-            padding: '11px 14px',
+            borderRadius: 22,
+            padding: '11px 16px',
             background: T.card,
             color: T.text,
             fontSize: 15,
@@ -238,11 +280,11 @@ export function NinaOndeComprar({ T }: { T: Theme }) {
           disabled={ocupada || texto.trim().length === 0}
           style={{
             flexShrink: 0,
+            width: 44,
             background: texto.trim() && !ocupada ? T.primary : T.border,
             color: '#FFF',
             border: 'none',
-            borderRadius: 12,
-            padding: '0 16px',
+            borderRadius: '50%',
             fontSize: 16,
             fontWeight: 800,
             cursor: ocupada || !texto.trim() ? 'default' : 'pointer',
@@ -266,9 +308,9 @@ function Bolha({ T, from, children }: { T: Theme; from: 'nina' | 'user'; childre
           background: ehNina ? T.card : T.primary,
           color: ehNina ? T.text : '#FFF',
           border: ehNina ? `1px solid ${T.border}` : 'none',
-          borderRadius: 14,
-          borderBottomLeftRadius: ehNina ? 4 : 14,
-          borderBottomRightRadius: ehNina ? 14 : 4,
+          borderRadius: 16,
+          borderBottomLeftRadius: ehNina ? 4 : 16,
+          borderBottomRightRadius: ehNina ? 16 : 4,
           padding: '10px 13px',
           fontSize: 14,
           lineHeight: 1.5,
@@ -276,6 +318,53 @@ function Bolha({ T, from, children }: { T: Theme; from: 'nina' | 'user'; childre
       >
         {children}
       </div>
+    </div>
+  );
+}
+
+/** Um insight da Nina renderizado como cartão dentro de um balão. */
+function InsightCard({
+  T,
+  insight,
+  onRegistrar,
+}: {
+  T: Theme;
+  insight: InsightDTO;
+  onRegistrar?: (() => void) | undefined;
+}) {
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+        <span style={{ fontSize: 20 }}>{insight.emoji}</span>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, margin: '0 0 3px' }}>{insight.titulo}</p>
+          <p style={{ color: T.sub, fontSize: 13, margin: 0, lineHeight: 1.5 }}>{insight.sub}</p>
+          {insight.economia && (
+            <p style={{ color: T.green, fontSize: 13, fontWeight: 700, margin: '6px 0 0' }}>
+              💰 {formatBRL(insight.economia.cents)}
+            </p>
+          )}
+        </div>
+      </div>
+      {onRegistrar && (
+        <button
+          onClick={onRegistrar}
+          style={{
+            marginTop: 10,
+            width: '100%',
+            background: T.primaryBg,
+            color: T.primary,
+            border: `1px solid ${T.primary}44`,
+            borderRadius: 10,
+            padding: '8px 0',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          ➕ Registrar preço
+        </button>
+      )}
     </div>
   );
 }
