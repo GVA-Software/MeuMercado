@@ -215,6 +215,10 @@ export class ApiClient {
   ): Promise<InsightsResponse> {
     return this.request('/insights/cesta', { method: 'POST', body: JSON.stringify({ itens }) });
   }
+  /** Busca de produto da Nina — só produtos com preço real (sem placeholders do seed). */
+  ninaBuscarProdutos(q: string): Promise<ProdutoDTO[]> {
+    return this.request(`/insights/produtos?q=${encodeURIComponent(q)}`);
+  }
   /** "Onde eu compro este produto?" — melhores mercados por preço + distância. */
   ondeComprar(produtoId: string, lat?: number, lng?: number): Promise<OndeComprarResponse> {
     return this.request('/insights/onde-comprar', {

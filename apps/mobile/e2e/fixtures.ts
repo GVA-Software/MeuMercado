@@ -200,6 +200,9 @@ export async function installApiMocks(page: Page, opts: MockOpts = {}): Promise<
       // ---- Carrinho ----
       if (path.includes('/carts')) return json(CART);
 
+      // ---- Nina: busca de produto (só com preço) — antes do catálogo genérico ----
+      if (path.includes('/insights/produtos')) return json(CAFES);
+
       // ---- Catálogo ----
       if (path.includes('/produtos/search')) return json(CAFES);
       if (path.includes('/produtos')) return json([PRODUTO]);

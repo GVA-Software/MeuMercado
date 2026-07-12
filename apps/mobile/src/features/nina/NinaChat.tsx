@@ -122,12 +122,12 @@ export function NinaChat({ T }: { T: Theme }) {
   async function buscar(termo: string, raioMetros: number | null) {
     setOcupada(true);
     try {
-      const achados = (await api.buscarProdutos(termo)).slice(0, 20);
+      const achados = (await api.ninaBuscarProdutos(termo)).slice(0, 20);
       if (achados.length === 0) {
         empurrar({
           from: 'nina',
           kind: 'text',
-          text: `Não encontrei "${termo}" ainda. Tente outro nome — ou registre o preço e ele passa a existir na base.`,
+          text: `Não encontrei "${termo}" com preço ainda. Tente outro nome — ou registre o preço na aba Preços.`,
         });
       } else {
         // Nunca escolhe sozinho: mostra o(s) que achou pra você tocar.

@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import {
   OndeComprarSchema,
   type InsightsResponse,
   type OndeComprarInput,
   type OndeComprarResponse,
+  type ProdutoDTO,
 } from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
@@ -41,6 +42,12 @@ export class InsightsController {
     @Body(new ZodValidationPipe(BasketSchema)) body: z.infer<typeof BasketSchema>,
   ): Promise<InsightsResponse> {
     return this.service.gerar(body.itens);
+  }
+
+  /** Busca de produto da Nina — só produtos que têm preço real (sem placeholders). */
+  @Get('produtos')
+  buscarProdutos(@Query('q') q?: string): Promise<ProdutoDTO[]> {
+    return this.service.buscarComPreco(q ?? '');
   }
 
   /** "Onde eu compro este produto?" — melhores mercados por preço + distância. */

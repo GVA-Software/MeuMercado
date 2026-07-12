@@ -8,7 +8,13 @@ import {
   type MercadoRef,
   type ProdutoRef,
 } from '@meumercado/domain';
-import type { InsightDTO, InsightsResponse, OndeComprarResponse } from '@meumercado/contracts';
+import type {
+  InsightDTO,
+  InsightsResponse,
+  OndeComprarResponse,
+  ProdutoDTO,
+} from '@meumercado/contracts';
+import { combinaBusca } from '../../common/texto.js';
 import { SEED_DATA } from '../../data/data.module.js';
 import type { SeedData } from '../../data/seed.js';
 import {
@@ -60,6 +66,24 @@ export class InsightsService {
     const insights: InsightDTO[] = this.engine.generate(context).map((i) => i.toJSON());
 
     return { insights, geradoEm: asOf.toISOString() };
+  }
+
+  /**
+   * Busca de produto da Nina: só produtos que TÊM preço real (com observação de
+   * usuário, sem seed). Evita oferecer placeholders do seed que dão em beco sem
+   * saída ("ainda não tenho preço") — o que arranha a credibilidade.
+   */
+  async buscarComPreco(termo: string): Promise<ProdutoDTO[]> {
+    const t = termo.trim();
+    if (!t) return [];
+    const comPreco = new Set(
+      (await this.prices.all()).filter((o) => o.reporterId !== 'seed').map((o) => o.produtoId),
+    );
+    const produtos = await this.produtos.findAll();
+    return produtos
+      .filter((p) => comPreco.has(p.id) && combinaBusca(p.nome, t))
+      .slice(0, 20)
+      .map((p) => p.toJSON());
   }
 
   /**
