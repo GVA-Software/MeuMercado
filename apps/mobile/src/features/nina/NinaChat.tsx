@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { InsightDTO, OndeComprarResponse, ProdutoDTO } from '@meumercado/contracts';
+import { interpretar } from '@meumercado/domain';
 import { api, formatBRL } from '../../api/client';
 import { useNav } from '../../app/nav';
 import type { Theme } from '../../theme/theme';
@@ -15,7 +16,13 @@ function formatDistancia(m: number | null): string | null {
 /** Uma mensagem do bate-papo (Nina ou usuário). */
 type Msg =
   | { id: number; from: 'nina' | 'user'; kind: 'text'; text: string }
-  | { id: number; from: 'nina'; kind: 'produtos'; produtos: ProdutoDTO[] }
+  | {
+      id: number;
+      from: 'nina';
+      kind: 'produtos';
+      produtos: ProdutoDTO[];
+      raioMetros: number | null;
+    }
   | { id: number; from: 'nina'; kind: 'mercados'; resp: OndeComprarResponse }
   | { id: number; from: 'nina'; kind: 'registrar'; produto: ProdutoDTO }
   | { id: number; from: 'nina'; kind: 'insight'; insight: InsightDTO };
@@ -28,7 +35,7 @@ const SAUDACAO: Msg = {
   id: 0,
   from: 'nina',
   kind: 'text',
-  text: 'Oi! Sou a Nina 💜 Escreva um produto que eu acho onde comprar mais barato perto de você — ou toque em ✨ Meus alertas.',
+  text: 'Oi! Sou a Nina 🧡 Escreva um produto que eu acho onde comprar mais barato perto de você — ou toque em ✨ Meus alertas.',
 };
 
 /**
@@ -42,6 +49,7 @@ export function NinaChat({ T }: { T: Theme }) {
   const [msgs, setMsgs] = useState<Msg[]>([SAUDACAO]);
   const [texto, setTexto] = useState('');
   const [ocupada, setOcupada] = useState(false);
+  const [ultimoProduto, setUltimoProduto] = useState<ProdutoDTO | null>(null);
   const idRef = useRef(1);
   const listaRef = useRef<HTMLDivElement>(null);
 
@@ -53,11 +61,65 @@ export function NinaChat({ T }: { T: Theme }) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [msgs, ocupada]);
 
-  async function enviarTermo(termoBruto: string) {
-    const termo = termoBruto.trim();
-    if (!termo || ocupada) return;
-    empurrar({ from: 'user', kind: 'text', text: termo });
+  function posicao(): Promise<{ lat?: number; lng?: number }> {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve({});
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+        () => resolve({}),
+        { enableHighAccuracy: true, timeout: 8000 },
+      );
+    });
+  }
+
+  // Entende a mensagem (saudação, agradecimento, ajuda, refino por distância ou
+  // busca) e responde no tom certo — a "compreensão" é determinística (domínio).
+  function responder(texto: string) {
+    const t = texto.trim();
+    if (!t || ocupada) return;
+    empurrar({ from: 'user', kind: 'text', text: t });
     setTexto('');
+    const intent = interpretar(t);
+    if (intent.tipo === 'agradecimento') {
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: 'Imagina! 🧡 Tô aqui pra te ajudar a economizar. Precisando é só chamar.',
+      });
+      return;
+    }
+    if (intent.tipo === 'saudacao') {
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: 'Oi! 🧡 Me diz um produto (ex.: café, arroz) que eu acho onde está mais barato perto de você.',
+      });
+      return;
+    }
+    if (intent.tipo === 'ajuda') {
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: 'É simples: escreva o nome de um produto e eu mostro os mercados mais baratos perto de você. Toque em ✨ Meus alertas pra ver o que encontrei nos seus preços.',
+      });
+      return;
+    }
+    if (intent.tipo === 'refinar') {
+      void refinarUltimo(intent.raioMetros);
+      return;
+    }
+    if (!intent.termo) {
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: 'Não entendi 🤔 Me diz o nome de um produto — ex.: café, arroz, sabão.',
+      });
+      return;
+    }
+    void buscar(intent.termo, intent.raioMetros);
+  }
+
+  async function buscar(termo: string, raioMetros: number | null) {
     setOcupada(true);
     try {
       const achados = (await api.buscarProdutos(termo)).slice(0, 20);
@@ -75,9 +137,9 @@ export function NinaChat({ T }: { T: Theme }) {
           text:
             achados.length === 1
               ? `Encontrei "${achados[0]!.nome}". É esse que você quer?`
-              : `Achei ${achados.length} tipos de "${termo}". Qual você quer?`,
+              : `Achei ${achados.length} tipos — qual você quer?`,
         });
-        empurrar({ from: 'nina', kind: 'produtos', produtos: achados });
+        empurrar({ from: 'nina', kind: 'produtos', produtos: achados, raioMetros });
       }
     } catch {
       empurrar({
@@ -90,18 +152,27 @@ export function NinaChat({ T }: { T: Theme }) {
     }
   }
 
-  async function consultarMercados(produto: ProdutoDTO) {
-    empurrar({ from: 'user', kind: 'text', text: produto.nome });
-    setOcupada(true);
-    const posicao = (): Promise<{ lat?: number; lng?: number }> =>
-      new Promise((resolve) => {
-        if (!navigator.geolocation) return resolve({});
-        navigator.geolocation.getCurrentPosition(
-          (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-          () => resolve({}),
-          { enableHighAccuracy: true, timeout: 8000 },
-        );
+  async function refinarUltimo(raioMetros: number | null) {
+    if (!ultimoProduto) {
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: 'Me diz primeiro qual produto você quer 🙂 (ex.: café, arroz) — aí eu filtro por perto.',
       });
+      return;
+    }
+    await mostrarMercados(ultimoProduto, raioMetros ?? 3000);
+  }
+
+  // Usuário escolheu um produto da lista → registra a escolha e mostra os mercados.
+  async function escolher(produto: ProdutoDTO, raioMetros: number | null) {
+    empurrar({ from: 'user', kind: 'text', text: produto.nome });
+    await mostrarMercados(produto, raioMetros);
+  }
+
+  async function mostrarMercados(produto: ProdutoDTO, raioMetros: number | null) {
+    setUltimoProduto(produto);
+    setOcupada(true);
     try {
       const { lat, lng } = await posicao();
       const resp = await api.ondeComprar(produto.id, lat, lng);
@@ -112,12 +183,38 @@ export function NinaChat({ T }: { T: Theme }) {
           text: `Ainda não tenho preço de ${produto.nome}. Seja o primeiro a registrar!`,
         });
         empurrar({ from: 'nina', kind: 'registrar', produto });
-      } else {
-        const barato = resp.mercados[0]!;
+        return;
+      }
+      const dentro =
+        raioMetros !== null
+          ? resp.mercados.filter(
+              (m) => m.distanciaMetros !== null && m.distanciaMetros <= raioMetros,
+            )
+          : resp.mercados;
+      if (dentro.length > 0) {
+        const barato = dentro[0]!;
         empurrar({
           from: 'nina',
           kind: 'text',
-          text: `${produto.nome}: mais barato no ${barato.mercadoNome}, ${formatBRL(barato.priceCents)}. Veja as opções:`,
+          text:
+            raioMetros !== null
+              ? `Dentro de ${formatDistancia(raioMetros)}, o melhor pra ${produto.nome} é o ${barato.mercadoNome}, ${formatBRL(barato.priceCents)}:`
+              : `${produto.nome}: mais barato no ${barato.mercadoNome}, ${formatBRL(barato.priceCents)}. Veja as opções:`,
+        });
+        empurrar({ from: 'nina', kind: 'mercados', resp: { ...resp, mercados: dentro } });
+      } else {
+        // tem mercado com preço, mas nenhum dentro do raio pedido
+        const comDist = resp.mercados.filter((m) => m.distanciaMetros !== null);
+        const maisPerto = comDist.length
+          ? Math.min(...comDist.map((m) => m.distanciaMetros as number))
+          : null;
+        empurrar({
+          from: 'nina',
+          kind: 'text',
+          text:
+            maisPerto !== null
+              ? `Não tenho ${produto.nome} com preço a menos de ${formatDistancia(raioMetros ?? 0)} — o mais perto fica a ${formatDistancia(maisPerto)}:`
+              : `Pra filtrar por distância eu preciso da sua localização. Por ora, o que tenho de ${produto.nome}:`,
         });
         empurrar({ from: 'nina', kind: 'mercados', resp });
       }
@@ -180,7 +277,7 @@ export function NinaChat({ T }: { T: Theme }) {
                     <button
                       key={p.id}
                       disabled={ocupada}
-                      onClick={() => void consultarMercados(p)}
+                      onClick={() => void escolher(p, m.raioMetros)}
                       style={{
                         display: 'flex',
                         gap: 10,
@@ -260,7 +357,7 @@ export function NinaChat({ T }: { T: Theme }) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            void enviarTermo(texto);
+            responder(texto);
           }}
           style={{ display: 'flex', gap: 8, padding: '10px 12px' }}
         >

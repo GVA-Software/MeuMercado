@@ -1,0 +1,19 @@
+name: qa-cron
+
+# QA de conversa da Nina no automático: roda 1x/dia sobre a base VIVA (todos os
+# produtos, inclusive novos) e, se achar erros, o servidor avisa os admins por push.
+on:
+  schedule:
+    - cron: '0 12 * * *' # 12:00 UTC ≈ 09:00 BRT
+  workflow_dispatch: {} # permite rodar manualmente pelo GitHub
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Roda o QA de conversa
+        run: |
+          curl -fsS --max-time 120 -X POST https://meumercado-prod.onrender.com/api/cron/qa \
+            -H "x-cron-secret: ${CRON_SECRET}"
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET || 'mzv_8tNV1GBcU5qoVMFIdEBhhAPYQtm0' }}

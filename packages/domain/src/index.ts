@@ -68,6 +68,9 @@ export {
 // Compra assistida ("onde eu compro este produto?")
 export { melhoresMercadosPara, type MercadoRankeado } from './shopping/OndeComprar.js';
 
+// Nina — interpretação de intenção da conversa (determinística)
+export { interpretar, type Intencao } from './nina/Intent.js';
+
 // Rotas (apoio à aba Mapa — "como chegar" ao mercado)
 export { Route } from './routing/Route.js';
 export { RouteStep, type ManeuverType } from './routing/RouteStep.js';

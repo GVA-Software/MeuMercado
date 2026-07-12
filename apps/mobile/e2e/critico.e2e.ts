@@ -83,13 +83,26 @@ test.describe('Meu Mercado — jornada crítica', () => {
     const composer = page.getByPlaceholder('Ex.: café, arroz, sabão…');
     await composer.fill('café');
     await composer.press('Enter');
-    await expect(page.getByText(/Achei 2 tipos de "café"/)).toBeVisible();
+    await expect(page.getByText(/Achei 2 tipos/)).toBeVisible();
 
     // Escolhe um tipo → mercados ranqueados (mais barato primeiro).
     await page.getByRole('button', { name: /CAFE PILAO 500G/ }).click();
     await expect(page.getByText('Atacadao', { exact: true })).toBeVisible();
     await expect(page.getByText(/12,90/).first()).toBeVisible(); // resumo + cartão
     await expect(page.getByText('Rossi', { exact: true })).toBeVisible();
+  });
+
+  test('Nina entende agradecimento e responde com tom acolhedor', async ({ page }) => {
+    await installApiMocks(page, { pro: true });
+    await page.goto('/');
+
+    await page.getByRole('button', { name: /Nina IA/ }).click();
+    const composer = page.getByPlaceholder('Ex.: café, arroz, sabão…');
+    await composer.fill('obrigado');
+    await composer.press('Enter');
+
+    // Não trata "obrigado" como produto — responde acolhedor.
+    await expect(page.getByText(/Imagina/)).toBeVisible();
   });
 
   test('Nina (Free): mostra o paywall em vez dos insights', async ({ page }) => {
