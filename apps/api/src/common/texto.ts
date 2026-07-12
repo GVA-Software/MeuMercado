@@ -11,11 +11,21 @@ export function semAcento(s: string): string {
 }
 
 /**
- * Regra ÚNICA de match de busca de produto (nome contém o termo, ignorando
- * caixa e acento). Usada pelos repositórios E pelo QA de conversa — assim o QA
- * testa exatamente a busca real.
+ * Regra ÚNICA de match de busca de produto — usada pelos repositórios, pela busca
+ * da Nina E pelo QA (assim o QA testa a busca real). Ignora caixa e acento e ainda
+ * entende as ABREVIAÇÕES do cupom (NFC-e): "sabão" acha "SAB.LIQ.PALMOLIVE",
+ * "detergente" acha "DET.LIQ.LIMPOL", "biscoito" acha "BISC.TRAKINAS", etc.
  */
 export function combinaBusca(nome: string, termo: string): boolean {
-  const t = semAcento(termo);
-  return t.length > 0 && semAcento(nome).includes(t);
+  const q = semAcento(termo);
+  if (q.length < 2) return false;
+  const n = semAcento(nome);
+  if (n.includes(q)) return true; // caso normal (substring)
+
+  // Abreviação do cupom: a palavra buscada ESTENDE o 1º "pedaço" do nome (a
+  // categoria), ex.: "sabao" ⊃ "sab" em "SAB.LIQ...". Só o 1º token — evita que o
+  // "REF." de "açúcar REFinado" apareça ao buscar "refrigerante".
+  const primeiro = n.split(/[^a-z0-9]+/).find((w) => w.length >= 3);
+  if (!primeiro) return false;
+  return q.split(/\s+/).some((w) => w.length > primeiro.length && w.startsWith(primeiro));
 }
