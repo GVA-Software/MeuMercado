@@ -1,19 +1,23 @@
+import { useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { useTheme } from '../theme/theme';
+import { Btn } from '../ui/kit';
 
 /**
  * Aparece quando há uma nova versão publicada (o Service Worker detecta o novo
- * build). O botão força a atualização — pula o "waiting" do SW e recarrega,
- * garantindo que o usuário sempre veja a versão mais recente.
+ * build). É um modal CENTRAL e BLOQUEANTE: cobre o app e não dá pra sair sem
+ * atualizar — garante que ninguém fica numa versão antiga (dados/comportamento
+ * defasados).
  */
 export function UpdatePrompt() {
   const { T } = useTheme();
+  const [atualizando, setAtualizando] = useState(false);
   const {
     needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
     onRegisteredSW(_swUrl, registration) {
-      // Verifica se subiu versão nova a cada 60s (o botão aparece sozinho).
+      // Verifica se subiu versão nova a cada 60s (o modal aparece sozinho).
       if (registration) {
         window.setInterval(() => {
           void registration.update();
@@ -26,41 +30,60 @@ export function UpdatePrompt() {
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
       style={{
         position: 'fixed',
-        left: '50%',
-        bottom: 90,
-        transform: 'translateX(-50%)',
-        zIndex: 600,
-        width: 'calc(100% - 32px)',
-        maxWidth: 398,
-        background: T.primary,
-        color: '#FFF',
-        borderRadius: 14,
-        padding: '12px 14px',
+        inset: 0,
+        zIndex: 1000,
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(3px)',
         display: 'flex',
         alignItems: 'center',
-        gap: 12,
-        boxShadow: '0 8px 28px rgba(0,0,0,0.3)',
+        justifyContent: 'center',
+        padding: 24,
       }}
     >
-      <span style={{ fontSize: 20 }}>✨</span>
-      <span style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>Nova versão disponível</span>
-      <button
-        onClick={() => void updateServiceWorker(true)}
+      <div
         style={{
-          background: '#FFF',
-          color: T.primary,
-          border: 'none',
-          borderRadius: 10,
-          padding: '8px 16px',
-          fontWeight: 800,
-          fontSize: 13,
-          cursor: 'pointer',
+          background: T.surface,
+          borderRadius: 22,
+          padding: '30px 24px',
+          width: '100%',
+          maxWidth: 340,
+          textAlign: 'center',
+          boxShadow: '0 24px 70px rgba(0,0,0,0.45)',
         }}
       >
-        Atualizar
-      </button>
+        <img
+          src="/Loading.png"
+          alt=""
+          width={72}
+          height={72}
+          style={{
+            objectFit: 'contain',
+            ...(atualizando ? { animation: 'mm-logo-bob 1s ease-in-out infinite' } : {}),
+          }}
+        />
+        <h2 style={{ color: T.text, fontSize: 20, fontWeight: 800, margin: '16px 0 6px' }}>
+          {atualizando ? 'Atualizando…' : 'Nova versão disponível 🎉'}
+        </h2>
+        <p style={{ color: T.muted, fontSize: 14, margin: '0 0 20px', lineHeight: 1.5 }}>
+          {atualizando
+            ? 'Só um instante — já vamos abrir a versão nova.'
+            : 'Atualize para continuar com a melhor experiência e os dados mais recentes.'}
+        </p>
+        <Btn
+          full
+          disabled={atualizando}
+          onClick={() => {
+            setAtualizando(true);
+            void updateServiceWorker(true);
+          }}
+        >
+          {atualizando ? 'Aguarde…' : 'Atualizar agora'}
+        </Btn>
+      </div>
     </div>
   );
 }

@@ -122,6 +122,12 @@ export function CompraScreen() {
     );
   }
 
+  // Enquanto o carrinho carrega, mostra o loader do carrinho (evita o "flash" de
+  // tracinhos "—" no preço antes dos dados chegarem).
+  if (!cart) {
+    return <CartLoader label="Preparando seu carrinho…" center />;
+  }
+
   return (
     <div style={{ paddingBottom: 100 }}>
       {/* Header */}
