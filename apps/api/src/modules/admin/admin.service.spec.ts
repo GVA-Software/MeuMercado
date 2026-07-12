@@ -8,6 +8,7 @@ import type { StoredUser, UserRepository } from '../auth/user.repository.js';
 import type { PushService } from '../push/push.service.js';
 import type { AnalyticsRepository } from '../analytics/analytics.repository.js';
 import type { PriceObservationRepository } from '../pricing/price-observation.repository.js';
+import type { ProdutoRepository } from '../catalog/produtos.repository.js';
 import { BillingService } from '../billing/billing.service.js';
 import { AdminService } from './admin.service.js';
 
@@ -27,6 +28,7 @@ function makeService(
     resumo?: Array<{ name: string; usuarios: number; total: number }>;
     vistos?: string[];
     observacoes?: Array<{ reporterId: string }>;
+    produtos?: Array<{ id: string; nome: string }>;
   } = {},
 ) {
   const deleted: string[] = [];
@@ -69,6 +71,9 @@ function makeService(
   const prices = {
     all: () => Promise.resolve(extra.observacoes ?? []),
   } as unknown as PriceObservationRepository;
+  const produtos = {
+    findAll: () => Promise.resolve(extra.produtos ?? []),
+  } as unknown as ProdutoRepository;
   const service = new AdminService(
     users,
     billing as unknown as BillingService,
@@ -76,6 +81,7 @@ function makeService(
     config,
     analytics,
     prices,
+    produtos,
   );
   return { service, deleted, push, billing };
 }
@@ -109,6 +115,27 @@ describe('AdminService — conceder plano', () => {
     await service.concederTrial('joe');
     expect(billing.iniciarTrial).toHaveBeenCalledWith('joe');
     expect(push.enviarPara).toHaveBeenCalledOnce();
+  });
+});
+
+describe('AdminService — QA de conversação', () => {
+  it('roda o auditor sobre o catálogo vivo e reporta as lentes', async () => {
+    const { service } = makeService([], {
+      produtos: [
+        { id: 'cafe1', nome: 'CAFE 3CORACOES' },
+        { id: 'cafe2', nome: 'CAFE MELITTA 500G TRAD' },
+      ],
+    });
+    const r = await service.qaConversa();
+    expect(r.totalProdutos).toBe(2);
+    expect(r.porLente.map((l) => l.lente).sort()).toEqual([
+      'busca',
+      'cobertura',
+      'copy',
+      'edge',
+      'fluxo',
+    ]);
+    expect(typeof r.geradoEm).toBe('string');
   });
 });
 

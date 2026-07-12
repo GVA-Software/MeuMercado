@@ -18,6 +18,7 @@ import {
   type AdminUserDTO,
   type AdminUsersResponse,
   type PageQuery,
+  type QaConversaReportDTO,
 } from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
@@ -38,6 +39,11 @@ export class AdminController {
   @Get('funil')
   funil(): Promise<AdminFunnelDTO> {
     return this.service.funil();
+  }
+
+  @Get('qa-conversa')
+  qaConversa(): Promise<QaConversaReportDTO> {
+    return this.service.qaConversa();
   }
 
   @Get('users')

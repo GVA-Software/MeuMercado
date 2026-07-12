@@ -9,3 +9,13 @@ export function semAcento(s: string): string {
     .toLowerCase()
     .trim();
 }
+
+/**
+ * Regra ÚNICA de match de busca de produto (nome contém o termo, ignorando
+ * caixa e acento). Usada pelos repositórios E pelo QA de conversa — assim o QA
+ * testa exatamente a busca real.
+ */
+export function combinaBusca(nome: string, termo: string): boolean {
+  const t = semAcento(termo);
+  return t.length > 0 && semAcento(nome).includes(t);
+}

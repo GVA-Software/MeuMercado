@@ -1,7 +1,7 @@
       'use strict';
       var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
       var token = null;
-      var state = { stats: null, funil: null, users: [], busca: '', aberto: null, agindo: null, erro: '' };
+      var state = { stats: null, funil: null, qa: null, qaLoading: false, users: [], busca: '', aberto: null, agindo: null, erro: '' };
 
       function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -146,6 +146,49 @@
           '</div>';
       }
 
+      var LENTE_EMOJI = { busca: '🔎', fluxo: '🧭', cobertura: '🗺️', copy: '💬', edge: '🧪' };
+      function qaCardHtml() {
+        var q = state.qa;
+        var corpo;
+        if (state.qaLoading) {
+          corpo = '<p class="fnote">Rodando sobre todos os produtos…</p>';
+        } else if (!q) {
+          corpo = '<p class="fnote">Varre TODOS os produtos (inclusive novos) pelas 5 lentes: busca, fluxo, cobertura, copy e edge.</p>';
+        } else {
+          var lentes = q.porLente.map(function (l) {
+            var cor = l.problemas > 0 ? '#f59e0b' : '#22c55e';
+            return '<span class="qa-lente">' + (LENTE_EMOJI[l.lente] || '') + ' ' + l.lente +
+              ' <b style="color:' + cor + '">' + l.ok + '✓' + (l.problemas ? ' · ' + l.problemas + '⚠' : '') + '</b></span>';
+          }).join('');
+          var achados = q.achados.length
+            ? '<ul class="qa-list">' + q.achados.slice(0, 60).map(function (a) {
+                var cor = a.severidade === 'erro' ? '#ef4444' : '#f59e0b';
+                return '<li><span style="color:' + cor + '">[' + a.lente + ']</span> ' +
+                  esc(a.produtoNome) + ' — ' + esc(a.problema) + '</li>';
+              }).join('') + '</ul>'
+            : '<p class="fnote">Nenhum problema encontrado 🎉</p>';
+          corpo =
+            '<p class="qa-sum">Varreu <b>' + q.totalProdutos + '</b> produtos (' + q.comPreco +
+            ' com preço) · <b style="color:' + (q.erros ? '#ef4444' : '#22c55e') + '">' + q.erros +
+            ' erros</b> · ' + q.avisos + ' avisos</p>' +
+            '<div class="qa-lentes">' + lentes + '</div>' + achados;
+        }
+        return '<div class="funnel"><p class="ftitle">QA da conversa da Nina</p>' +
+          '<button id="qa-run" class="qa-run"' + (state.qaLoading ? ' disabled' : '') + '>' +
+          (state.qaLoading ? 'Rodando…' : '▶ Rodar QA da conversa') + '</button>' + corpo + '</div>';
+      }
+      async function rodarQa() {
+        state.qaLoading = true;
+        renderDashboard();
+        try {
+          state.qa = await apiFetch('/admin/qa-conversa');
+        } catch (e) {
+          state.erro = e.message;
+        }
+        state.qaLoading = false;
+        renderDashboard();
+      }
+
       function usersFiltrados() {
         var t = state.busca.trim().toLowerCase();
         if (!t) return state.users;
@@ -201,9 +244,12 @@
               mini(s.cadastros30d, '30 dias') + mini(s.admins, 'admins') + '</div>'
           ) : '') +
           (state.funil ? funnelHtml(state.funil) : '') +
+          qaCardHtml() +
           '<input class="search" id="busca" placeholder="Buscar por nome ou e-mail…" value="' + esc(state.busca) + '"/>' +
           '<div id="lista"></div></div>';
         el('sair').onclick = sair;
+        var qaBtn = el('qa-run');
+        if (qaBtn) qaBtn.onclick = rodarQa;
         var busca = el('busca');
         busca.oninput = function () { state.busca = busca.value; renderLista(); };
         renderLista();

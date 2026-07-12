@@ -13,8 +13,11 @@ import {
   type AdminStatsDTO,
   type AdminUserDTO,
   type AdminUsersResponse,
+  type QaConversaReportDTO,
 } from '@meumercado/contracts';
 import { isAdminEmail } from '../../common/admin-emails.js';
+import { auditarConversa } from '../../qa/conversation-qa.js';
+import { PRODUTO_REPOSITORY, type ProdutoRepository } from '../catalog/produtos.repository.js';
 import type { Env } from '../../config/env.schema.js';
 import type { AuthedUser } from '../auth/jwt-auth.guard.js';
 import { USER_REPOSITORY, type StoredUser, type UserRepository } from '../auth/user.repository.js';
@@ -44,7 +47,21 @@ export class AdminService {
     private readonly config: ConfigService<Env, true>,
     @Inject(ANALYTICS_REPOSITORY) private readonly analytics: AnalyticsRepository,
     @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly prices: PriceObservationRepository,
+    @Inject(PRODUTO_REPOSITORY) private readonly produtos: ProdutoRepository,
   ) {}
+
+  /**
+   * QA de conversação da Nina sobre o catálogo VIVO — cobre todos os produtos,
+   * inclusive os que entrarem. Roda a lógica real (busca + ranking) por 5 lentes.
+   */
+  async qaConversa(): Promise<QaConversaReportDTO> {
+    const [catalogo, observacoes] = await Promise.all([this.produtos.findAll(), this.prices.all()]);
+    const report = auditarConversa(
+      catalogo.map((p) => ({ id: p.id, nome: p.nome })),
+      observacoes,
+    );
+    return { ...report, geradoEm: new Date().toISOString() };
+  }
 
   /**
    * Funil de ativação: do cadastro ao 1º preço. A base já está ativa — "registrou
