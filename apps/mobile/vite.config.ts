@@ -2,8 +2,14 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Carimbo de versão (data/hora do build). Aparece pequenininho no topo da Home —
+// permite confirmar, só olhando a tela, se o aparelho está na versão nova ou preso
+// numa antiga em cache (o problema do Service Worker no iOS instalado).
+const buildId = new Date().toISOString().slice(0, 16).replace('T', ' ');
+
 // PWA instalável (iOS/Android). Depois, Capacitor empacota este mesmo build.
 export default defineConfig({
+  define: { __BUILD_ID__: JSON.stringify(buildId) },
   plugins: [
     react(),
     VitePWA({

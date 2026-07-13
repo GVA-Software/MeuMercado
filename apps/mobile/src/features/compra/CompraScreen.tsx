@@ -214,6 +214,9 @@ export function CompraScreen() {
           <p style={{ color: T.headerText, opacity: 0.75, fontSize: 13, margin: '4px 0 0' }}>
             {fraseAcolhedora()}
           </p>
+          <p style={{ color: T.headerText, opacity: 0.4, fontSize: 10, margin: '6px 0 0' }}>
+            versão {__BUILD_ID__}
+          </p>
         </div>
 
         <div
