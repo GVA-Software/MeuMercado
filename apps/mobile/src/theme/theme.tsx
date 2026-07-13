@@ -48,7 +48,8 @@ export const LIGHT: Theme = {
   ninaGrad: 'linear-gradient(135deg,#0EA5E9,#6366F1)',
   text: '#1A1A1A',
   sub: '#555555',
-  muted: '#999999',
+  // #6E6E6E ≈ 4.9:1 no branco (AA p/ texto pequeno). Antes #999 (~2.85:1) falhava.
+  muted: '#6E6E6E',
   shadow: 'rgba(0,0,0,0.07)',
   navBg: '#FFFFFF',
 };
@@ -75,7 +76,8 @@ export const DARK: Theme = {
   ninaGrad: 'linear-gradient(135deg,#0EA5E9,#6366F1)',
   text: '#EDF2FF',
   sub: '#A0ABBB',
-  muted: '#5A6478',
+  // #868FA2 melhora o contraste no fundo escuro (antes #5A6478 ~3.2:1).
+  muted: '#868FA2',
   shadow: 'rgba(0,0,0,0.35)',
   navBg: '#161A23',
 };

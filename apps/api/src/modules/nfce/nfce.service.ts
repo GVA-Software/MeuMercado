@@ -301,17 +301,57 @@ export class NfceService {
   }
 
   private detectarUf(url: string): string {
-    let host: string;
-    try {
-      host = new URL(url).hostname.toLowerCase();
-    } catch {
-      throw new BadRequestException('URL inválida.');
-    }
-    const hit = SEFAZ_DOMINIOS.find((d) => host === d.sufixo || host.endsWith(`.${d.sufixo}`));
+    const hit = SEFAZ_DOMINIOS.find((d) => {
+      const host = this.hostname(url);
+      return host === d.sufixo || host.endsWith(`.${d.sufixo}`);
+    });
     if (!hit) {
       throw new BadRequestException('Isto não parece um QR Code de NFC-e da SEFAZ.');
     }
     return hit.uf;
+  }
+
+  private hostname(url: string): string {
+    try {
+      return new URL(url).hostname.toLowerCase();
+    } catch {
+      throw new BadRequestException('URL inválida.');
+    }
+  }
+
+  /** Recusa qualquer host fora da allowlist da SEFAZ (checado a cada redirect). */
+  private assertHostSefaz(url: string): void {
+    const host = this.hostname(url);
+    const ok = SEFAZ_DOMINIOS.some((d) => host === d.sufixo || host.endsWith(`.${d.sufixo}`));
+    if (!ok) {
+      throw new BadRequestException('Redirecionamento para fora da SEFAZ bloqueado.');
+    }
+  }
+
+  /**
+   * Segue redirects MANUALMENTE, revalidando o host contra a allowlist da SEFAZ a
+   * CADA salto. Sem isto, `fetch` segue redirects automaticamente e um open-redirect
+   * num domínio SEFAZ poderia pivotar para um host interno (SSRF). Domínios fora da
+   * allowlist (incluindo IPs privados, que não são *.gov.br) são recusados.
+   */
+  private async fetchSeguindoRedirects(url: string, maxSaltos = 5): Promise<Response> {
+    let atual = url;
+    for (let salto = 0; salto <= maxSaltos; salto++) {
+      this.assertHostSefaz(atual);
+      const res = await fetch(atual, {
+        headers: { 'user-agent': UA, 'accept-language': 'pt-BR,pt;q=0.9' },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(18000),
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('location');
+        if (!loc) return res;
+        atual = new URL(loc, atual).toString();
+        continue;
+      }
+      return res;
+    }
+    throw new Error('Redirects demais.');
   }
 
   private async fetchPagina(url: string): Promise<string> {
@@ -321,10 +361,7 @@ export class NfceService {
     let ultimoErro = '';
     for (let i = 1; i <= TENTATIVAS; i++) {
       try {
-        const res = await fetch(url, {
-          headers: { 'user-agent': UA, 'accept-language': 'pt-BR,pt;q=0.9' },
-          signal: AbortSignal.timeout(18000),
-        });
+        const res = await this.fetchSeguindoRedirects(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return await res.text();
       } catch (e) {

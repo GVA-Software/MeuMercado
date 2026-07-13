@@ -50,6 +50,9 @@ export function CompraScreen() {
   const [finalizarErro, setFinalizarErro] = useState<string | null>(null);
   const [limiteMsg, setLimiteMsg] = useState<string | null>(null);
   const [mercadoNudge, setMercadoNudge] = useState(false);
+  // Estado do seletor de mercado (elevado): tanto a barra "comprando em" quanto o
+  // nudge de finalizar podem abri-lo.
+  const [mercadoOpen, setMercadoOpen] = useState(false);
   // Trava uma mutação por vez no carrinho: evita duplo-toque no +/−/🗑️ (que,
   // por enviar quantidade ABSOLUTA lida do render, perderia incrementos).
   const [mutando, setMutando] = useState(false);
@@ -311,7 +314,14 @@ export function CompraScreen() {
       </div>
 
       <div style={{ padding: '14px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {cart && <MercadoDaCompra cart={cart} onCart={setCart} />}
+        {cart && (
+          <MercadoDaCompra
+            cart={cart}
+            onCart={setCart}
+            open={mercadoOpen}
+            setOpen={setMercadoOpen}
+          />
+        )}
 
         <button
           onClick={() => setComprasOpen(true)}
@@ -489,7 +499,10 @@ export function CompraScreen() {
           mensagem="Sem o mercado, seus preços não entram na comparação da comunidade nem ajudam a Nina. Quer informar antes de finalizar?"
           confirmarLabel="📍 Informar mercado"
           cancelarLabel="Finalizar assim mesmo"
-          onConfirmar={() => setMercadoNudge(false)}
+          onConfirmar={() => {
+            setMercadoNudge(false);
+            setMercadoOpen(true);
+          }}
           onCancelar={() => void finalizarDeFato()}
         />
       )}
@@ -801,9 +814,18 @@ function AddPanel({
 }
 
 /** Barra "comprando em X" no topo da compra. Sem mercado → convida a confirmar. */
-function MercadoDaCompra({ cart, onCart }: { cart: CartDTO; onCart: (c: CartDTO) => void }) {
+function MercadoDaCompra({
+  cart,
+  onCart,
+  open,
+  setOpen,
+}: {
+  cart: CartDTO;
+  onCart: (c: CartDTO) => void;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+}) {
   const { T } = useTheme();
-  const [open, setOpen] = useState(false);
   const [removendo, setRemovendo] = useState(false);
   const m = cart.mercado;
 

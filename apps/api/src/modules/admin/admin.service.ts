@@ -104,6 +104,11 @@ export class AdminService {
 
   /** Junta um grupo: move os preços de cada `removerIds` pro `manterId` e remove. */
   async juntarDuplicados(manterId: string, removerIds: string[]): Promise<void> {
+    // Sem isto, um `manterId` inexistente (ex.: já removido em outra aba) faria os
+    // preços serem movidos para um produto órfão — sumiriam da tabela.
+    if (!(await this.produtos.findById(manterId))) {
+      throw new BadRequestException('Produto de destino não existe mais — recarregue a lista.');
+    }
     for (const from of removerIds) {
       if (from === manterId) continue;
       await this.prices.reassignProduto(from, manterId);
@@ -219,6 +224,13 @@ export class AdminService {
 
   async concederTrial(targetId: string): Promise<AdminUserDTO> {
     const user = await this.exigirUsuario(targetId);
+    // Não rebaixar: se já é Pro ativo (pago ou trial), conceder trial encurtaria/
+    // sobrescreveria o plano atual.
+    if ((await this.billing.forUser(targetId)).isProAtivo(new Date())) {
+      throw new BadRequestException(
+        'Este usuário já tem Pro ativo — não há por que conceder trial.',
+      );
+    }
     const dto = this.billing.toDTO(await this.billing.iniciarTrial(targetId));
     await this.push.enviarPara(targetId, {
       title: '🎁 Teste da Nina IA liberado!',

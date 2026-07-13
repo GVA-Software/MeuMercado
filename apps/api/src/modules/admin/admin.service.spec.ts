@@ -29,6 +29,7 @@ function makeService(
     vistos?: string[];
     observacoes?: Array<{ reporterId: string; produtoId?: string; mercadoId?: string }>;
     produtos?: Array<{ id: string; nome: string }>;
+    proAtivo?: boolean;
   } = {},
 ) {
   const deleted: string[] = [];
@@ -45,8 +46,9 @@ function makeService(
     },
   };
   const assinatura = Assinatura.free('x');
+  const proAtivo = { isProAtivo: () => true } as unknown as Assinatura;
   const billing = {
-    forUser: vi.fn(() => Promise.resolve(assinatura)),
+    forUser: vi.fn(() => Promise.resolve(extra.proAtivo ? proAtivo : assinatura)),
     toDTO: vi.fn(() => ({
       usuarioId: 'x',
       plano: 'free' as const,
@@ -73,6 +75,8 @@ function makeService(
   } as unknown as PriceObservationRepository;
   const produtos = {
     findAll: () => Promise.resolve(extra.produtos ?? []),
+    findById: (id: string) =>
+      Promise.resolve((extra.produtos ?? []).find((p) => p.id === id) ?? null),
   } as unknown as ProdutoRepository;
   const service = new AdminService(
     users,
@@ -85,6 +89,18 @@ function makeService(
   );
   return { service, deleted, push, billing };
 }
+
+describe('AdminService — guardas de duplicados e trial', () => {
+  it('juntarDuplicados rejeita manterId que não existe (evita preços órfãos)', async () => {
+    const { service } = makeService([], { produtos: [{ id: 'a', nome: 'A' }] });
+    await expect(service.juntarDuplicados('inexistente', ['a'])).rejects.toThrow();
+  });
+
+  it('concederTrial rejeita se o usuário já é Pro ativo (não rebaixa)', async () => {
+    const { service } = makeService([user('u1', 'u1@x.com')], { proAtivo: true });
+    await expect(service.concederTrial('u1')).rejects.toThrow();
+  });
+});
 
 describe('AdminService — proteções de exclusão', () => {
   it('não deixa o admin excluir a si mesmo', async () => {
