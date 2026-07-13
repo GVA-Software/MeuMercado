@@ -71,8 +71,10 @@ jobs:
       - name: Build
         run: pnpm -r build
 
-      - name: Install Playwright browser
-        run: pnpm --filter @meumercado/mobile exec playwright install --with-deps chromium
+      # Chromium + WebKit: a jornada roda nos dois motores. WebKit = engine do
+      # Safari/iOS, para pegar bugs que só aparecem no iPhone.
+      - name: Install Playwright browsers
+        run: pnpm --filter @meumercado/mobile exec playwright install --with-deps chromium webkit
 
       - name: E2E (jornada crítica)
         run: pnpm --filter @meumercado/mobile run e2e

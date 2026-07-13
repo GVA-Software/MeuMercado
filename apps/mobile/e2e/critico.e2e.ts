@@ -105,6 +105,38 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await expect(page.getByText(/Imagina/)).toBeVisible();
   });
 
+  test('navegação: trocar de aba troca a tela e NÃO empilha (regressão iOS/Safari)', async ({
+    page,
+  }) => {
+    await installApiMocks(page, { pro: true });
+    await page.goto('/');
+
+    // Home (Compra) carregada e UM único container de tela.
+    await expect(page.getByText(/Boa tarde|Bom dia|Boa noite/)).toBeVisible();
+    const containers = page.locator('.app-scroll');
+    await expect(containers).toHaveCount(1);
+
+    // O bug do WebKit: cada troca ADICIONAVA um `.app-scroll` (2, 3, 4…) sem
+    // remover o anterior — o Compra, com height:100%, tapava as telas de baixo.
+    // Aqui exigimos: sempre 1 container, e o conteúdo é o da aba nova.
+    await page.getByRole('button', { name: /Preços/ }).click();
+    await expect(page.getByText('ARROZ TIO JOAO 5KG')).toBeVisible();
+    await expect(containers).toHaveCount(1);
+    await expect(page.getByText('Carrinho atual')).toHaveCount(0); // Compra saiu
+
+    await page.getByRole('button', { name: /Perfil/ }).click();
+    await expect(containers).toHaveCount(1);
+    await expect(page.getByText('ARROZ TIO JOAO 5KG')).toHaveCount(0); // Preços saiu
+
+    await page.getByRole('button', { name: /Nina IA/ }).click();
+    await expect(containers).toHaveCount(1);
+
+    // Volta pro Compra: o container continua único e o Compra reaparece.
+    await page.getByRole('button', { name: /Compra/ }).click();
+    await expect(page.getByText('Carrinho atual')).toBeVisible();
+    await expect(containers).toHaveCount(1);
+  });
+
   test('Nina (Free): mostra o paywall em vez dos insights', async ({ page }) => {
     await installApiMocks(page, { pro: false });
     await page.goto('/');
