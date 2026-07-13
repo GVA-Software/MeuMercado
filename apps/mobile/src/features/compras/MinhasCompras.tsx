@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type { CompraDTO } from '@meumercado/contracts';
 import { api, formatBRL } from '../../api/client';
 import { useTheme } from '../../theme/theme';
-import { CartLoader, EmptyState } from '../../ui/kit';
+import { AvisoDialog, CartLoader, ConfirmDialog, EmptyState } from '../../ui/kit';
 import { MarketTag } from '../../ui/market';
 import { emojiDe } from '../../ui/emoji';
 
@@ -29,6 +29,34 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
   const [erro, setErro] = useState<string | null>(null);
   const [aberta, setAberta] = useState<string | null>(null);
   const [mesFiltro, setMesFiltro] = useState<string | null>(null);
+  const [confirmar, setConfirmar] = useState<
+    { tipo: 'uma'; compra: CompraDTO } | { tipo: 'todas' } | null
+  >(null);
+  const [excluindo, setExcluindo] = useState(false);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+
+  async function confirmarExclusao() {
+    if (!confirmar) return;
+    setExcluindo(true);
+    try {
+      if (confirmar.tipo === 'todas') {
+        await api.excluirTodasCompras();
+        setCompras([]);
+        setSucesso('Histórico excluído com sucesso');
+      } else {
+        const id = confirmar.compra.id;
+        await api.excluirCompra(id);
+        setCompras((cs) => (cs ?? []).filter((c) => c.id !== id));
+        setSucesso('Compra excluída com sucesso');
+      }
+      setConfirmar(null);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+      setConfirmar(null);
+    } finally {
+      setExcluindo(false);
+    }
+  }
 
   useEffect(() => {
     void api
@@ -95,6 +123,24 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
           <p style={{ color: T.text, fontSize: 18, fontWeight: 800, margin: 0 }}>Minhas compras</p>
           <p style={{ color: T.muted, fontSize: 12, margin: '2px 0 0' }}>Seu histórico de gastos</p>
         </div>
+        <div style={{ flex: 1 }} />
+        {compras && compras.length > 0 && (
+          <button
+            onClick={() => setConfirmar({ tipo: 'todas' })}
+            style={{
+              background: 'none',
+              border: `1px solid ${T.border}`,
+              color: T.danger,
+              borderRadius: 99,
+              padding: '6px 12px',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            🗑️ Limpar
+          </button>
+        )}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
@@ -342,6 +388,23 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
                             </span>
                           </div>
                         ))}
+                        <button
+                          onClick={() => setConfirmar({ tipo: 'uma', compra: c })}
+                          style={{
+                            marginTop: 6,
+                            alignSelf: 'flex-end',
+                            background: 'none',
+                            border: `1px solid ${T.danger}44`,
+                            color: T.danger,
+                            borderRadius: 9,
+                            padding: '6px 12px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          🗑️ Excluir esta compra
+                        </button>
                       </div>
                     )}
                   </div>
@@ -351,6 +414,25 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
           </>
         )}
       </div>
+
+      {confirmar && (
+        <ConfirmDialog
+          emoji="🗑️"
+          perigo
+          titulo={confirmar.tipo === 'todas' ? 'Limpar todo o histórico?' : 'Excluir esta compra?'}
+          mensagem={
+            confirmar.tipo === 'todas'
+              ? 'Isso apaga TODAS as suas compras do histórico. Não dá pra desfazer.'
+              : 'Essa compra será removida do seu histórico. Não dá pra desfazer.'
+          }
+          confirmarLabel="Excluir"
+          ocupado={excluindo}
+          onConfirmar={() => void confirmarExclusao()}
+          onCancelar={() => setConfirmar(null)}
+        />
+      )}
+
+      {sucesso && <AvisoDialog emoji="✅" titulo={sucesso} onOk={() => setSucesso(null)} />}
     </div>,
     document.body,
   );

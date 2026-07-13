@@ -66,4 +66,12 @@ export class ComprasService {
   listar(userId: string): Promise<CompraDTO[]> {
     return this.repo.listarPorUsuario(userId);
   }
+
+  excluir(userId: string, compraId: string): Promise<void> {
+    return this.repo.excluir(userId, compraId);
+  }
+
+  excluirTodas(userId: string): Promise<void> {
+    return this.repo.excluirTodas(userId);
+  }
 }

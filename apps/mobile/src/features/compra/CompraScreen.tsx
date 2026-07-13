@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CartDTO, CartMercadoDTO, MercadoDTO, ProdutoDTO } from '@meumercado/contracts';
+import { combinaBusca } from '@meumercado/domain';
 import { api, formatBRL } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 import { useTheme } from '../../theme/theme';
 import {
   AppLogo,
+  AvisoDialog,
   Btn,
   Card,
   CartLoader,
+  ConfirmDialog,
   CurrencyInput,
   EmptyState,
   SLabel,
@@ -45,6 +48,8 @@ export function CompraScreen() {
   const [comprasOpen, setComprasOpen] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
   const [finalizarErro, setFinalizarErro] = useState<string | null>(null);
+  const [limiteMsg, setLimiteMsg] = useState<string | null>(null);
+  const [mercadoNudge, setMercadoNudge] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -93,11 +98,30 @@ export function CompraScreen() {
 
   async function definirLimite(valor: number | null) {
     if (!cart) return;
+    const tinha = cart.limite !== null;
     setCart(await api.definirLimite(cart.id, valor));
+    setLimiteMsg(
+      valor === null
+        ? 'Limite removido com sucesso'
+        : tinha
+          ? 'Limite alterado com sucesso'
+          : 'Limite cadastrado com sucesso',
+    );
   }
 
-  async function finalizar() {
+  // Incentivo: sem mercado informado, a compra não enriquece a base. Pede antes.
+  function finalizar() {
     if (!cart || cart.items.length === 0) return;
+    if (!cart.mercado) {
+      setMercadoNudge(true);
+      return;
+    }
+    void finalizarDeFato();
+  }
+
+  async function finalizarDeFato() {
+    if (!cart || cart.items.length === 0) return;
+    setMercadoNudge(false);
     setFinalizando(true);
     setFinalizarErro(null);
     try {
@@ -425,6 +449,20 @@ export function CompraScreen() {
       </div>
 
       {comprasOpen && <MinhasCompras onClose={() => setComprasOpen(false)} />}
+
+      {limiteMsg && <AvisoDialog emoji="🎯" titulo={limiteMsg} onOk={() => setLimiteMsg(null)} />}
+
+      {mercadoNudge && (
+        <ConfirmDialog
+          emoji="🏷️"
+          titulo="Falta o mercado!"
+          mensagem="Sem o mercado, seus preços não entram na comparação da comunidade nem ajudam a Nina. Quer informar antes de finalizar?"
+          confirmarLabel="📍 Informar mercado"
+          cancelarLabel="Finalizar assim mesmo"
+          onConfirmar={() => setMercadoNudge(false)}
+          onCancelar={() => void finalizarDeFato()}
+        />
+      )}
     </div>
   );
 }
@@ -465,9 +503,29 @@ function LimiteEditor({
   const [cents, setCents] = useState(0);
 
   function salvar() {
-    onChange(cents > 0 ? cents : null);
+    if (cents <= 0) return;
+    onChange(cents);
     setEditing(false);
   }
+  function remover() {
+    onChange(null);
+    setEditing(false);
+  }
+
+  const miniBtn = (variant: 'primary' | 'ghost' | 'danger', disabled = false) =>
+    ({
+      borderRadius: 9,
+      padding: '6px 10px',
+      fontSize: 12,
+      fontWeight: 700,
+      cursor: disabled ? 'default' : 'pointer',
+      opacity: disabled ? 0.5 : 1,
+      ...(variant === 'primary'
+        ? { background: T.primary, color: '#FFF', border: 'none' }
+        : variant === 'danger'
+          ? { background: 'none', color: T.danger, border: `1px solid ${T.danger}55` }
+          : { background: 'none', color: T.muted, border: `1px solid ${T.border}` }),
+    }) as const;
 
   if (!editing) {
     const temLimite = limiteCents !== null;
@@ -516,16 +574,28 @@ function LimiteEditor({
     );
   }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
       <span style={{ color: T.muted, fontSize: 12 }}>Limite (R$)</span>
       <CurrencyInput
         autoFocus
         cents={cents}
         onCents={setCents}
-        onBlur={salvar}
         onEnter={salvar}
-        style={{ width: 110, textAlign: 'right', padding: '6px 10px' }}
+        style={{ width: 120, textAlign: 'right', padding: '7px 10px' }}
       />
+      <div style={{ display: 'flex', gap: 6 }}>
+        {limiteCents !== null && (
+          <button onClick={remover} style={miniBtn('danger')}>
+            Remover
+          </button>
+        )}
+        <button onClick={() => setEditing(false)} style={miniBtn('ghost')}>
+          Cancelar
+        </button>
+        <button onClick={salvar} disabled={cents <= 0} style={miniBtn('primary', cents <= 0)}>
+          Salvar
+        </button>
+      </div>
     </div>
   );
 }
@@ -547,8 +617,8 @@ function AddPanel({
 
   const filtrados = useMemo(
     () =>
-      busca.length > 0
-        ? produtos.filter((p) => p.nome.toLowerCase().includes(busca.toLowerCase())).slice(0, 6)
+      busca.trim().length > 0
+        ? produtos.filter((p) => combinaBusca(p.nome, busca)).slice(0, 6)
         : [],
     [busca, produtos],
   );
@@ -752,9 +822,14 @@ function MercadoDaCompra({ cart, onCart }: { cart: CartDTO; onCart: (c: CartDTO)
             textAlign: 'left',
           }}
         >
-          <span style={{ color: T.text, fontSize: 13, fontWeight: 600 }}>
-            📍 Em qual mercado você está comprando?
-          </span>
+          <div style={{ flex: 1 }}>
+            <span style={{ display: 'block', color: T.text, fontSize: 13, fontWeight: 700 }}>
+              📍 Em qual mercado você está comprando?
+            </span>
+            <span style={{ display: 'block', color: T.muted, fontSize: 11, marginTop: 2 }}>
+              Ajuda a comunidade e a Nina a comparar os preços 🧡
+            </span>
+          </div>
           <span style={{ color: T.primary, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>
             Confirmar
           </span>

@@ -1,5 +1,144 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useTheme, type Theme } from '../theme/theme';
+
+/** Modal central bloqueante — cobre a tela; só sai interagindo com os botões dentro. */
+export function Modal({ children }: { children: ReactNode }) {
+  const { T } = useTheme();
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1200,
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(3px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+      }}
+    >
+      <div
+        style={{
+          background: T.surface,
+          borderRadius: 22,
+          padding: '26px 22px',
+          width: '100%',
+          maxWidth: 360,
+          textAlign: 'center',
+          boxShadow: '0 24px 70px rgba(0,0,0,0.45)',
+        }}
+      >
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/** Confirmação (2 botões) — não fecha sem escolher prosseguir ou cancelar. */
+export function ConfirmDialog({
+  emoji = '⚠️',
+  titulo,
+  mensagem,
+  confirmarLabel = 'Confirmar',
+  cancelarLabel = 'Cancelar',
+  perigo = false,
+  ocupado = false,
+  onConfirmar,
+  onCancelar,
+}: {
+  emoji?: string;
+  titulo: string;
+  mensagem: string;
+  confirmarLabel?: string;
+  cancelarLabel?: string;
+  perigo?: boolean;
+  ocupado?: boolean;
+  onConfirmar: () => void;
+  onCancelar: () => void;
+}) {
+  const { T } = useTheme();
+  return (
+    <Modal>
+      <div style={{ fontSize: 40, marginBottom: 8 }}>{emoji}</div>
+      <h2 style={{ color: T.text, fontSize: 18, fontWeight: 800, margin: '0 0 6px' }}>{titulo}</h2>
+      <p style={{ color: T.muted, fontSize: 14, margin: '0 0 20px', lineHeight: 1.5 }}>
+        {mensagem}
+      </p>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button
+          onClick={onCancelar}
+          disabled={ocupado}
+          style={{
+            flex: 1,
+            background: T.card,
+            color: T.text,
+            border: `1px solid ${T.border}`,
+            borderRadius: 12,
+            padding: '12px 0',
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: ocupado ? 'default' : 'pointer',
+          }}
+        >
+          {cancelarLabel}
+        </button>
+        <button
+          onClick={onConfirmar}
+          disabled={ocupado}
+          style={{
+            flex: 1,
+            background: perigo ? T.danger : T.primary,
+            color: '#FFF',
+            border: 'none',
+            borderRadius: 12,
+            padding: '12px 0',
+            fontSize: 14,
+            fontWeight: 800,
+            cursor: ocupado ? 'default' : 'pointer',
+          }}
+        >
+          {ocupado ? 'Aguarde…' : confirmarLabel}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/** Aviso/sucesso (1 botão). */
+export function AvisoDialog({
+  emoji = '✅',
+  titulo,
+  mensagem,
+  okLabel = 'Ok',
+  onOk,
+}: {
+  emoji?: string;
+  titulo: string;
+  mensagem?: string;
+  okLabel?: string;
+  onOk: () => void;
+}) {
+  const { T } = useTheme();
+  return (
+    <Modal>
+      <div style={{ fontSize: 44, marginBottom: 8 }}>{emoji}</div>
+      <h2 style={{ color: T.text, fontSize: 18, fontWeight: 800, margin: '0 0 6px' }}>{titulo}</h2>
+      {mensagem && (
+        <p style={{ color: T.muted, fontSize: 14, margin: '0 0 20px', lineHeight: 1.5 }}>
+          {mensagem}
+        </p>
+      )}
+      <Btn full onClick={onOk}>
+        {okLabel}
+      </Btn>
+    </Modal>
+  );
+}
 
 export function AppLogo({ size = 20, inverted = false }: { size?: number; inverted?: boolean }) {
   const { T } = useTheme();

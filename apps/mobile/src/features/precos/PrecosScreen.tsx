@@ -9,6 +9,7 @@ import type {
   ProdutoDTO,
   TrendDTO,
 } from '@meumercado/contracts';
+import { combinaBusca } from '@meumercado/domain';
 import { api, formatBRL } from '../../api/client';
 import { useTheme, type Theme } from '../../theme/theme';
 import { AppLogo, Btn, CartLoader, CurrencyInput, EmptyState, SLabel } from '../../ui/kit';
@@ -84,8 +85,9 @@ export function PrecosScreen({
 
   const filtradas = useMemo(() => {
     if (!rows) return null;
-    const t = busca.trim().toLowerCase();
-    const base = t ? rows.filter((r) => r.produto.nome.toLowerCase().includes(t)) : rows;
+    const t = busca.trim();
+    // Mesma busca tolerante do back (acento + abreviação): "Pão" acha "PAO FRANCES".
+    const base = t ? rows.filter((r) => combinaBusca(r.produto.nome, t)) : rows;
     const arr = [...base];
     if (ordem === 'menor')
       arr.sort((a, b) => (a.mediaCents ?? Infinity) - (b.mediaCents ?? Infinity));

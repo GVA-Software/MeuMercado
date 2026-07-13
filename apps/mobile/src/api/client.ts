@@ -191,6 +191,12 @@ export class ApiClient {
   listarCompras(): Promise<ComprasResponse> {
     return this.request('/compras');
   }
+  excluirCompra(id: string): Promise<void> {
+    return this.request(`/compras/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+  excluirTodasCompras(): Promise<void> {
+    return this.request('/compras', { method: 'DELETE' });
+  }
 
   // ---- Mercados (aba Mapa) ----
   mercados(): Promise<MercadoDTO[]> {

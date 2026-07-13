@@ -71,6 +71,9 @@ export { melhoresMercadosPara, type MercadoRankeado } from './shopping/OndeCompr
 // Nina — interpretação de intenção da conversa (determinística)
 export { interpretar, type Intencao } from './nina/Intent.js';
 
+// Busca tolerante de produtos (acento + abreviação) — compartilhada front/back
+export { semAcento, combinaBusca } from './text/busca.js';
+
 // Rotas (apoio à aba Mapa — "como chegar" ao mercado)
 export { Route } from './routing/Route.js';
 export { RouteStep, type ManeuverType } from './routing/RouteStep.js';

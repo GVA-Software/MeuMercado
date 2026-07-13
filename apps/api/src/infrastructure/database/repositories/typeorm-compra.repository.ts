@@ -39,4 +39,13 @@ export class TypeOrmCompraRepository implements CompraRepository {
       criadaEm: r.criadaEm.toISOString(),
     }));
   }
+
+  async excluir(userId: string, compraId: string): Promise<void> {
+    // userId no filtro garante que só apaga a compra do próprio usuário.
+    await this.repo.delete({ id: compraId, userId });
+  }
+
+  async excluirTodas(userId: string): Promise<void> {
+    await this.repo.delete({ userId });
+  }
 }
