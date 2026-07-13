@@ -88,7 +88,10 @@ export function App() {
             setTab(t);
           }}
         />
-        <ScrollTopFab key={tab} />
+        {/* NÃO usar key={tab} aqui: o `.app-scroll` acima já usa key={tab}, e dois
+            irmãos com a MESMA key quebram a reconciliação do React no WebKit (Safari/
+            iOS) — as telas empilhavam em vez de trocar. A aba vem por prop. */}
+        <ScrollTopFab tab={tab} />
         <UpdatePrompt />
       </div>
       {onboarding && (

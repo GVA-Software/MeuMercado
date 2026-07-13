@@ -7,18 +7,22 @@ import { useTheme, type Theme } from '../theme/theme';
  * e some ao tocar (ancora o scroll no topo). Fica dentro do container do app
  * (.app-shell), então alinha certo em qualquer largura.
  */
-export function ScrollTopFab() {
+export function ScrollTopFab({ tab }: { tab: string }) {
   const { T } = useTheme();
   const [show, setShow] = useState(false);
 
+  // Depende de `tab`: ao trocar de aba o `.app-scroll` remonta (key={tab}), então
+  // reatacha o listener no container novo e zera o estado. (Sem key própria aqui —
+  // key duplicada com o `.app-scroll` empilhava as telas no WebKit.)
   useEffect(() => {
+    setShow(false);
     const el = document.querySelector('.app-scroll') as HTMLElement | null;
     if (!el) return;
     const onScroll = () => setShow(el.scrollTop > el.clientHeight);
     el.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => el.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [tab]);
 
   if (!show) return null;
   return (
