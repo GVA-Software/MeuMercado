@@ -17,12 +17,16 @@ export function UpdatePrompt() {
     updateServiceWorker,
   } = useRegisterSW({
     onRegisteredSW(_swUrl, registration) {
-      // Verifica se subiu versão nova a cada 60s (o modal aparece sozinho).
-      if (registration) {
-        window.setInterval(() => {
-          void registration.update();
-        }, 60_000);
-      }
+      if (!registration) return;
+      const checar = () => void registration.update();
+      // Verifica se subiu versão nova a cada 60s enquanto o app está aberto…
+      window.setInterval(checar, 60_000);
+      // …e SEMPRE que o app volta ao primeiro plano. Crucial no iOS instalado:
+      // o timer pausa em segundo plano, então sem isto a versão nova nunca
+      // chegava a quem fechava e reabria o app (ficava preso na versão antiga).
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') checar();
+      });
     },
   });
 
@@ -79,6 +83,10 @@ export function UpdatePrompt() {
           onClick={() => {
             setAtualizando(true);
             void updateServiceWorker(true);
+            // Rede de segurança: no iOS o reload automático do SW às vezes não
+            // dispara. Se em ~3,5s nada aconteceu, força o reload — ninguém fica
+            // preso no "Atualizando…".
+            window.setTimeout(() => window.location.reload(), 3500);
           }}
         >
           {atualizando ? 'Aguarde…' : 'Atualizar agora'}
