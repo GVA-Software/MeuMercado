@@ -93,6 +93,13 @@
       .qa-lentes { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
       .qa-lente { font-size: 12px; color: var(--muted); background: var(--card); border: 1px solid var(--border); border-radius: 99px; padding: 4px 10px; }
       .qa-list { margin: 0; padding-left: 18px; color: var(--sub); font-size: 12px; line-height: 1.6; max-height: 320px; overflow-y: auto; }
+      .dup-grp { border: 1px solid var(--border); border-radius: 12px; padding: 8px; margin-bottom: 10px; background: var(--card); }
+      .dup-row { display: flex; align-items: center; gap: 8px; padding: 6px 4px; }
+      .dup-row + .dup-row { border-top: 1px dashed var(--border); }
+      .dup-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+      .dup-info b { font-size: 13px; color: var(--sub); }
+      .dup-info span { font-size: 11px; color: var(--muted); }
+      .dup-keep { flex-shrink: 0; background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 7px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
 
       .search { margin-bottom: 14px; }
 

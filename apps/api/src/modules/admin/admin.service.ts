@@ -6,9 +6,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Periodo } from '@meumercado/domain';
+import { chaveProduto, type Periodo } from '@meumercado/domain';
 import {
   PLANOS,
+  type AdminDuplicadosDTO,
   type AdminFunnelDTO,
   type AdminStatsDTO,
   type AdminUserDTO,
@@ -61,6 +62,53 @@ export class AdminService {
       observacoes,
     );
     return { ...report, geradoEm: new Date().toISOString() };
+  }
+
+  /**
+   * Varredura de duplicados: agrupa o catálogo pela chave normalizada (conjunto de
+   * palavras) e devolve os grupos com 2+ produtos — o mesmo item com nomes
+   * diferentes do cupom. Cada produto vem com nº de preços e mercados.
+   */
+  async duplicados(): Promise<AdminDuplicadosDTO> {
+    const [catalogo, observacoes] = await Promise.all([this.produtos.findAll(), this.prices.all()]);
+    const stats = new Map<string, { precos: number; mercados: Set<string> }>();
+    for (const o of observacoes) {
+      if (o.reporterId === 'seed') continue;
+      const e = stats.get(o.produtoId) ?? { precos: 0, mercados: new Set<string>() };
+      e.precos += 1;
+      e.mercados.add(o.mercadoId);
+      stats.set(o.produtoId, e);
+    }
+    const grupos = new Map<string, Array<{ id: string; nome: string }>>();
+    for (const p of catalogo) {
+      const k = chaveProduto(p.nome);
+      if (!k) continue;
+      const arr = grupos.get(k) ?? [];
+      arr.push({ id: p.id, nome: p.nome });
+      grupos.set(k, arr);
+    }
+    return {
+      grupos: [...grupos.entries()]
+        .filter(([, ps]) => ps.length > 1)
+        .map(([chave, ps]) => ({
+          chave,
+          produtos: ps.map((p) => ({
+            id: p.id,
+            nome: p.nome,
+            precos: stats.get(p.id)?.precos ?? 0,
+            mercados: stats.get(p.id)?.mercados.size ?? 0,
+          })),
+        })),
+    };
+  }
+
+  /** Junta um grupo: move os preços de cada `removerIds` pro `manterId` e remove. */
+  async juntarDuplicados(manterId: string, removerIds: string[]): Promise<void> {
+    for (const from of removerIds) {
+      if (from === manterId) continue;
+      await this.prices.reassignProduto(from, manterId);
+      await this.produtos.delete(from);
+    }
   }
 
   /**

@@ -41,3 +41,27 @@ export type AdminStatsDTO = z.infer<typeof AdminStatsSchema>;
 /** Conceder Pro a um usuário (por período). */
 export const AdminGrantProSchema = z.object({ periodo: PeriodoSchema });
 export type AdminGrantProInput = z.infer<typeof AdminGrantProSchema>;
+
+/** Varredura de duplicados: produtos com nomes diferentes mas a mesma "chave". */
+export const AdminDuplicadoProdutoSchema = z.object({
+  id: IdSchema,
+  nome: z.string(),
+  precos: z.number().int().nonnegative(),
+  mercados: z.number().int().nonnegative(),
+});
+export const AdminDuplicadosSchema = z.object({
+  grupos: z.array(
+    z.object({
+      chave: z.string(),
+      produtos: z.array(AdminDuplicadoProdutoSchema),
+    }),
+  ),
+});
+export type AdminDuplicadosDTO = z.infer<typeof AdminDuplicadosSchema>;
+
+/** Juntar um grupo: mantém `manterId`, move os preços de `removerIds` e os remove. */
+export const AdminJuntarSchema = z.object({
+  manterId: IdSchema,
+  removerIds: z.array(IdSchema).min(1).max(20),
+});
+export type AdminJuntarInput = z.infer<typeof AdminJuntarSchema>;

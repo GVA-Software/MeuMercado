@@ -27,7 +27,7 @@ function makeService(
   extra: {
     resumo?: Array<{ name: string; usuarios: number; total: number }>;
     vistos?: string[];
-    observacoes?: Array<{ reporterId: string }>;
+    observacoes?: Array<{ reporterId: string; produtoId?: string; mercadoId?: string }>;
     produtos?: Array<{ id: string; nome: string }>;
   } = {},
 ) {
@@ -136,6 +136,23 @@ describe('AdminService — QA de conversação', () => {
       'fluxo',
     ]);
     expect(typeof r.geradoEm).toBe('string');
+  });
+});
+
+describe('AdminService — duplicados', () => {
+  it('agrupa produtos com a mesma chave (nome diferente) e ignora únicos', async () => {
+    const { service } = makeService([], {
+      produtos: [
+        { id: 'a', nome: 'PAO PANCO 500G FORMA' },
+        { id: 'b', nome: 'PAO FORMA PANCO 500G U' },
+        { id: 'c', nome: 'ARROZ CAMIL 5KG' },
+      ],
+      observacoes: [{ reporterId: 'u1', produtoId: 'a', mercadoId: 'm1' }],
+    });
+    const { grupos } = await service.duplicados();
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0]!.produtos.map((p) => p.id).sort()).toEqual(['a', 'b']);
+    expect(grupos[0]!.produtos.find((p) => p.id === 'a')!.precos).toBe(1);
   });
 });
 

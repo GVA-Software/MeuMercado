@@ -1,7 +1,7 @@
       'use strict';
       var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
       var token = null;
-      var state = { stats: null, funil: null, qa: null, qaLoading: false, users: [], busca: '', aberto: null, agindo: null, erro: '' };
+      var state = { stats: null, funil: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, users: [], busca: '', aberto: null, agindo: null, erro: '' };
 
       function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -189,6 +189,56 @@
         renderDashboard();
       }
 
+      function dupsCardHtml() {
+        var d = state.dups;
+        var corpo;
+        if (state.dupsLoading) {
+          corpo = '<p class="fnote">Varrendo o catálogo…</p>';
+        } else if (!d) {
+          corpo = '<p class="fnote">Acha produtos iguais com nomes diferentes (ex.: "PAO PANCO 500G FORMA" e "PAO FORMA PANCO 500G U") pra você juntar.</p>';
+        } else if (d.grupos.length === 0) {
+          corpo = '<p class="fnote">Nenhum duplicado encontrado 🎉</p>';
+        } else {
+          corpo = d.grupos.map(function (g) {
+            var linhas = g.produtos.map(function (p) {
+              var outros = g.produtos.filter(function (x) { return x.id !== p.id; })
+                .map(function (x) { return x.id; }).join(',');
+              return '<div class="dup-row"><div class="dup-info"><b>' + esc(p.nome) + '</b>' +
+                '<span>' + p.precos + ' preço · ' + p.mercados + ' merc</span></div>' +
+                '<button class="dup-keep" data-manter="' + p.id + '" data-remover="' + outros +
+                '">Manter este</button></div>';
+            }).join('');
+            return '<div class="dup-grp">' + linhas + '</div>';
+          }).join('');
+        }
+        return '<div class="funnel"><p class="ftitle">Duplicados de produtos</p>' +
+          '<button id="dups-run" class="qa-run"' + (state.dupsLoading ? ' disabled' : '') + '>' +
+          (state.dupsLoading ? 'Varrendo…' : '🔍 Procurar duplicados') + '</button>' + corpo + '</div>';
+      }
+      async function rodarDups() {
+        state.dupsLoading = true;
+        renderDashboard();
+        try {
+          state.dups = await apiFetch('/admin/duplicados');
+        } catch (e) {
+          state.erro = e.message;
+        }
+        state.dupsLoading = false;
+        renderDashboard();
+      }
+      async function juntarDup(manterId, removerIds) {
+        try {
+          await apiFetch('/admin/duplicados/juntar', {
+            method: 'POST',
+            body: JSON.stringify({ manterId: manterId, removerIds: removerIds }),
+          });
+          await rodarDups();
+        } catch (e) {
+          state.erro = e.message;
+          renderDashboard();
+        }
+      }
+
       function usersFiltrados() {
         var t = state.busca.trim().toLowerCase();
         if (!t) return state.users;
@@ -245,11 +295,14 @@
           ) : '') +
           (state.funil ? funnelHtml(state.funil) : '') +
           qaCardHtml() +
+          dupsCardHtml() +
           '<input class="search" id="busca" placeholder="Buscar por nome ou e-mail…" value="' + esc(state.busca) + '"/>' +
           '<div id="lista"></div></div>';
         el('sair').onclick = sair;
         var qaBtn = el('qa-run');
         if (qaBtn) qaBtn.onclick = rodarQa;
+        var dupsBtn = el('dups-run');
+        if (dupsBtn) dupsBtn.onclick = rodarDups;
         var busca = el('busca');
         busca.oninput = function () { state.busca = busca.value; renderLista(); };
         renderLista();
@@ -268,6 +321,18 @@
           var id = head.getAttribute('data-toggle');
           state.aberto = state.aberto === id ? null : id;
           renderLista();
+          return;
+        }
+        var keep = ev.target.closest ? ev.target.closest('.dup-keep') : null;
+        if (keep) {
+          var manter = keep.getAttribute('data-manter');
+          var remover = (keep.getAttribute('data-remover') || '').split(',').filter(Boolean);
+          if (
+            remover.length &&
+            confirm('Juntar os outros NESTE produto? Os preços são movidos e os duplicados removidos.')
+          ) {
+            juntarDup(manter, remover);
+          }
           return;
         }
         var a = ev.target.closest ? ev.target.closest('.act') : null;

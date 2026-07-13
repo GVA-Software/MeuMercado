@@ -11,9 +11,12 @@ import {
 } from '@nestjs/common';
 import {
   AdminGrantProSchema,
+  AdminJuntarSchema,
   PageQuerySchema,
+  type AdminDuplicadosDTO,
   type AdminFunnelDTO,
   type AdminGrantProInput,
+  type AdminJuntarInput,
   type AdminStatsDTO,
   type AdminUserDTO,
   type AdminUsersResponse,
@@ -44,6 +47,17 @@ export class AdminController {
   @Get('qa-conversa')
   qaConversa(): Promise<QaConversaReportDTO> {
     return this.service.qaConversa();
+  }
+
+  @Get('duplicados')
+  duplicados(): Promise<AdminDuplicadosDTO> {
+    return this.service.duplicados();
+  }
+
+  @Post('duplicados/juntar')
+  @HttpCode(204)
+  juntar(@Body(new ZodValidationPipe(AdminJuntarSchema)) body: AdminJuntarInput): Promise<void> {
+    return this.service.juntarDuplicados(body.manterId, body.removerIds);
   }
 
   @Get('users')
