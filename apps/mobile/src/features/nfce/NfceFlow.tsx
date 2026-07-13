@@ -74,6 +74,7 @@ export function NfceFlow({ onClose, onImported }: { onClose: () => void; onImpor
           priceCents: it.unitPriceCents,
           ...(it.codigo ? { codigo: it.codigo } : {}),
           ...(it.quantidade !== undefined ? { quantidade: it.quantidade } : {}),
+          ...(it.unidade ? { unidade: it.unidade } : {}),
         }));
       const r = await api.nfceImportar({
         mercadoNome: draft.mercadoNome,

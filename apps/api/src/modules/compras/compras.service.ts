@@ -30,7 +30,12 @@ export class ComprasService {
         economiaCents += Math.round((resumo.mediaCents - i.unitPriceCents) * i.quantity);
       }
     }
-    const totalCents = params.itens.reduce((s, i) => s + i.unitPriceCents * i.quantity, 0);
+    // Arredonda por linha: com quantidade fracionária (peso), unitPrice × qty pode
+    // dar centavos fracionados — o total tem que ser inteiro.
+    const totalCents = params.itens.reduce(
+      (s, i) => s + Math.round(i.unitPriceCents * i.quantity),
+      0,
+    );
 
     const compra: CompraDTO = {
       id: randomUUID(),

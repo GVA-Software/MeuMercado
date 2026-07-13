@@ -6,7 +6,11 @@ export const CompraItemSchema = z.object({
   nome: z.string(),
   emoji: z.string().max(8).optional(),
   unitPriceCents: z.number().int().nonnegative(),
-  quantity: z.number().int().positive(),
+  /** Quantidade — pode ser fracionária (itens por peso: 0,348 kg). O subtotal é
+   *  arredondado (unitPriceCents × quantity). */
+  quantity: z.number().positive(),
+  /** Unidade de venda (kg, g, L…) quando não for "un" — só para exibição. */
+  unidade: z.string().max(8).optional(),
 });
 export type CompraItemDTO = z.infer<typeof CompraItemSchema>;
 

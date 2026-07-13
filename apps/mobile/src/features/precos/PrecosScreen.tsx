@@ -534,6 +534,11 @@ function TabelaRow({ row, onClick }: { row: PriceTableRowDTO; onClick: () => voi
       <div style={{ textAlign: 'right' }}>
         <p style={{ color: T.text, fontSize: 15, fontWeight: 800, margin: 0 }}>
           {row.mediaCents !== null ? formatBRL(row.mediaCents) : '—'}
+          {row.produto.unidade && row.produto.unidade !== 'un' && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: T.muted }}>
+              /{row.produto.unidade}
+            </span>
+          )}
         </p>
         <div style={{ marginTop: 3 }}>
           <TrendBadge trend={row.trend} pct={row.trendPct} />

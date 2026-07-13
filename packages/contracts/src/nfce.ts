@@ -48,6 +48,8 @@ export const NfceImportItemSchema = z.object({
   nome: z.string().min(1).max(200),
   codigo: z.string().max(40).optional(),
   quantidade: z.number().positive().max(9999).optional(),
+  /** Unidade de venda lida do cupom (kg/un/…) — distingue itens por peso. */
+  unidade: z.string().max(12).optional(),
   priceCents: z.number().int().positive().max(100_000_00),
 });
 export type NfceImportItem = z.infer<typeof NfceImportItemSchema>;

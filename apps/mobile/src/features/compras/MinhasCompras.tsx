@@ -7,6 +7,14 @@ import { AvisoDialog, CartLoader, ConfirmDialog, EmptyState } from '../../ui/kit
 import { MarketTag } from '../../ui/market';
 import { emojiDe } from '../../ui/emoji';
 
+/** Rótulo de quantidade: "0,348 kg" (peso), "×2" (unidades) ou "" (1 unidade). */
+function qtdLabel(it: { quantity: number; unidade?: string | undefined }): string {
+  if (it.unidade && it.unidade !== 'un') {
+    return `${it.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} ${it.unidade}`;
+  }
+  return it.quantity > 1 ? `×${it.quantity}` : '';
+}
+
 function mesLabel(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
 }
@@ -374,7 +382,7 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
                                 whiteSpace: 'nowrap',
                               }}
                             >
-                              {emojiDe(it)} {it.nome} {it.quantity > 1 ? `×${it.quantity}` : ''}
+                              {emojiDe(it)} {it.nome} {qtdLabel(it)}
                             </span>
                             <span
                               style={{
@@ -384,7 +392,7 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
                                 whiteSpace: 'nowrap',
                               }}
                             >
-                              {formatBRL(it.unitPriceCents * it.quantity)}
+                              {formatBRL(Math.round(it.unitPriceCents * it.quantity))}
                             </span>
                           </div>
                         ))}

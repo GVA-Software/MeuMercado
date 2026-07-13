@@ -8,7 +8,7 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Money, PriceObservation, Produto, chaveProduto } from '@meumercado/domain';
+import { Money, PriceObservation, Produto, chaveProduto, type Unidade } from '@meumercado/domain';
 import type {
   CompraItemDTO,
   NfceDraftDTO,
@@ -52,6 +52,18 @@ const SEFAZ_DOMINIOS: Array<{ sufixo: string; uf: string }> = [
 const UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 ' +
   '(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+
+/** Normaliza a unidade lida do cupom ("KG", "UN", "PC"…) para o tipo do domínio. */
+function normalizarUnidade(raw?: string): Unidade {
+  const u = (raw ?? '').toLowerCase().replace(/[^a-z]/g, '');
+  if (u === 'kg') return 'kg';
+  if (u === 'g' || u === 'gr') return 'g';
+  if (u === 'l' || u === 'lt') return 'L';
+  if (u === 'ml') return 'ml';
+  if (u === 'dz' || u.startsWith('duz')) return 'duzia';
+  if (u === 'pc' || u === 'pct' || u.startsWith('pac')) return 'pacote';
+  return 'un';
+}
 
 function slug(s: string): string {
   return (
@@ -175,12 +187,13 @@ export class NfceService {
       let produto =
         (codigoExterno ? porCodigo.get(codigoExterno) : undefined) ??
         (chave ? porChave.get(chave) : undefined);
+      const unidade = normalizarUnidade(item.unidade);
       if (!produto) {
         produto = new Produto({
           id: randomUUID(),
           nome: item.nome.trim(),
           categoria: 'Outros',
-          unidade: 'un',
+          unidade,
           ...(codigoExterno ? { codigoExterno } : {}),
         });
         await this.produtos.add(produto);
@@ -203,11 +216,14 @@ export class NfceService {
           observedAt,
         }),
       );
+      // Quantidade REAL (fracionária p/ itens por peso: 0,348 kg). Antes era
+      // arredondada p/ 1, inflando o total da compra e a economia.
       compraItens.push({
         produtoId: produto.id,
         nome: item.nome.trim(),
         unitPriceCents: item.priceCents,
-        quantity: item.quantidade ? Math.max(1, Math.round(item.quantidade)) : 1,
+        quantity: item.quantidade && item.quantidade > 0 ? item.quantidade : 1,
+        ...(unidade !== 'un' ? { unidade } : {}),
       });
     }
 
