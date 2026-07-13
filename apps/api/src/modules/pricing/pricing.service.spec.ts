@@ -77,6 +77,40 @@ describe('PricingService.tabela — tendência adaptativa', () => {
   });
 });
 
+describe('PricingService.paraCompletar — mutirão de cobertura', () => {
+  it('traz só produtos com preço em 1 mercado (exclui os já comparáveis)', async () => {
+    const service = makeService(
+      [
+        obs('p1', 'm1', 1000, 5), // 1 mercado → entra
+        obs('p2', 'm1', 2000, 5), // 2 mercados → NÃO entra
+        obs('p2', 'm2', 2100, 4),
+      ],
+      [produto('p1', 'Arroz'), produto('p2', 'Feijão')],
+    );
+    const lista = await service.paraCompletar();
+    expect(lista.map((r) => r.produto.nome)).toEqual(['Arroz']);
+    expect(lista[0]!.mercadoNome).toBe('Atacadão');
+    expect(lista[0]!.precoCents).toBe(1000);
+  });
+
+  it('ordena pelos mais caros primeiro (onde comparar rende mais)', async () => {
+    const service = makeService(
+      [obs('p1', 'm1', 500, 5), obs('p2', 'm1', 3000, 5), obs('p3', 'm2', 1500, 5)],
+      [produto('p1', 'Sal'), produto('p2', 'Café'), produto('p3', 'Arroz')],
+    );
+    const lista = await service.paraCompletar();
+    expect(lista.map((r) => r.produto.nome)).toEqual(['Café', 'Arroz', 'Sal']);
+  });
+
+  it('ignora seed e observações órfãs (produto fora do catálogo)', async () => {
+    const service = makeService(
+      [obs('p1', 'm1', 1000, 5, 'seed'), obs('orfao', 'm1', 999, 5)],
+      [produto('p1', 'Arroz')], // 'orfao' não está no catálogo
+    );
+    expect(await service.paraCompletar()).toEqual([]);
+  });
+});
+
 describe('PricingService.mercados', () => {
   it('conta observações por mercado, mais reportados primeiro', async () => {
     const service = makeService(

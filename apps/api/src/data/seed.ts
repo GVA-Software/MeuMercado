@@ -13,22 +13,17 @@ export interface SeedData {
   observations: PriceObservation[];
 }
 
+// Catálogo agora é alimentado 100% pelos usuários (NFC-e + registro manual: 200+
+// itens reais). Os antigos placeholders genéricos ("Óleo de Soja 900ml" etc.) sem
+// preço arranhavam a credibilidade e foram removidos. Mantemos só `cafe`, que já
+// recebeu um preço real de usuário — apagá-lo deixaria essa observação órfã.
 const PRODUTOS: Array<{
   id: string;
   nome: string;
   categoria: Categoria;
   unidade: Unidade;
   emoji: string;
-}> = [
-  { id: 'arroz', nome: 'Arroz Branco 5kg', categoria: 'Graos', unidade: 'pacote', emoji: '🌾' },
-  { id: 'feijao', nome: 'Feijão Carioca 1kg', categoria: 'Graos', unidade: 'kg', emoji: '🫘' },
-  { id: 'oleo', nome: 'Óleo de Soja 900ml', categoria: 'Oleos', unidade: 'ml', emoji: '🫙' },
-  { id: 'cafe', nome: 'Café Moído 500g', categoria: 'Bebidas', unidade: 'g', emoji: '☕' },
-  { id: 'leite', nome: 'Leite Integral 1L', categoria: 'Laticinios', unidade: 'L', emoji: '🥛' },
-  { id: 'ovos', nome: 'Ovos Dúzia', categoria: 'Laticinios', unidade: 'duzia', emoji: '🥚' },
-  { id: 'frango', nome: 'Frango Inteiro kg', categoria: 'Carnes', unidade: 'kg', emoji: '🍗' },
-  { id: 'banana', nome: 'Banana kg', categoria: 'Frutas', unidade: 'kg', emoji: '🍌' },
-];
+}> = [{ id: 'cafe', nome: 'Café Moído 500g', categoria: 'Bebidas', unidade: 'g', emoji: '☕' }];
 
 const MERCADOS: Array<{
   id: string;

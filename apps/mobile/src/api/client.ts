@@ -20,6 +20,7 @@ import type {
   PriceSummaryDTO,
   PriceTableRowDTO,
   ProdutoDTO,
+  ProdutoParaCompletarDTO,
   RegisterInput,
   ReportPriceInput,
   SubscriptionDTO,
@@ -140,6 +141,9 @@ export class ApiClient {
   }
   mercadosPreco(): Promise<MercadoResumoDTO[]> {
     return this.request('/prices/mercados');
+  }
+  produtosParaCompletar(): Promise<ProdutoParaCompletarDTO[]> {
+    return this.request('/prices/para-completar');
   }
   historicoPreco(produtoId: string): Promise<PriceHistoryDTO> {
     return this.request(`/prices/${encodeURIComponent(produtoId)}/history`);

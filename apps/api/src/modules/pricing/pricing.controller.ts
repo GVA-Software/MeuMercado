@@ -5,6 +5,7 @@ import {
   type PriceHistoryDTO,
   type PriceSummaryDTO,
   type PriceTableRowDTO,
+  type ProdutoParaCompletarDTO,
   type ReportPriceInput,
 } from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
@@ -37,6 +38,13 @@ export class PricingController {
   @Get('mercados')
   mercados(): Promise<MercadoResumoDTO[]> {
     return this.service.mercados();
+  }
+
+  /** Produtos que só têm preço em 1 mercado — mutirão "complete a comparação". */
+  @Get('para-completar')
+  paraCompletar(@Query('limit') limit?: string): Promise<ProdutoParaCompletarDTO[]> {
+    const n = Math.min(Math.max(parseInt(limit ?? '', 10) || 30, 1), 100);
+    return this.service.paraCompletar(n);
   }
 
   /** Série histórica de um produto (para o gráfico). */

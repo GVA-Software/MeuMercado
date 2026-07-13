@@ -137,6 +137,45 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await expect(containers).toHaveCount(1);
   });
 
+  test('cobertura: "Complete a comparação" leva ao registro do produto', async ({ page }) => {
+    await installApiMocks(page, { pro: true });
+    // Sobrescreve a rota do mutirão com 1 produto (só tem 1 mercado).
+    await page.route(
+      (url) => url.pathname.endsWith('/prices/para-completar'),
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: { 'access-control-allow-origin': '*' },
+          body: JSON.stringify([
+            {
+              produto: {
+                id: 'p-sabao',
+                nome: 'SAB. EM PO OMO 1KG',
+                categoria: 'Outros',
+                unidade: 'un',
+                emoji: '🧼',
+              },
+              precoCents: 1890,
+              mercadoNome: 'Atacadao',
+              atualizadoEm: '2026-07-10T12:00:00.000Z',
+            },
+          ]),
+        }),
+    );
+    await page.goto('/');
+    await page.getByRole('button', { name: /Preços/ }).click();
+
+    // A seção aparece com o produto que só tem 1 preço.
+    await expect(page.getByText('Complete a comparação')).toBeVisible();
+    await page.getByText('SAB. EM PO OMO 1KG').click();
+
+    // Abre o registro JÁ com o produto escolhido (só falta preço + mercado).
+    // Subtítulo é exclusivo do sheet de registro (evita casar com o botão da tela).
+    await expect(page.getByText(/Ajude a comunidade: quanto custou e onde/)).toBeVisible();
+    await expect(page.getByText('trocar')).toBeVisible(); // produto pré-selecionado
+  });
+
   test('Nina (Free): mostra o paywall em vez dos insights', async ({ page }) => {
     await installApiMocks(page, { pro: false });
     await page.goto('/');

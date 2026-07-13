@@ -88,3 +88,18 @@ export const MercadoResumoSchema = z.object({
   count: z.number().int().nonnegative(),
 });
 export type MercadoResumoDTO = z.infer<typeof MercadoResumoSchema>;
+
+/**
+ * Produto que a comunidade só tem preço em UM mercado — ainda não dá pra
+ * comparar. É o alvo do mutirão "complete a comparação": um 2º mercado já
+ * habilita a Nina a dizer onde compensa. Aprofunda a base (cobertura).
+ */
+export const ProdutoParaCompletarSchema = z.object({
+  produto: ProdutoSchema,
+  /** Preço atual conhecido (média das observações do único mercado). */
+  precoCents: z.number().int().nonnegative(),
+  /** Nome do único mercado com preço deste produto. */
+  mercadoNome: z.string().nullable(),
+  atualizadoEm: z.string().datetime().nullable(),
+});
+export type ProdutoParaCompletarDTO = z.infer<typeof ProdutoParaCompletarSchema>;

@@ -6,6 +6,7 @@ import type {
   PriceHistoryDTO,
   PriceSummaryDTO,
   PriceTableRowDTO,
+  ProdutoParaCompletarDTO,
   ReportPriceInput,
 } from '@meumercado/contracts';
 import { PRODUTO_REPOSITORY, type ProdutoRepository } from '../catalog/produtos.repository.js';
@@ -114,6 +115,44 @@ export class PricingService {
       ? rows.filter((r) => r.produto.nome.toLowerCase().includes(termo))
       : rows;
     return filtradas.sort((a, b) => b.amostras - a.amostras);
+  }
+
+  /**
+   * Produtos que a comunidade só tem preço em UM mercado — ainda não dá pra
+   * comparar. São o alvo de maior valor para aprofundar a base: um 2º mercado já
+   * habilita a comparação. Ordena pelos mais caros (onde comparar rende mais
+   * reais); desempata pelos reportados mais recentemente. Ignora observações
+   * órfãs (produto que saiu do catálogo).
+   */
+  async paraCompletar(limit = 30): Promise<ProdutoParaCompletarDTO[]> {
+    const porProduto = new Map<string, PriceObservation[]>();
+    for (const o of this.reais(await this.repo.all())) {
+      const arr = porProduto.get(o.produtoId);
+      if (arr) arr.push(o);
+      else porProduto.set(o.produtoId, [o]);
+    }
+    const byId = new Map((await this.produtos.findAll()).map((p) => [p.id, p]));
+
+    const out: ProdutoParaCompletarDTO[] = [];
+    for (const [produtoId, obs] of porProduto) {
+      if (new Set(obs.map((o) => o.mercadoId)).size !== 1) continue; // já comparável
+      const produto = byId.get(produtoId);
+      if (!produto) continue; // observação órfã
+      const stats = new PriceStatistics(obs);
+      const latest = stats.latest();
+      out.push({
+        produto: produto.toJSON(),
+        precoCents: stats.average()?.cents ?? latest?.price.cents ?? 0,
+        mercadoNome: latest?.mercadoNome ?? null,
+        atualizadoEm: latest?.observedAt.toISOString() ?? null,
+      });
+    }
+    return out
+      .sort(
+        (a, b) =>
+          b.precoCents - a.precoCents || (b.atualizadoEm ?? '').localeCompare(a.atualizadoEm ?? ''),
+      )
+      .slice(0, limit);
   }
 
   /** Mercados presentes na base (para o filtro da tabela) — mais reportados primeiro. */
