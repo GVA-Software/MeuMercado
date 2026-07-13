@@ -13,6 +13,25 @@ export function semAcento(s: string): string {
     .trim();
 }
 
+/**
+ * Chave normalizada de um produto — CONJUNTO de palavras (sem acento, sem ordem,
+ * sem ruído de 1 letra). Serve pra detectar DUPLICATAS de nomes diferentes do
+ * cupom: "PAO PANCO 500G FORMA" e "PAO FORMA PANCO 500G U" viram a MESMA chave
+ * ("500g forma pao panco"). Marca/tamanho ficam na chave, então "PAO FORMA
+ * PULLMAN" e "...PANCO" NÃO colidem.
+ */
+export function chaveProduto(nome: string): string {
+  return [
+    ...new Set(
+      semAcento(nome)
+        .split(/[^a-z0-9]+/)
+        .filter((t) => t.length >= 2),
+    ),
+  ]
+    .sort()
+    .join(' ');
+}
+
 export function combinaBusca(nome: string, termo: string): boolean {
   const q = semAcento(termo);
   if (q.length < 2) return false;

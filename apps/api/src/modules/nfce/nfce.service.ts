@@ -8,7 +8,7 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Money, PriceObservation, Produto } from '@meumercado/domain';
+import { Money, PriceObservation, Produto, chaveProduto } from '@meumercado/domain';
 import type {
   CompraItemDTO,
   NfceDraftDTO,
@@ -153,22 +153,28 @@ export class NfceService {
       return true;
     });
 
-    // Índices para achar o produto existente. Produtos da NF são identificados
-    // pelo CÓDIGO do SKU (distingue tamanhos de mesma descrição); os demais, pelo nome.
+    // Índices para achar o produto existente:
+    //  - CÓDIGO do SKU (namespaced por mercado): reimportar a mesma loja reusa o item.
+    //  - CHAVE normalizada (conjunto de palavras): reusa o MESMO produto mesmo com
+    //    nome diferente entre mercados ("PAO PANCO 500G FORMA" ≡ "PAO FORMA PANCO 500G U").
     const catalogo = await this.produtos.findAll();
     const porCodigo = new Map(
       catalogo.filter((p) => p.codigoExterno).map((p) => [p.codigoExterno, p]),
     );
-    const porNome = new Map(
-      catalogo.filter((p) => !p.codigoExterno).map((p) => [p.nome.trim().toLowerCase(), p]),
-    );
+    const porChave = new Map<string, Produto>();
+    for (const p of catalogo) {
+      const k = chaveProduto(p.nome);
+      if (k && !porChave.has(k)) porChave.set(k, p);
+    }
 
     let produtosCriados = 0;
     const compraItens: CompraItemDTO[] = [];
     for (const item of itens) {
       const codigoExterno = item.codigo ? `${mercadoId}:${item.codigo}` : undefined;
-      const nomeKey = item.nome.trim().toLowerCase();
-      let produto = codigoExterno ? porCodigo.get(codigoExterno) : porNome.get(nomeKey);
+      const chave = chaveProduto(item.nome);
+      let produto =
+        (codigoExterno ? porCodigo.get(codigoExterno) : undefined) ??
+        (chave ? porChave.get(chave) : undefined);
       if (!produto) {
         produto = new Produto({
           id: randomUUID(),
@@ -179,7 +185,7 @@ export class NfceService {
         });
         await this.produtos.add(produto);
         if (codigoExterno) porCodigo.set(codigoExterno, produto);
-        else porNome.set(nomeKey, produto);
+        if (chave) porChave.set(chave, produto);
         produtosCriados++;
       }
       await this.obs.add(

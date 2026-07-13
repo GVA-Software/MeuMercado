@@ -72,7 +72,7 @@ export { melhoresMercadosPara, type MercadoRankeado } from './shopping/OndeCompr
 export { interpretar, type Intencao } from './nina/Intent.js';
 
 // Busca tolerante de produtos (acento + abreviação) — compartilhada front/back
-export { semAcento, combinaBusca } from './text/busca.js';
+export { semAcento, combinaBusca, chaveProduto } from './text/busca.js';
 
 // Rotas (apoio à aba Mapa — "como chegar" ao mercado)
 export { Route } from './routing/Route.js';
