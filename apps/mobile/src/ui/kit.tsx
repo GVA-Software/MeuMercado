@@ -1,6 +1,58 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme, type Theme } from '../theme/theme';
+
+/**
+ * Botão flutuante "voltar ao topo" — aparece só depois de rolar mais de uma tela
+ * e some ao tocar (ancora o scroll no topo). Fica dentro do container do app
+ * (.app-shell), então alinha certo em qualquer largura.
+ */
+export function ScrollTopFab() {
+  const { T } = useTheme();
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const el = document.querySelector('.app-scroll') as HTMLElement | null;
+    if (!el) return;
+    const onScroll = () => setShow(el.scrollTop > el.clientHeight);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  if (!show) return null;
+  return (
+    <button
+      aria-label="Voltar ao topo"
+      onClick={() => {
+        const el = document.querySelector('.app-scroll') as HTMLElement | null;
+        el?.scrollTo({ top: 0, behavior: 'smooth' });
+        setShow(false);
+      }}
+      style={{
+        position: 'absolute',
+        right: 16,
+        bottom: 96,
+        zIndex: 95,
+        width: 46,
+        height: 46,
+        borderRadius: '50%',
+        background: T.primary,
+        color: '#FFF',
+        border: 'none',
+        boxShadow: '0 6px 20px rgba(255,107,43,0.45)',
+        fontSize: 22,
+        fontWeight: 800,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      ↑
+    </button>
+  );
+}
 
 /** Modal central bloqueante — cobre a tela; só sai interagindo com os botões dentro. */
 export function Modal({ children }: { children: ReactNode }) {

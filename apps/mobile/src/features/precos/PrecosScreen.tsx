@@ -210,62 +210,32 @@ export function PrecosScreen({
         )}
 
         {mercadosDisp.length > 0 && (
-          <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
-            <button
-              onClick={() => setMercadoFiltro(null)}
-              style={{
-                flexShrink: 0,
-                background: mercadoFiltro === null ? T.primaryBg : T.card,
-                color: mercadoFiltro === null ? T.primary : T.sub,
-                border: `1px solid ${mercadoFiltro === null ? T.primary : T.border}`,
-                borderRadius: 99,
-                padding: '7px 13px',
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Todos
-            </button>
-            {mercadosDisp.map((m) => {
-              const sel = mercadoFiltro === m.nome;
-              const { label, cor } = marcaMercado(m.nome);
-              return (
-                <button
-                  key={m.nome}
-                  onClick={() => setMercadoFiltro(sel ? null : m.nome)}
-                  style={{
-                    flexShrink: 0,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    background: sel ? cor : `${cor}18`,
-                    color: sel ? '#FFF' : cor,
-                    border: `1px solid ${sel ? cor : `${cor}55`}`,
-                    borderRadius: 99,
-                    padding: '7px 12px',
-                    fontSize: 12,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: 99,
-                      background: sel ? '#FFF' : cor,
-                      flexShrink: 0,
-                    }}
-                  />
-                  {label}
-                  <span style={{ opacity: 0.7, fontWeight: 700 }}>{m.count}</span>
-                </button>
-              );
-            })}
-          </div>
+          <select
+            value={mercadoFiltro ?? ''}
+            onChange={(e) => setMercadoFiltro(e.target.value || null)}
+            style={{
+              width: '100%',
+              border: `1.5px solid ${T.border}`,
+              borderRadius: 12,
+              padding: '11px 14px',
+              background: T.card,
+              color: T.text,
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="">🏪 Todos os mercados</option>
+            {[...mercadosDisp]
+              .sort((a, b) =>
+                marcaMercado(a.nome).label.localeCompare(marcaMercado(b.nome).label, 'pt-BR'),
+              )
+              .map((m) => (
+                <option key={m.nome} value={m.nome}>
+                  {marcaMercado(m.nome).label} · {m.count}
+                </option>
+              ))}
+          </select>
         )}
 
         {!erro && rows === null && <CartLoader label="Carregando preços…" />}

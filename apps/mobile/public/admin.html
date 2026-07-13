@@ -64,6 +64,11 @@
       .top-sub { color: var(--muted); font-size: 12px; }
       .logout { background: transparent; border: 1px solid var(--border); color: var(--sub); border-radius: 99px; padding: 8px 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
 
+      /* Abas */
+      .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+      .tab { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--sub); border-radius: 12px; padding: 10px 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+      .tab.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+
       /* Stats */
       .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 12px; }
       @media (min-width: 640px) { .stats { grid-template-columns: repeat(4, 1fr); } }

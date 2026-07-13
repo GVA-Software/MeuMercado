@@ -11,7 +11,7 @@ import { AuthScreen } from '../features/auth/AuthScreen';
 import { Onboarding } from '../features/onboarding/Onboarding';
 import { onboardingVisto, marcarOnboardingVisto } from '../features/onboarding/onboardingStore';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
-import { CartLoader } from '../ui/kit';
+import { CartLoader, ScrollTopFab } from '../ui/kit';
 
 // Mapa em chunk separado (carrega o MapLibre só ao abrir a aba Mapa).
 const MapaScreen = lazy(() =>
@@ -88,6 +88,7 @@ export function App() {
             setTab(t);
           }}
         />
+        <ScrollTopFab key={tab} />
         <UpdatePrompt />
       </div>
       {onboarding && (

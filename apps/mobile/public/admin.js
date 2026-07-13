@@ -1,7 +1,7 @@
       'use strict';
       var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
       var token = null;
-      var state = { stats: null, funil: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, users: [], busca: '', aberto: null, agindo: null, erro: '' };
+      var state = { tab: 'app', stats: null, funil: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, users: [], busca: '', aberto: null, agindo: null, erro: '' };
 
       function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -278,34 +278,47 @@
       function renderDashboard() {
         var s = state.stats;
         var root = document.getElementById('root');
+        var isApp = state.tab !== 'projeto';
+        var conteudo = isApp
+          ? ((s ? (
+              '<div class="stats">' +
+                statCard(s.totalUsuarios, 'Usuários', '#ff6b2b') +
+                statCard(s.proAtivos, 'Pro ativos', '#22c55e') +
+                statCard(s.trials, 'Em teste', '#38bdf8') +
+                statCard(s.free, 'Free', '#8a93a3') +
+              '</div>' +
+              '<div class="mini">' + mini(s.cadastrosHoje, 'hoje') + mini(s.cadastros7d, '7 dias') +
+                mini(s.cadastros30d, '30 dias') + mini(s.admins, 'admins') + '</div>'
+            ) : '') +
+            (state.funil ? funnelHtml(state.funil) : '') +
+            '<input class="search" id="busca" placeholder="Buscar por nome ou e-mail…" value="' + esc(state.busca) + '"/>' +
+            '<div id="lista"></div>')
+          : (qaCardHtml() + dupsCardHtml());
         root.innerHTML = '<div class="wrap">' +
           '<div class="top"><div><div class="brand"><img src="/Loading.png" alt=""/><b>Meu Mercado</b></div>' +
           '<div class="top-sub">Painel de administração</div></div>' +
           '<button class="logout" id="sair">Sair</button></div>' +
           (state.erro ? '<div class="banner">' + esc(state.erro) + '</div>' : '') +
-          (s ? (
-            '<div class="stats">' +
-              statCard(s.totalUsuarios, 'Usuários', '#ff6b2b') +
-              statCard(s.proAtivos, 'Pro ativos', '#22c55e') +
-              statCard(s.trials, 'Em teste', '#38bdf8') +
-              statCard(s.free, 'Free', '#8a93a3') +
-            '</div>' +
-            '<div class="mini">' + mini(s.cadastrosHoje, 'hoje') + mini(s.cadastros7d, '7 dias') +
-              mini(s.cadastros30d, '30 dias') + mini(s.admins, 'admins') + '</div>'
-          ) : '') +
-          (state.funil ? funnelHtml(state.funil) : '') +
-          qaCardHtml() +
-          dupsCardHtml() +
-          '<input class="search" id="busca" placeholder="Buscar por nome ou e-mail…" value="' + esc(state.busca) + '"/>' +
-          '<div id="lista"></div></div>';
+          '<div class="tabs">' +
+            '<button class="tab' + (isApp ? ' on' : '') + '" data-tab="app">📊 Aplicação</button>' +
+            '<button class="tab' + (!isApp ? ' on' : '') + '" data-tab="projeto">🛠️ Gestão do projeto</button>' +
+          '</div>' +
+          conteudo + '</div>';
         el('sair').onclick = sair;
-        var qaBtn = el('qa-run');
-        if (qaBtn) qaBtn.onclick = rodarQa;
-        var dupsBtn = el('dups-run');
-        if (dupsBtn) dupsBtn.onclick = rodarDups;
-        var busca = el('busca');
-        busca.oninput = function () { state.busca = busca.value; renderLista(); };
-        renderLista();
+        var tabs = document.querySelectorAll('[data-tab]');
+        for (var i = 0; i < tabs.length; i++) {
+          tabs[i].onclick = function () { state.tab = this.getAttribute('data-tab'); renderDashboard(); };
+        }
+        if (isApp) {
+          var busca = el('busca');
+          busca.oninput = function () { state.busca = busca.value; renderLista(); };
+          renderLista();
+        } else {
+          var qaBtn = el('qa-run');
+          if (qaBtn) qaBtn.onclick = rodarQa;
+          var dupsBtn = el('dups-run');
+          if (dupsBtn) dupsBtn.onclick = rodarDups;
+        }
       }
       function renderLista() {
         var lista = usersFiltrados();
