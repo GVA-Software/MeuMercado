@@ -68,6 +68,23 @@
       .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
       .tab { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--sub); border-radius: 12px; padding: 10px 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
       .tab.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+      .tab-badge { display: inline-block; background: var(--danger); color: #fff; border-radius: 99px; font-size: 11px; font-weight: 800; padding: 1px 7px; margin-left: 4px; }
+      .bell { position: relative; background: transparent; border: 1px solid var(--border); border-radius: 12px; width: 40px; height: 38px; font-size: 18px; cursor: pointer; margin-right: 8px; }
+      .bell-badge { position: absolute; top: -6px; right: -6px; background: var(--danger); color: #fff; border-radius: 99px; font-size: 10px; font-weight: 800; padding: 1px 6px; }
+      .top { display: flex; align-items: center; }
+      .top > div:first-child { flex: 1; }
+
+      /* Feedbacks */
+      .fb { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+      .fb-open { border-left: 3px solid var(--primary); }
+      .fb-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+      .fb-tipo { font-size: 12px; font-weight: 800; color: var(--text); }
+      .fb-user { font-size: 11px; color: var(--muted); }
+      .fb-msg { font-size: 14px; color: var(--sub); margin: 0 0 12px; line-height: 1.5; white-space: pre-wrap; }
+      .fb-reply { display: flex; flex-direction: column; gap: 8px; }
+      .fb-reply textarea { width: 100%; box-sizing: border-box; min-height: 64px; border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--card); color: var(--text); font-size: 14px; font-family: inherit; resize: vertical; }
+      .fb-resp { align-self: flex-end; background: var(--primary); color: #fff; border: none; border-radius: 10px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
+      .fb-answered { background: var(--card); border-radius: 10px; padding: 10px 12px; font-size: 13px; color: var(--sub); line-height: 1.5; }
 
       /* Stats */
       .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 12px; }

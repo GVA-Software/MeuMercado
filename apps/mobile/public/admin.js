@@ -1,7 +1,8 @@
       'use strict';
       var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
       var token = null;
-      var state = { tab: 'app', stats: null, funil: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, users: [], busca: '', aberto: null, agindo: null, erro: '' };
+      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, users: [], busca: '', aberto: null, agindo: null, erro: '' };
+      var FB_TIPO = { bug: '🐛 Bug', sugestao: '💡 Sugestão', elogio: '❤️ Elogio', outro: '💬 Outro' };
 
       function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -275,12 +276,22 @@
           (disabled ? ' disabled' : '') + '>' + label + '</button>';
       }
 
+      function tabBtn(id, label, cur, badge) {
+        return '<button class="tab' + (cur === id ? ' on' : '') + '" data-tab="' + id + '">' + label +
+          (badge ? ' <span class="tab-badge">' + badge + '</span>' : '') + '</button>';
+      }
       function renderDashboard() {
         var s = state.stats;
         var root = document.getElementById('root');
-        var isApp = state.tab !== 'projeto';
-        var conteudo = isApp
-          ? ((s ? (
+        var tab = state.tab;
+        var abertos = state.feedbacks ? state.feedbacks.abertos : 0;
+        var conteudo;
+        if (tab === 'projeto') {
+          conteudo = qaCardHtml() + dupsCardHtml();
+        } else if (tab === 'feedbacks') {
+          conteudo = feedbacksHtml();
+        } else {
+          conteudo = (s ? (
               '<div class="stats">' +
                 statCard(s.totalUsuarios, 'Usuários', '#ff6b2b') +
                 statCard(s.proAtivos, 'Pro ativos', '#22c55e') +
@@ -292,28 +303,32 @@
             ) : '') +
             (state.funil ? funnelHtml(state.funil) : '') +
             '<input class="search" id="busca" placeholder="Buscar por nome ou e-mail…" value="' + esc(state.busca) + '"/>' +
-            '<div id="lista"></div>')
-          : (qaCardHtml() + dupsCardHtml());
+            '<div id="lista"></div>';
+        }
         root.innerHTML = '<div class="wrap">' +
           '<div class="top"><div><div class="brand"><img src="/Loading.png" alt=""/><b>Meu Mercado</b></div>' +
           '<div class="top-sub">Painel de administração</div></div>' +
+          (abertos ? '<button class="bell" id="bell">🔔<span class="bell-badge">' + abertos + '</span></button>' : '') +
           '<button class="logout" id="sair">Sair</button></div>' +
           (state.erro ? '<div class="banner">' + esc(state.erro) + '</div>' : '') +
           '<div class="tabs">' +
-            '<button class="tab' + (isApp ? ' on' : '') + '" data-tab="app">📊 Aplicação</button>' +
-            '<button class="tab' + (!isApp ? ' on' : '') + '" data-tab="projeto">🛠️ Gestão do projeto</button>' +
+            tabBtn('app', '📊 Aplicação', tab) +
+            tabBtn('feedbacks', '💬 Feedbacks', tab, abertos) +
+            tabBtn('projeto', '🛠️ Projeto', tab) +
           '</div>' +
           conteudo + '</div>';
         el('sair').onclick = sair;
+        var bell = el('bell');
+        if (bell) bell.onclick = function () { state.tab = 'feedbacks'; renderDashboard(); };
         var tabs = document.querySelectorAll('[data-tab]');
         for (var i = 0; i < tabs.length; i++) {
           tabs[i].onclick = function () { state.tab = this.getAttribute('data-tab'); renderDashboard(); };
         }
-        if (isApp) {
+        if (tab === 'app') {
           var busca = el('busca');
           busca.oninput = function () { state.busca = busca.value; renderLista(); };
           renderLista();
-        } else {
+        } else if (tab === 'projeto') {
           var qaBtn = el('qa-run');
           if (qaBtn) qaBtn.onclick = rodarQa;
           var dupsBtn = el('dups-run');
@@ -348,6 +363,8 @@
           }
           return;
         }
+        var fbBtn = ev.target.closest ? ev.target.closest('.fb-resp') : null;
+        if (fbBtn) { responderFeedback(fbBtn.getAttribute('data-id')); return; }
         var a = ev.target.closest ? ev.target.closest('.act') : null;
         if (a && !a.disabled) executarAcao(a.getAttribute('data-id'), a.getAttribute('data-act'));
       });
@@ -382,6 +399,37 @@
         try { state.stats = await apiFetch('/admin/stats'); } catch (e) {}
       }
 
+      function feedbacksHtml() {
+        var d = state.feedbacks;
+        if (!d) return '<p class="fnote">Carregando os feedbacks…</p>';
+        if (!d.feedbacks.length) return '<p class="fnote">Nenhum feedback ainda.</p>';
+        return d.feedbacks.map(function (f) {
+          var corpo = f.status === 'respondido'
+            ? '<div class="fb-answered">✓ Você respondeu: ' + esc(f.resposta) + '</div>'
+            : '<div class="fb-reply"><textarea id="resp-' + f.id + '" placeholder="Escreva a resposta…"></textarea>' +
+              '<button class="fb-resp" data-id="' + f.id + '">Responder</button></div>';
+          return '<div class="fb' + (f.status === 'aberto' ? ' fb-open' : '') + '">' +
+            '<div class="fb-head"><span class="fb-tipo">' + (FB_TIPO[f.tipo] || f.tipo) + '</span>' +
+            '<span class="fb-user">' + esc(f.usuarioNome) + ' · ' + esc(f.usuarioEmail) + '</span></div>' +
+            '<p class="fb-msg">' + esc(f.mensagem) + '</p>' + corpo + '</div>';
+        }).join('');
+      }
+      async function responderFeedback(id) {
+        var ta = el('resp-' + id);
+        var resposta = ta ? ta.value.trim() : '';
+        if (!resposta) return;
+        try {
+          await apiFetch('/admin/feedbacks/' + id + '/responder', {
+            method: 'POST',
+            body: JSON.stringify({ resposta: resposta }),
+          });
+          state.feedbacks = await apiFetch('/admin/feedbacks');
+        } catch (e) {
+          state.erro = e.message;
+        }
+        renderDashboard();
+      }
+
       async function carregar() {
         document.getElementById('root').innerHTML =
           '<div class="loading"><img src="/Loading.png" alt=""/><p>Carregando o painel…</p></div>';
@@ -390,10 +438,12 @@
             apiFetch('/admin/stats'),
             apiFetch('/admin/users?limit=100'),
             apiFetch('/admin/funil').catch(function () { return null; }),
+            apiFetch('/admin/feedbacks').catch(function () { return null; }),
           ]);
           state.stats = res[0];
           state.users = res[1].items;
           state.funil = res[2];
+          state.feedbacks = res[3];
           renderDashboard();
         } catch (e) {
           // Já autenticado: mostra o erro no painel (não volta pro login).

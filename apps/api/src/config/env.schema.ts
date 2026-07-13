@@ -52,6 +52,17 @@ export const envSchema = z.object({
   CRON_SECRET: z.string().default('mzv_8tNV1GBcU5qoVMFIdEBhhAPYQtm0'),
 
   /**
+   * E-mail (opcional). SEM `SMTP_HOST` → e-mails desligados (só push). COM →
+   * envia via SMTP (ex.: Gmail: host smtp.gmail.com, user o e-mail, pass um
+   * "app password"). É só configurar as envs; o código já está pronto.
+   */
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().default('Meu Mercado <no-reply@meumercado.app>'),
+
+  /**
    * Postgres (TypeORM). Se definido → usa banco (dados persistem).
    * Se ausente → repositórios em memória (dev local sem banco).
    */

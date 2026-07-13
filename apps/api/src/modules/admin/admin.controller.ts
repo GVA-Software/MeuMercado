@@ -13,6 +13,7 @@ import {
   AdminGrantProSchema,
   AdminJuntarSchema,
   PageQuerySchema,
+  ResponderFeedbackSchema,
   type AdminDuplicadosDTO,
   type AdminFunnelDTO,
   type AdminGrantProInput,
@@ -20,19 +21,39 @@ import {
   type AdminStatsDTO,
   type AdminUserDTO,
   type AdminUsersResponse,
+  type FeedbacksResponse,
   type PageQuery,
   type QaConversaReportDTO,
+  type ResponderFeedbackInput,
 } from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { JwtAuthGuard, type AuthedUser } from '../auth/jwt-auth.guard.js';
+import { FeedbackService } from '../feedback/feedback.service.js';
 import { AdminGuard } from './admin.guard.js';
 import { AdminService } from './admin.service.js';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AdminController {
-  constructor(private readonly service: AdminService) {}
+  constructor(
+    private readonly service: AdminService,
+    private readonly feedback: FeedbackService,
+  ) {}
+
+  @Get('feedbacks')
+  feedbacks(): Promise<FeedbacksResponse> {
+    return this.feedback.listar();
+  }
+
+  @Post('feedbacks/:id/responder')
+  @HttpCode(204)
+  responderFeedback(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(ResponderFeedbackSchema)) body: ResponderFeedbackInput,
+  ): Promise<void> {
+    return this.feedback.responder(id, body.resposta);
+  }
 
   @Get('stats')
   stats(): Promise<AdminStatsDTO> {

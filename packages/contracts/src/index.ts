@@ -14,3 +14,4 @@ export * from './admin.js';
 export * from './analytics.js';
 export * from './shopping.js';
 export * from './qa.js';
+export * from './feedback.js';

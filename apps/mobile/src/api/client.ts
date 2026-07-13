@@ -7,6 +7,7 @@ import type {
   ComprasResponse,
   CreateProdutoInput,
   EventName,
+  FeedbackTipo,
   InsightsResponse,
   LoginInput,
   MercadoDTO,
@@ -257,6 +258,14 @@ export class ApiClient {
   /** Atualiza o próprio nome (persistido; e-mail não muda). */
   atualizarNome(nome: string): Promise<UserDTO> {
     return this.request('/auth/me', { method: 'PATCH', body: JSON.stringify({ nome }) });
+  }
+
+  // ---- Feedback ----
+  enviarFeedback(tipo: FeedbackTipo, mensagem: string): Promise<void> {
+    return this.request('/feedback', {
+      method: 'POST',
+      body: JSON.stringify({ tipo, mensagem }),
+    });
   }
 
   // ---- Push notifications ----

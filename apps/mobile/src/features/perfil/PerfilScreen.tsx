@@ -5,6 +5,7 @@ import { useTheme } from '../../theme/theme';
 import { AppLogo, Btn, Card, Pill, ThemeToggle } from '../../ui/kit';
 import { AuthForm } from '../auth/AuthForm';
 import { PushToggle } from './PushToggle';
+import { FeedbackCard } from './FeedbackCard';
 
 /**
  * Modal de recorte da foto: o usuário arrasta e dá zoom para enquadrar antes de
@@ -484,6 +485,8 @@ export function PerfilScreen() {
             </Card>
 
             <PushToggle />
+
+            <FeedbackCard />
 
             <Btn variant="ghost" full onClick={() => void logout()}>
               Sair
