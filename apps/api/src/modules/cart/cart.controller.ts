@@ -28,24 +28,25 @@ import { CartService } from './cart.service.js';
 
 const SetQuantitySchema = z.object({ quantity: z.number().int().min(1).max(999) });
 
+// TODO o carrinho exige autenticação e é escopado ao dono (ver CartService).
 @Controller('carts')
+@UseGuards(JwtAuthGuard)
 export class CartController {
   constructor(private readonly service: CartService) {}
 
   @Post()
   @HttpCode(201)
-  criar(): Promise<CartDTO> {
-    return this.service.criar();
+  criar(@CurrentUser() user: AuthedUser): Promise<CartDTO> {
+    return this.service.criar(user.id);
   }
 
   @Get(':id')
-  obter(@Param('id') id: string): Promise<CartDTO> {
-    return this.service.obter(id);
+  obter(@Param('id') id: string, @CurrentUser() user: AuthedUser): Promise<CartDTO> {
+    return this.service.obter(id, user.id);
   }
 
   @Post(':id/items')
   @HttpCode(201)
-  @UseGuards(JwtAuthGuard)
   adicionarItem(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(AddCartItemSchema)) body: AddCartItemInput,
@@ -56,25 +57,23 @@ export class CartController {
 
   /** Vincula a compra a um mercado (confirmado pela localização). */
   @Put(':id/mercado')
-  @UseGuards(JwtAuthGuard)
   definirMercado(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(CartMercadoSchema)) body: CartMercadoDTO,
+    @CurrentUser() user: AuthedUser,
   ): Promise<CartDTO> {
-    return this.service.definirMercado(id, body);
+    return this.service.definirMercado(id, user.id, body);
   }
 
   /** Desvincula o mercado da compra (volta ao estado "sem mercado"). */
   @Delete(':id/mercado')
-  @UseGuards(JwtAuthGuard)
-  removerMercado(@Param('id') id: string): Promise<CartDTO> {
-    return this.service.definirMercado(id, null);
+  removerMercado(@Param('id') id: string, @CurrentUser() user: AuthedUser): Promise<CartDTO> {
+    return this.service.definirMercado(id, user.id, null);
   }
 
   /** Fecha a compra: guarda no histórico e esvazia o carrinho. */
   @Post(':id/finalizar')
   @HttpCode(201)
-  @UseGuards(JwtAuthGuard)
   finalizar(@Param('id') id: string, @CurrentUser() user: AuthedUser): Promise<CompraDTO> {
     return this.service.finalizar(id, user.id);
   }
@@ -84,20 +83,26 @@ export class CartController {
     @Param('id') id: string,
     @Param('lineId') lineId: string,
     @Body(new ZodValidationPipe(SetQuantitySchema)) body: z.infer<typeof SetQuantitySchema>,
+    @CurrentUser() user: AuthedUser,
   ): Promise<CartDTO> {
-    return this.service.alterarQuantidade(id, lineId, body.quantity);
+    return this.service.alterarQuantidade(id, user.id, lineId, body.quantity);
   }
 
   @Delete(':id/items/:lineId')
-  removerItem(@Param('id') id: string, @Param('lineId') lineId: string): Promise<CartDTO> {
-    return this.service.removerItem(id, lineId);
+  removerItem(
+    @Param('id') id: string,
+    @Param('lineId') lineId: string,
+    @CurrentUser() user: AuthedUser,
+  ): Promise<CartDTO> {
+    return this.service.removerItem(id, user.id, lineId);
   }
 
   @Put(':id/limite')
   definirLimite(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(SetLimiteSchema)) body: SetLimiteInput,
+    @CurrentUser() user: AuthedUser,
   ): Promise<CartDTO> {
-    return this.service.definirLimite(id, body.limiteCents);
+    return this.service.definirLimite(id, user.id, body.limiteCents);
   }
 }

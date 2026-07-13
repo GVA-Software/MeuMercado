@@ -23,7 +23,7 @@ export class TypeOrmPushSubscriptionRepository implements PushSubscriptionReposi
     return this.repo.find({ where: { userId } });
   }
 
-  async removerPorEndpoint(endpoint: string): Promise<void> {
-    await this.repo.delete({ endpoint });
+  async removerPorEndpoint(endpoint: string, userId?: string): Promise<void> {
+    await this.repo.delete({ endpoint, ...(userId !== undefined ? { userId } : {}) });
   }
 }

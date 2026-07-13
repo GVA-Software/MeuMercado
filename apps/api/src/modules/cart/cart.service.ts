@@ -16,18 +16,18 @@ export class CartService {
     private readonly compras: ComprasService,
   ) {}
 
-  async criar(): Promise<CartDTO> {
-    const cart = new Cart({ id: randomUUID() });
+  async criar(userId: string): Promise<CartDTO> {
+    const cart = new Cart({ id: randomUUID(), userId });
     await this.store.save(cart);
     return this.toDTO(cart);
   }
 
-  async obter(id: string): Promise<CartDTO> {
-    return this.toDTO(await this.requireCart(id));
+  async obter(id: string, userId: string): Promise<CartDTO> {
+    return this.toDTO(await this.requireCart(id, userId));
   }
 
-  async adicionarItem(id: string, input: AddCartItemInput, reporterId?: string): Promise<CartDTO> {
-    const cart = await this.requireCart(id);
+  async adicionarItem(id: string, input: AddCartItemInput, reporterId: string): Promise<CartDTO> {
+    const cart = await this.requireCart(id, reporterId);
     cart.addItem(
       new CartItem({
         lineId: randomUUID(),
@@ -64,8 +64,12 @@ export class CartService {
     return this.toDTO(cart);
   }
 
-  async definirMercado(id: string, mercado: CartMercadoDTO | null): Promise<CartDTO> {
-    const cart = await this.requireCart(id);
+  async definirMercado(
+    id: string,
+    userId: string,
+    mercado: CartMercadoDTO | null,
+  ): Promise<CartDTO> {
+    const cart = await this.requireCart(id, userId);
     cart.setMercado(
       mercado
         ? {
@@ -81,22 +85,27 @@ export class CartService {
     return this.toDTO(cart);
   }
 
-  async alterarQuantidade(id: string, lineId: string, quantity: number): Promise<CartDTO> {
-    const cart = await this.requireCart(id);
+  async alterarQuantidade(
+    id: string,
+    userId: string,
+    lineId: string,
+    quantity: number,
+  ): Promise<CartDTO> {
+    const cart = await this.requireCart(id, userId);
     cart.setQuantity(lineId, quantity);
     await this.store.save(cart);
     return this.toDTO(cart);
   }
 
-  async removerItem(id: string, lineId: string): Promise<CartDTO> {
-    const cart = await this.requireCart(id);
+  async removerItem(id: string, userId: string, lineId: string): Promise<CartDTO> {
+    const cart = await this.requireCart(id, userId);
     cart.removeItem(lineId);
     await this.store.save(cart);
     return this.toDTO(cart);
   }
 
-  async definirLimite(id: string, limiteCents: number | null): Promise<CartDTO> {
-    const cart = await this.requireCart(id);
+  async definirLimite(id: string, userId: string, limiteCents: number | null): Promise<CartDTO> {
+    const cart = await this.requireCart(id, userId);
     cart.setLimite(limiteCents === null ? null : Money.fromCents(limiteCents));
     await this.store.save(cart);
     return this.toDTO(cart);
@@ -104,7 +113,7 @@ export class CartService {
 
   /** Fecha a compra: salva no histórico e esvazia o carrinho para a próxima. */
   async finalizar(id: string, userId: string): Promise<CompraDTO> {
-    const cart = await this.requireCart(id);
+    const cart = await this.requireCart(id, userId);
     if (cart.items.length === 0) {
       throw new BadRequestException('Carrinho vazio — adicione itens antes de finalizar.');
     }
@@ -115,10 +124,31 @@ export class CartService {
     return compra;
   }
 
-  private async requireCart(id: string): Promise<Cart> {
+  /**
+   * Carrega o carrinho garantindo que pertence ao usuário. Carrinho de OUTRO dono
+   * responde 404 (o app cria um novo no fallback) — evita, num aparelho
+   * compartilhado, o usuário B abrir o carrinho do A pelo id no localStorage.
+   * Carrinhos legados (sem dono) são adotados pelo primeiro usuário que os toca.
+   */
+  private async requireCart(id: string, userId: string): Promise<Cart> {
     const cart = await this.store.get(id);
     if (!cart) {
       throw new NotFoundException(`Carrinho não encontrado: ${id}`);
+    }
+    if (cart.userId !== undefined && cart.userId !== userId) {
+      throw new NotFoundException(`Carrinho não encontrado: ${id}`);
+    }
+    if (cart.userId === undefined) {
+      // Adota o carrinho legado para este usuário (persiste o dono).
+      const adotado = new Cart({
+        id: cart.id,
+        userId,
+        limite: cart.limite,
+        items: cart.items,
+        mercado: cart.mercado,
+      });
+      await this.store.save(adotado);
+      return adotado;
     }
     return cart;
   }

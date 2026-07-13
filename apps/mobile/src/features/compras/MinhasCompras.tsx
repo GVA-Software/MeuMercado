@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CompraDTO } from '@meumercado/contracts';
-import { api, formatBRL } from '../../api/client';
+import { api, formatBRL, mensagemDeErro } from '../../api/client';
 import { useTheme } from '../../theme/theme';
 import { AvisoDialog, CartLoader, ConfirmDialog, EmptyState } from '../../ui/kit';
 import { MarketTag } from '../../ui/market';
@@ -51,7 +51,7 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
       }
       setConfirmar(null);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : String(e));
+      setErro(mensagemDeErro(e));
       setConfirmar(null);
     } finally {
       setExcluindo(false);

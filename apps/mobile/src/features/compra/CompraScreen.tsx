@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CartDTO, CartMercadoDTO, MercadoDTO, ProdutoDTO } from '@meumercado/contracts';
 import { combinaBusca } from '@meumercado/domain';
-import { api, formatBRL } from '../../api/client';
+import { api, formatBRL, mensagemDeErro } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 import { useTheme } from '../../theme/theme';
 import {
@@ -50,6 +50,9 @@ export function CompraScreen() {
   const [finalizarErro, setFinalizarErro] = useState<string | null>(null);
   const [limiteMsg, setLimiteMsg] = useState<string | null>(null);
   const [mercadoNudge, setMercadoNudge] = useState(false);
+  // Trava uma mutação por vez no carrinho: evita duplo-toque no +/−/🗑️ (que,
+  // por enviar quantidade ABSOLUTA lida do render, perderia incrementos).
+  const [mutando, setMutando] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -65,7 +68,7 @@ export function CompraScreen() {
         setCart(c);
         setProdutos(await api.listarProdutos());
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
+        setError(mensagemDeErro(e));
       }
     })();
   }, []);
@@ -88,12 +91,31 @@ export function CompraScreen() {
   }
 
   async function mudarQtd(lineId: string, novo: number) {
-    if (!cart) return;
-    setCart(
-      novo < 1
-        ? await api.removerItem(cart.id, lineId)
-        : await api.alterarQuantidade(cart.id, lineId, novo),
-    );
+    if (!cart || mutando) return;
+    setMutando(true);
+    try {
+      setCart(
+        novo < 1
+          ? await api.removerItem(cart.id, lineId)
+          : await api.alterarQuantidade(cart.id, lineId, novo),
+      );
+    } catch {
+      /* falhou: mantém o carrinho atual (sem quebrar a tela) */
+    } finally {
+      setMutando(false);
+    }
+  }
+
+  async function removerLinha(lineId: string) {
+    if (!cart || mutando) return;
+    setMutando(true);
+    try {
+      setCart(await api.removerItem(cart.id, lineId));
+    } catch {
+      /* mantém o carrinho atual */
+    } finally {
+      setMutando(false);
+    }
   }
 
   async function definirLimite(valor: number | null) {
@@ -129,7 +151,7 @@ export function CompraScreen() {
       setCart(await api.obterCarrinho(cart.id)); // agora vazio
       setComprasOpen(true);
     } catch (e) {
-      setFinalizarErro(e instanceof Error ? e.message : String(e));
+      setFinalizarErro(mensagemDeErro(e));
     } finally {
       setFinalizando(false);
     }
@@ -138,10 +160,12 @@ export function CompraScreen() {
   if (error) {
     return (
       <div style={{ padding: 20, paddingBottom: 100 }}>
-        <EmptyState emoji="⚠️" titulo="Não consegui falar com a API" sub={error} />
-        <p style={{ color: T.muted, fontSize: 13, textAlign: 'center' }}>
-          Rode a API: <code>pnpm --filter @meumercado/api dev</code>
-        </p>
+        <EmptyState emoji="😕" titulo="Não conseguimos conectar agora" sub={error} />
+        <div style={{ textAlign: 'center' }}>
+          <Btn small onClick={() => window.location.reload()}>
+            Tentar de novo
+          </Btn>
+        </div>
       </div>
     );
   }
@@ -383,6 +407,7 @@ export function CompraScreen() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <QtyBtn
                       label="−"
+                      disabled={mutando}
                       onClick={() => void mudarQtd(item.lineId, item.quantity - 1)}
                     />
                     <span
@@ -399,11 +424,13 @@ export function CompraScreen() {
                     <QtyBtn
                       label="+"
                       color={T.primary}
+                      disabled={mutando}
                       onClick={() => void mudarQtd(item.lineId, item.quantity + 1)}
                     />
                   </div>
                   <button
-                    onClick={() => void api.removerItem(cart.id, item.lineId).then(setCart)}
+                    onClick={() => void removerLinha(item.lineId)}
+                    disabled={mutando}
                     aria-label="Remover item"
                     title="Remover item"
                     style={{
@@ -470,20 +497,32 @@ export function CompraScreen() {
   );
 }
 
-function QtyBtn({ label, onClick, color }: { label: string; onClick: () => void; color?: string }) {
+function QtyBtn({
+  label,
+  onClick,
+  color,
+  disabled = false,
+}: {
+  label: string;
+  onClick: () => void;
+  color?: string;
+  disabled?: boolean;
+}) {
   const { T } = useTheme();
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         background: T.card,
         border: `1px solid ${T.border}`,
         borderRadius: 8,
-        width: 27,
-        height: 27,
-        cursor: 'pointer',
+        width: 32,
+        height: 32,
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
         color: color ?? T.text,
-        fontSize: 15,
+        fontSize: 16,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -609,7 +648,7 @@ function AddPanel({
   onClose,
 }: {
   produtos: ProdutoDTO[];
-  onAdd: (p: ProdutoDTO, precoCents: number, qty: number) => void;
+  onAdd: (p: ProdutoDTO, precoCents: number, qty: number) => Promise<void>;
   onClose: () => void;
 }) {
   const { T } = useTheme();
@@ -617,6 +656,21 @@ function AddPanel({
   const [sel, setSel] = useState<ProdutoDTO | null>(null);
   const [precoCents, setPrecoCents] = useState(0);
   const [qty, setQty] = useState(1);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function adicionar() {
+    if (!sel || precoCents <= 0 || enviando) return;
+    setEnviando(true);
+    setErro(null);
+    try {
+      await onAdd(sel, precoCents, qty);
+      // Sucesso: o pai fecha o painel; não precisa reabilitar.
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+      setEnviando(false);
+    }
+  }
 
   const filtrados = useMemo(
     () =>
@@ -732,8 +786,13 @@ function AddPanel({
               </button>
             </div>
           </div>
-          <Btn full disabled={precoCents <= 0} onClick={() => onAdd(sel, precoCents, qty)}>
-            Adicionar {precoCents > 0 ? formatBRL(precoCents * qty) : ''}
+          {erro && (
+            <p style={{ color: T.danger, fontSize: 13, margin: 0, textAlign: 'center' }}>{erro}</p>
+          )}
+          <Btn full disabled={precoCents <= 0 || enviando} onClick={() => void adicionar()}>
+            {enviando
+              ? 'Adicionando…'
+              : `Adicionar ${precoCents > 0 ? formatBRL(precoCents * qty) : ''}`}
           </Btn>
         </>
       )}

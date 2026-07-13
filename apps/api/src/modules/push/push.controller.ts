@@ -35,7 +35,8 @@ export class PushController {
   @HttpCode(204)
   async unsubscribe(
     @Body(new ZodValidationPipe(UnsubscribeSchema)) body: z.infer<typeof UnsubscribeSchema>,
+    @CurrentUser() user: AuthedUser,
   ): Promise<void> {
-    await this.service.desinscrever(body.endpoint);
+    await this.service.desinscrever(user.id, body.endpoint);
   }
 }

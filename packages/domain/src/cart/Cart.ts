@@ -26,17 +26,21 @@ const OVER_AT = 100;
  */
 export class Cart {
   readonly id: string;
+  /** Dono do carrinho — usado para escopar o acesso ao usuário autenticado. */
+  readonly userId?: string;
   private readonly _items: Map<string, CartItem>;
   private _limite: Money | null;
   private _mercado: CartMercado | null;
 
   constructor(params: {
     id: string;
+    userId?: string;
     limite?: Money | null;
     items?: readonly CartItem[];
     mercado?: CartMercado | null;
   }) {
     this.id = params.id;
+    if (params.userId !== undefined) this.userId = params.userId;
     this._limite = params.limite ?? null;
     this._mercado = params.mercado ?? null;
     this._items = new Map();

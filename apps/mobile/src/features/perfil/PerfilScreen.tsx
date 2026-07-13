@@ -2,7 +2,8 @@ import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { useTheme } from '../../theme/theme';
-import { AppLogo, Btn, Card, Pill, ThemeToggle } from '../../ui/kit';
+import { AppLogo, AvisoDialog, Btn, Card, ConfirmDialog, Pill, ThemeToggle } from '../../ui/kit';
+import { mensagemDeErro } from '../../api/client';
 import { AuthForm } from '../auth/AuthForm';
 import { PushToggle } from './PushToggle';
 import { FeedbackCard } from './FeedbackCard';
@@ -173,6 +174,24 @@ export function PerfilScreen() {
   const [salvandoNome, setSalvandoNome] = useState(false);
   const [erroNome, setErroNome] = useState<string | null>(null);
 
+  // Cancelamento da assinatura (ação destrutiva → confirma + avisa).
+  const [confirmarCancel, setConfirmarCancel] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
+  const [cancelOk, setCancelOk] = useState(false);
+
+  async function fazerCancelamento() {
+    setCancelando(true);
+    try {
+      await cancelar();
+      setConfirmarCancel(false);
+      setCancelOk(true);
+    } catch {
+      /* mantém o diálogo aberto; o estado do plano não muda */
+    } finally {
+      setCancelando(false);
+    }
+  }
+
   function abrirEdicao() {
     setNomeEdit(user?.nome ?? '');
     setErroNome(null);
@@ -191,7 +210,7 @@ export function PerfilScreen() {
       await atualizarNome(novo);
       setEditandoNome(false);
     } catch (e) {
-      setErroNome(e instanceof Error ? e.message : String(e));
+      setErroNome(mensagemDeErro(e));
     } finally {
       setSalvandoNome(false);
     }
@@ -473,7 +492,7 @@ export function PerfilScreen() {
                     {subscription.diasRestantes} dias restantes
                     {subscription.periodo ? ` · ${subscription.periodo}` : ''}
                   </p>
-                  <Btn variant="ghost" small onClick={() => void cancelar()}>
+                  <Btn variant="ghost" small onClick={() => setConfirmarCancel(true)}>
                     Cancelar assinatura
                   </Btn>
                 </>
@@ -497,6 +516,28 @@ export function PerfilScreen() {
 
       {cropFile && (
         <CropModal file={cropFile} onSave={salvarFoto} onCancel={() => setCropFile(null)} />
+      )}
+
+      {confirmarCancel && (
+        <ConfirmDialog
+          emoji="💔"
+          titulo="Cancelar o Pro?"
+          mensagem="Você perde a Nina IA e os recursos Pro. Dá pra voltar depois pela administração."
+          confirmarLabel="Cancelar assinatura"
+          cancelarLabel="Manter Pro"
+          perigo
+          ocupado={cancelando}
+          onConfirmar={() => void fazerCancelamento()}
+          onCancelar={() => setConfirmarCancel(false)}
+        />
+      )}
+      {cancelOk && (
+        <AvisoDialog
+          emoji="✅"
+          titulo="Assinatura cancelada"
+          mensagem="Seu plano voltou para o Free."
+          onOk={() => setCancelOk(false)}
+        />
       )}
     </div>
   );

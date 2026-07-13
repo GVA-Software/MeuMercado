@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FeedbackTipo } from '@meumercado/contracts';
-import { api } from '../../api/client';
+import { api, mensagemDeErro } from '../../api/client';
 import { useTheme } from '../../theme/theme';
 import { AvisoDialog, Btn, Card } from '../../ui/kit';
 
@@ -30,7 +30,7 @@ export function FeedbackCard() {
       setAberto(false);
       setOk(true);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : String(e));
+      setErro(mensagemDeErro(e));
     } finally {
       setEnviando(false);
     }
@@ -117,6 +117,7 @@ export function FeedbackCard() {
         onChange={(e) => setMsg(e.target.value)}
         placeholder="Conte pra gente: um bug que encontrou, uma ideia, um elogio…"
         rows={4}
+        maxLength={2000}
         style={{
           border: `1.5px solid ${T.border}`,
           borderRadius: 12,

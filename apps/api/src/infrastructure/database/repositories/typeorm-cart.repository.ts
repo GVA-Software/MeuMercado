@@ -29,6 +29,7 @@ export class TypeOrmCartRepository implements CartStore {
     );
     return new Cart({
       id: c.id,
+      ...(c.userId !== null ? { userId: c.userId } : {}),
       limite: c.limiteCents !== null ? Money.fromCents(c.limiteCents) : null,
       items,
       mercado:
@@ -47,6 +48,7 @@ export class TypeOrmCartRepository implements CartStore {
   async save(cart: Cart): Promise<void> {
     await this.carts.save({
       id: cart.id,
+      userId: cart.userId ?? null,
       limiteCents: cart.limite?.cents ?? null,
       mercadoId: cart.mercado?.id ?? null,
       mercadoNome: cart.mercado?.nome ?? null,

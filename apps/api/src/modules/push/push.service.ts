@@ -52,8 +52,8 @@ export class PushService {
     });
   }
 
-  async desinscrever(endpoint: string): Promise<void> {
-    await this.repo.removerPorEndpoint(endpoint);
+  async desinscrever(userId: string, endpoint: string): Promise<void> {
+    await this.repo.removerPorEndpoint(endpoint, userId);
   }
 
   /** Envia uma notificação para todos os dispositivos do usuário (best-effort). */

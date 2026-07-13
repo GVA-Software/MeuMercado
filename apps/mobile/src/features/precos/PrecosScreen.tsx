@@ -11,9 +11,17 @@ import type {
   TrendDTO,
 } from '@meumercado/contracts';
 import { combinaBusca } from '@meumercado/domain';
-import { api, formatBRL } from '../../api/client';
+import { api, formatBRL, mensagemDeErro } from '../../api/client';
 import { useTheme, type Theme } from '../../theme/theme';
-import { AppLogo, Btn, CartLoader, CurrencyInput, EmptyState, SLabel } from '../../ui/kit';
+import {
+  AppLogo,
+  Btn,
+  CartLoader,
+  ConfirmDialog,
+  CurrencyInput,
+  EmptyState,
+  SLabel,
+} from '../../ui/kit';
 import { MarketTag, marcaMercado } from '../../ui/market';
 import { emojiDe } from '../../ui/emoji';
 import { useNav } from '../../app/nav';
@@ -61,7 +69,7 @@ export function PrecosScreen({
     try {
       setRows(await api.tabelaPrecos(mercadoFiltro ?? undefined));
     } catch (e) {
-      setErro(e instanceof Error ? e.message : String(e));
+      setErro(mensagemDeErro(e));
     }
   }, [mercadoFiltro]);
 
@@ -79,10 +87,22 @@ export function PrecosScreen({
       .catch(() => {});
   }, []);
 
-  // Recarrega a tabela sempre que o filtro de mercado muda.
+  // Recarrega a tabela sempre que o filtro de mercado muda. Com flag "vivo": se o
+  // usuário troca o filtro rápido, uma resposta lenta antiga não sobrescreve a nova.
   useEffect(() => {
-    void carregar();
-  }, [carregar]);
+    let vivo = true;
+    void (async () => {
+      try {
+        const t = await api.tabelaPrecos(mercadoFiltro ?? undefined);
+        if (vivo) setRows(t);
+      } catch (e) {
+        if (vivo) setErro(mensagemDeErro(e));
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [mercadoFiltro]);
 
   useEffect(() => {
     carregarMercados();
@@ -680,6 +700,7 @@ function DetailSheet({
   const [mergeResult, setMergeResult] = useState<ProdutoDTO[]>([]);
   const [merging, setMerging] = useState(false);
   const [mergeErro, setMergeErro] = useState<string | null>(null);
+  const [confirmarJuntar, setConfirmarJuntar] = useState<ProdutoDTO | null>(null);
 
   useEffect(() => {
     void api
@@ -707,12 +728,6 @@ function DetailSheet({
   }, [mergeBusca, row.produto.id]);
 
   async function juntar(outro: ProdutoDTO) {
-    if (
-      !window.confirm(
-        `Juntar "${outro.nome}" em "${row.produto.nome}"? Os preços serão unidos e "${outro.nome}" deixa de existir.`,
-      )
-    )
-      return;
     setMerging(true);
     setMergeErro(null);
     try {
@@ -720,8 +735,9 @@ function DetailSheet({
       await api.juntarProduto(outro.id, row.produto.id);
       onMerged();
     } catch (e) {
-      setMergeErro(e instanceof Error ? e.message : String(e));
+      setMergeErro(mensagemDeErro(e));
       setMerging(false);
+      setConfirmarJuntar(null);
     }
   }
 
@@ -892,7 +908,7 @@ function DetailSheet({
                   <button
                     key={p.id}
                     disabled={merging}
-                    onClick={() => void juntar(p)}
+                    onClick={() => setConfirmarJuntar(p)}
                     style={{
                       display: 'flex',
                       gap: 10,
@@ -936,6 +952,20 @@ function DetailSheet({
             </div>
           )}
         </div>
+      )}
+
+      {confirmarJuntar && (
+        <ConfirmDialog
+          emoji="🔗"
+          titulo="Juntar produtos?"
+          mensagem={`Os preços de "${confirmarJuntar.nome}" entram em "${row.produto.nome}" e "${confirmarJuntar.nome}" deixa de existir. Não dá pra desfazer.`}
+          confirmarLabel="Juntar"
+          cancelarLabel="Cancelar"
+          perigo
+          ocupado={merging}
+          onConfirmar={() => void juntar(confirmarJuntar)}
+          onCancelar={() => setConfirmarJuntar(null)}
+        />
       )}
     </BottomSheet>
   );
@@ -990,7 +1020,7 @@ function PriceEntrySheet({
   const filtrados = useMemo(
     () =>
       buscaProd.trim().length > 0
-        ? produtos.filter((p) => p.nome.toLowerCase().includes(buscaProd.toLowerCase())).slice(0, 6)
+        ? produtos.filter((p) => combinaBusca(p.nome, buscaProd)).slice(0, 6)
         : [],
     [buscaProd, produtos],
   );
@@ -1282,7 +1312,7 @@ function PriceEntrySheet({
         {enviando ? 'Enviando…' : `Registrar ${precoCents > 0 ? formatBRL(precoCents) : 'preço'}`}
       </Btn>
       <p style={{ color: T.muted, fontSize: 11, textAlign: 'center', margin: '10px 0 0' }}>
-        📷 Nota fiscal (QR) e foto do preço chegam em breve.
+        📷 Dica: use “Ler nota” na tela de Preços para importar tudo pelo QR do cupom.
       </p>
     </BottomSheet>
   );

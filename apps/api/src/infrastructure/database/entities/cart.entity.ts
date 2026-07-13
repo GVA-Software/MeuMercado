@@ -5,6 +5,11 @@ export class CartEntity {
   @PrimaryColumn('uuid')
   id!: string;
 
+  /** Dono do carrinho (nullable: carrinhos antigos não tinham dono). */
+  @Index()
+  @Column({ name: 'user_id', type: 'varchar', nullable: true })
+  userId!: string | null;
+
   @Column({ name: 'limite_cents', type: 'int', nullable: true })
   limiteCents!: number | null;
 

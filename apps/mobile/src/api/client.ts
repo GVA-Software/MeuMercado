@@ -312,3 +312,16 @@ export const api = new ApiClient();
 export function formatBRL(cents: number): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+
+/**
+ * Converte qualquer erro numa mensagem amigável em pt-BR para o usuário final.
+ * Erros do servidor (4xx) já vêm em pt-BR e específicos — usa-os; 5xx e falha de
+ * rede viram texto genérico (nunca expõe "Failed to fetch"/stack ao usuário).
+ */
+export function mensagemDeErro(e: unknown): string {
+  if (e instanceof ApiError) {
+    if (e.status >= 400 && e.status < 500 && e.message) return e.message;
+    return 'Algo deu errado do nosso lado. Tente de novo em instantes.';
+  }
+  return 'Sem conexão agora. Confira sua internet e tente de novo.';
+}

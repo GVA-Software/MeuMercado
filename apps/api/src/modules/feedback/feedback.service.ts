@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { CreateFeedbackInput, FeedbackDTO, FeedbacksResponse } from '@meumercado/contracts';
 import { USER_REPOSITORY, type UserRepository } from '../auth/user.repository.js';
 import { PushService } from '../push/push.service.js';
@@ -27,6 +27,8 @@ function toDTO(f: Feedback): FeedbackDTO {
 
 @Injectable()
 export class FeedbackService {
+  private readonly logger = new Logger(FeedbackService.name);
+
   constructor(
     @Inject(FEEDBACK_REPOSITORY) private readonly repo: FeedbackRepository,
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
@@ -63,15 +65,25 @@ export class FeedbackService {
     const f = await this.repo.obter(id);
     if (!f) throw new NotFoundException('Feedback não encontrado.');
     await this.repo.responder(id, resposta, new Date());
-    await this.push.enviarPara(f.usuarioId, {
-      title: '💬 Resposta ao seu feedback',
-      body: resposta.length > 120 ? `${resposta.slice(0, 117)}…` : resposta,
-      url: '/',
-    });
-    await this.email.enviar(
-      f.usuarioEmail,
-      'Resposta ao seu feedback — Meu Mercado',
-      `Oi, ${f.usuarioNome}!\n\nVocê nos escreveu:\n"${f.mensagem}"\n\nNossa resposta:\n${resposta}\n\n— Equipe Meu Mercado 🧡`,
-    );
+    // Avisos são best-effort: uma falha de push/e-mail NÃO pode derrubar a
+    // resposta já gravada (senão o ADM vê erro e o feedback fica "meio-respondido").
+    try {
+      await this.push.enviarPara(f.usuarioId, {
+        title: '💬 Resposta ao seu feedback',
+        body: resposta.length > 120 ? `${resposta.slice(0, 117)}…` : resposta,
+        url: '/',
+      });
+    } catch (e) {
+      this.logger.warn(`Push da resposta de feedback falhou: ${String(e)}`);
+    }
+    try {
+      await this.email.enviar(
+        f.usuarioEmail,
+        'Resposta ao seu feedback — Meu Mercado',
+        `Oi, ${f.usuarioNome}!\n\nVocê nos escreveu:\n"${f.mensagem}"\n\nNossa resposta:\n${resposta}\n\n— Equipe Meu Mercado 🧡`,
+      );
+    } catch (e) {
+      this.logger.warn(`E-mail da resposta de feedback falhou: ${String(e)}`);
+    }
   }
 }

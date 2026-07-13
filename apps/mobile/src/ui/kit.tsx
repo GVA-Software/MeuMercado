@@ -447,7 +447,7 @@ export function ThemeToggle() {
     >
       <span style={{ fontSize: 15 }}>{dark ? '☀️' : '🌙'}</span>
       <span style={{ fontSize: 12, fontWeight: 700, color: dark ? '#A0ABBB' : '#555' }}>
-        {dark ? 'Dia' : 'Dark'}
+        {dark ? 'Dia' : 'Noite'}
       </span>
     </button>
   );
