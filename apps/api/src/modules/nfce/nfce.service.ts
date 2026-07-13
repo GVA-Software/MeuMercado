@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -76,6 +76,23 @@ function slug(s: string): string {
   );
 }
 
+/**
+ * Chave de dedup para notas SEM chave de acesso de 44 dígitos (raro no fluxo do
+ * QR). Deriva do conteúdo (usuário + mercado + dia + itens) para que um reenvio da
+ * mesma nota não duplique. Per-usuário, para não bloquear notas idênticas de
+ * pessoas diferentes.
+ */
+function chaveSintetica(req: NfceImportRequest, reporterId: string, observedAt: Date): string {
+  const itens = req.itens
+    .map((i) => `${i.codigo ?? i.nome.trim().toLowerCase()}:${i.priceCents}:${i.quantidade ?? 1}`)
+    .sort()
+    .join(',');
+  const base = `${reporterId}|${req.mercadoId ?? req.mercadoNome}|${observedAt
+    .toISOString()
+    .slice(0, 10)}|${itens}`;
+  return 'syn:' + createHash('sha1').update(base).digest('hex');
+}
+
 @Injectable()
 export class NfceService {
   private readonly logger = new Logger(NfceService.name);
@@ -146,16 +163,34 @@ export class NfceService {
 
   /** Confirma a importação: cria produtos (se novos) e uma observação por item. */
   async importar(req: NfceImportRequest, reporterId: string): Promise<NfceImportResult> {
-    // Trava anti-duplicata: a mesma nota (chave de acesso) só entra uma vez.
     const chave = req.chave?.replace(/\D/g, '');
     const chaveValida = chave && chave.length === 44 ? chave : undefined;
-    if (chaveValida && (await this.imports.jaImportada(chaveValida))) {
-      throw new ConflictException('Esta nota já foi importada antes.');
-    }
-
     const mercadoId = req.mercadoId ?? `nfce:${slug(req.mercadoNome)}`;
     const observedAt = req.dataEmissao ? new Date(req.dataEmissao) : new Date();
 
+    // Trava anti-duplicata ATÔMICA: registra a nota ANTES de gravar qualquer preço.
+    // Se já existia (duplo-toque, retry de rede, ou a mesma nota de novo), aborta —
+    // sem isto, duas requisições concorrentes passariam pela checagem e duplicariam
+    // preços/compra. Notas sem chave de 44 dígitos usam uma chave sintética.
+    const dedupKey = chaveValida ?? chaveSintetica(req, reporterId, observedAt);
+    if (!(await this.imports.registrar(dedupKey, reporterId))) {
+      throw new ConflictException('Esta nota já foi importada antes.');
+    }
+    try {
+      return await this.gravarImportacao(req, reporterId, mercadoId, observedAt);
+    } catch (e) {
+      // Rollback da trava: se a gravação falhou, libera para o usuário tentar de novo.
+      await this.imports.remover(dedupKey).catch(() => {});
+      throw e;
+    }
+  }
+
+  private async gravarImportacao(
+    req: NfceImportRequest,
+    reporterId: string,
+    mercadoId: string,
+    observedAt: Date,
+  ): Promise<NfceImportResult> {
     // Dedup: linhas idênticas (mesmo SKU/nome e mesmo preço) contam uma vez só.
     const vistos = new Set<string>();
     const itens = req.itens.filter((it) => {
@@ -236,7 +271,7 @@ export class NfceService {
       itens: compraItens,
     });
 
-    if (chaveValida) await this.imports.registrar(chaveValida, reporterId);
+    // A trava (imports.registrar) já foi aplicada atomicamente no início.
     return { importados: itens.length, produtosCriados };
   }
 
