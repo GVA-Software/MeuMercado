@@ -10,6 +10,7 @@ import type { AnalyticsRepository } from '../analytics/analytics.repository.js';
 import type { PriceObservationRepository } from '../pricing/price-observation.repository.js';
 import type { ProdutoRepository } from '../catalog/produtos.repository.js';
 import { BillingService } from '../billing/billing.service.js';
+import type { EmailService } from '../email/email.service.js';
 import { AdminService } from './admin.service.js';
 
 const user = (id: string, email: string): StoredUser => ({
@@ -30,6 +31,7 @@ function makeService(
     observacoes?: Array<{ reporterId: string; produtoId?: string; mercadoId?: string }>;
     produtos?: Array<{ id: string; nome: string }>;
     proAtivo?: boolean;
+    emailLigado?: boolean;
   } = {},
 ) {
   const deleted: string[] = [];
@@ -80,6 +82,11 @@ function makeService(
     findById: (id: string) =>
       Promise.resolve((extra.produtos ?? []).find((p) => p.id === id) ?? null),
   } as unknown as ProdutoRepository;
+  const email = {
+    enviar: () => Promise.resolve(),
+    estaLigado: () => extra.emailLigado ?? false,
+    enviarTeste: vi.fn(() => Promise.resolve()),
+  };
   const service = new AdminService(
     users,
     billing as unknown as BillingService,
@@ -88,9 +95,24 @@ function makeService(
     analytics,
     prices,
     produtos,
+    email as unknown as EmailService,
   );
-  return { service, deleted, push, billing };
+  return { service, deleted, push, billing, email };
 }
+
+describe('AdminService — testar e-mail', () => {
+  it('e-mail desligado → rejeita com instrução de configurar SMTP', async () => {
+    const { service } = makeService([], { emailLigado: false });
+    await expect(service.testarEmail('adm@x.com')).rejects.toThrow(/SMTP/);
+  });
+
+  it('e-mail ligado → envia o teste para o próprio ADM', async () => {
+    const { service, email } = makeService([], { emailLigado: true });
+    const r = await service.testarEmail('adm@x.com');
+    expect(email.enviarTeste).toHaveBeenCalledWith('adm@x.com');
+    expect(r.mensagem).toContain('adm@x.com');
+  });
+});
 
 describe('AdminService — guardas de duplicados e trial', () => {
   it('juntarDuplicados rejeita manterId que não existe (evita preços órfãos)', async () => {

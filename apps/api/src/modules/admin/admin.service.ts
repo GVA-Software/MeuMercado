@@ -1,4 +1,5 @@
 import {
+  BadGatewayException,
   BadRequestException,
   ForbiddenException,
   Inject,
@@ -32,6 +33,7 @@ import {
 } from '../pricing/price-observation.repository.js';
 import { BillingService } from '../billing/billing.service.js';
 import { PushService } from '../push/push.service.js';
+import { EMAIL_SERVICE, type EmailService } from '../email/email.service.js';
 
 const DIA_MS = 24 * 60 * 60 * 1000;
 
@@ -49,7 +51,29 @@ export class AdminService {
     @Inject(ANALYTICS_REPOSITORY) private readonly analytics: AnalyticsRepository,
     @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly prices: PriceObservationRepository,
     @Inject(PRODUTO_REPOSITORY) private readonly produtos: ProdutoRepository,
+    @Inject(EMAIL_SERVICE) private readonly email: EmailService,
   ) {}
+
+  /**
+   * Envia um e-mail de teste para o próprio ADM, validando a config de SMTP na
+   * hora (o envio normal é best-effort silencioso). Diz se está desligado ou se
+   * a config está errada — sem isso, ligar o e-mail é "no escuro".
+   */
+  async testarEmail(para: string): Promise<{ mensagem: string }> {
+    if (!this.email.estaLigado()) {
+      throw new BadRequestException(
+        'E-mail desligado. Configure SMTP_HOST, SMTP_USER e SMTP_PASS no Render.',
+      );
+    }
+    try {
+      await this.email.enviarTeste(para);
+    } catch (e) {
+      throw new BadGatewayException(`Não consegui enviar: ${String(e)}`);
+    }
+    return {
+      mensagem: `E-mail de teste enviado para ${para}. Confira a caixa de entrada (e o spam).`,
+    };
+  }
 
   /**
    * QA de conversação da Nina sobre o catálogo VIVO — cobre todos os produtos,

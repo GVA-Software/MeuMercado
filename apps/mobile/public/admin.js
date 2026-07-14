@@ -365,6 +365,7 @@
         }
         var fbBtn = ev.target.closest ? ev.target.closest('.fb-resp') : null;
         if (fbBtn) { responderFeedback(fbBtn.getAttribute('data-id')); return; }
+        if (ev.target.closest && ev.target.closest('.test-email')) { testarEmail(); return; }
         var a = ev.target.closest ? ev.target.closest('.act') : null;
         if (a && !a.disabled) executarAcao(a.getAttribute('data-id'), a.getAttribute('data-act'));
       });
@@ -401,9 +402,16 @@
 
       function feedbacksHtml() {
         var d = state.feedbacks;
-        if (!d) return '<p class="fnote">Carregando os feedbacks…</p>';
-        if (!d.feedbacks.length) return '<p class="fnote">Nenhum feedback ainda.</p>';
-        return d.feedbacks.map(function (f) {
+        var topo = '<div class="email-test">' +
+          '<button class="test-email"' + (state.emailTesting ? ' disabled' : '') + '>' +
+          (state.emailTesting ? 'Enviando…' : '✉️ Testar envio de e-mail') + '</button>' +
+          (state.emailMsg ? '<p class="email-msg' + (state.emailErro ? ' err' : ' ok') + '">' +
+            esc(state.emailMsg) + '</p>' : '') +
+          '</div>';
+        var lista;
+        if (!d) lista = '<p class="fnote">Carregando os feedbacks…</p>';
+        else if (!d.feedbacks.length) lista = '<p class="fnote">Nenhum feedback ainda.</p>';
+        else lista = d.feedbacks.map(function (f) {
           var corpo = f.status === 'respondido'
             ? '<div class="fb-answered">✓ Você respondeu: ' + esc(f.resposta) + '</div>'
             : '<div class="fb-reply"><textarea id="resp-' + f.id + '" placeholder="Escreva a resposta…"></textarea>' +
@@ -413,6 +421,22 @@
             '<span class="fb-user">' + esc(f.usuarioNome) + ' · ' + esc(f.usuarioEmail) + '</span></div>' +
             '<p class="fb-msg">' + esc(f.mensagem) + '</p>' + corpo + '</div>';
         }).join('');
+        return topo + lista;
+      }
+      async function testarEmail() {
+        state.emailTesting = true;
+        state.emailMsg = null;
+        renderDashboard();
+        try {
+          var r = await apiFetch('/admin/test-email', { method: 'POST' });
+          state.emailMsg = r.mensagem;
+          state.emailErro = false;
+        } catch (e) {
+          state.emailMsg = e.message;
+          state.emailErro = true;
+        }
+        state.emailTesting = false;
+        renderDashboard();
       }
       async function responderFeedback(id) {
         var ta = el('resp-' + id);

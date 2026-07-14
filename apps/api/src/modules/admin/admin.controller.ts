@@ -55,6 +55,12 @@ export class AdminController {
     return this.feedback.responder(id, body.resposta);
   }
 
+  /** Envia um e-mail de teste para o próprio ADM — valida a config de SMTP na hora. */
+  @Post('test-email')
+  testarEmail(@CurrentUser() user: AuthedUser): Promise<{ mensagem: string }> {
+    return this.service.testarEmail(user.email);
+  }
+
   @Get('stats')
   stats(): Promise<AdminStatsDTO> {
     return this.service.stats();
