@@ -1,7 +1,7 @@
       'use strict';
       var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
       var token = null;
-      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, users: [], busca: '', aberto: null, agindo: null, erro: '' };
+      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', users: [], busca: '', aberto: null, agindo: null, erro: '' };
       var FB_TIPO = { bug: '🐛 Bug', sugestao: '💡 Sugestão', elogio: '❤️ Elogio', outro: '💬 Outro' };
 
       function esc(s) {
@@ -184,6 +184,68 @@
           '</div>';
       }
 
+      // ---------- Cobertura (produtos × mercados + contribuidores) ----------
+      function coberturaHtml() {
+        if (state.coberturaErro) {
+          return '<div class="funnel"><p class="fnote" style="color:#ef4444">' + esc(state.coberturaErro) + '</p>' +
+            '<button id="cov-refresh" class="qa-run">↻ Tentar de novo</button></div>';
+        }
+        var c = state.cobertura;
+        if (!c || state.coberturaLoading) {
+          return '<div class="funnel"><p class="fnote">Carregando cobertura…</p></div>';
+        }
+        var t = c.totais;
+        var cards = '<div class="stats">' +
+            statCard(t.produtosCatalogo, 'Produtos', '#ff6b2b') +
+            statCard(t.mercados, 'Mercados', '#38bdf8') +
+            statCard(t.precos, 'Preços', '#a78bfa') +
+            statCard(t.produtosMultiMercado, 'Comparáveis', '#22c55e') +
+          '</div>' +
+          '<div class="mini">' + mini(t.produtosComPreco, 'com preço') +
+            mini(t.produtosCatalogo - t.produtosComPreco, 'sem preço') +
+            mini(t.contribuidores, 'contribuidores') + '</div>';
+
+        var top = c.topUsuarios.length
+          ? '<ol class="cov-top">' + c.topUsuarios.slice(0, 20).map(function (u, i) {
+              var pos = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + 'º';
+              return '<li><span class="cov-pos">' + pos + '</span>' +
+                '<span class="cov-name">' + esc(u.nome) + ' <i>' + esc(u.email) + '</i></span>' +
+                '<b>' + u.cadastros + '</b></li>';
+            }).join('') + '</ol>'
+          : '<p class="fnote">Ninguém cadastrou preço ainda (fora a base inicial).</p>';
+
+        var merc = c.mercados.length
+          ? '<div class="cov-table"><div class="cov-h"><span>Mercado</span><span>Prod.</span><span>Preços</span></div>' +
+            c.mercados.map(function (m) {
+              return '<div class="cov-r"><span>' + esc(m.nome) + '</span><span>' + m.produtos + '</span><span>' + m.precos + '</span></div>';
+            }).join('') + '</div>'
+          : '<p class="fnote">Nenhum mercado com preço ainda.</p>';
+
+        var prod = '<div class="cov-table"><div class="cov-h"><span>Produto</span><span>Merc.</span><span>Preços</span></div>' +
+          c.produtos.map(function (p) {
+            var cls = p.mercados < 2 ? 'cov-r low' : 'cov-r';
+            return '<div class="' + cls + '"><span>' + esc(p.nome) + ' <i>' + esc(p.categoria) + '</i></span>' +
+              '<span>' + p.mercados + '</span><span>' + p.precos + '</span></div>';
+          }).join('') + '</div>';
+
+        return cards +
+          '<div class="funnel"><p class="ftitle">🏆 Quem mais cadastra <button id="cov-refresh" class="cov-mini-btn">↻ atualizar</button></p>' + top + '</div>' +
+          '<div class="funnel"><p class="ftitle">🏪 Mercados cadastrados</p>' + merc + '</div>' +
+          '<div class="funnel"><p class="ftitle">📦 Produtos — cobertura</p>' +
+            '<p class="fnote">Ordenados por cobertura mais rasa. Os <b style="color:#f59e0b">destacados</b> têm menos de 2 mercados — não geram comparação e são os alvos do próximo cadastro.</p>' +
+            prod + '</div>';
+      }
+      async function carregarCobertura() {
+        state.coberturaLoading = true; state.coberturaErro = '';
+        try {
+          state.cobertura = await apiFetch('/admin/cobertura');
+        } catch (e) {
+          state.coberturaErro = (e && e.message) || 'Falha ao carregar a cobertura.';
+        }
+        state.coberturaLoading = false;
+        renderDashboard();
+      }
+
       var LENTE_EMOJI = { busca: '🔎', fluxo: '🧭', cobertura: '🗺️', copy: '💬', edge: '🧪' };
       function qaCardHtml() {
         var q = state.qa;
@@ -325,6 +387,8 @@
         var conteudo;
         if (tab === 'projeto') {
           conteudo = qaCardHtml() + dupsCardHtml();
+        } else if (tab === 'cobertura') {
+          conteudo = coberturaHtml();
         } else if (tab === 'feedbacks') {
           conteudo = feedbacksHtml();
         } else {
@@ -350,6 +414,7 @@
           (state.erro ? '<div class="banner">' + esc(state.erro) + '</div>' : '') +
           '<div class="tabs">' +
             tabBtn('app', '📊 Aplicação', tab) +
+            tabBtn('cobertura', '📦 Cobertura', tab) +
             tabBtn('feedbacks', '💬 Feedbacks', tab, abertos) +
             tabBtn('projeto', '🛠️ Projeto', tab) +
           '</div>' +
@@ -370,6 +435,10 @@
           if (qaBtn) qaBtn.onclick = rodarQa;
           var dupsBtn = el('dups-run');
           if (dupsBtn) dupsBtn.onclick = rodarDups;
+        } else if (tab === 'cobertura') {
+          var covBtn = el('cov-refresh');
+          if (covBtn) covBtn.onclick = function () { state.cobertura = null; carregarCobertura(); };
+          if (!state.cobertura && !state.coberturaLoading) carregarCobertura();
         }
       }
       function renderLista() {

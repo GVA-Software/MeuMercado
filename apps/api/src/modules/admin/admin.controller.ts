@@ -14,6 +14,7 @@ import {
   AdminJuntarSchema,
   PageQuerySchema,
   ResponderFeedbackSchema,
+  type AdminCoberturaDTO,
   type AdminDuplicadosDTO,
   type AdminFunnelDTO,
   type AdminGrantProInput,
@@ -69,6 +70,12 @@ export class AdminController {
   @Get('funil')
   funil(): Promise<AdminFunnelDTO> {
     return this.service.funil();
+  }
+
+  /** Painel de cobertura: produtos × mercados cadastrados + quem mais contribui. */
+  @Get('cobertura')
+  cobertura(): Promise<AdminCoberturaDTO> {
+    return this.service.cobertura();
   }
 
   @Get('qa-conversa')

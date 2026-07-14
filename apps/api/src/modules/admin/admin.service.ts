@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { chaveProduto, type Assinatura, type Periodo } from '@meumercado/domain';
 import {
   PLANOS,
+  type AdminCoberturaDTO,
   type AdminDuplicadosDTO,
   type AdminFunnelDTO,
   type AdminStatsDTO,
@@ -138,6 +139,108 @@ export class AdminService {
       await this.prices.reassignProduto(from, manterId);
       await this.produtos.delete(from);
     }
+  }
+
+  /**
+   * Painel de COBERTURA: o que temos cadastrado (produtos × mercados) e quem mais
+   * contribui. Serve pra enxergar onde a base está rasa (produtos com preço em só 1
+   * mercado não dão comparação) e guiar o esforço de cobertura. Base pequena →
+   * agrega em memória a partir das observações.
+   */
+  async cobertura(): Promise<AdminCoberturaDTO> {
+    const [catalogo, observacoes, usuarios] = await Promise.all([
+      this.produtos.findAll(),
+      this.prices.all(),
+      this.users.findAll(),
+    ]);
+    const usuarioPorId = new Map(usuarios.map((u) => [u.id, u]));
+
+    const porProduto = new Map<string, { mercados: Set<string>; precos: number; ultimo: number }>();
+    const porMercado = new Map<
+      string,
+      { nome: string; produtos: Set<string>; precos: number; ultimo: number }
+    >();
+    const porReporter = new Map<string, number>();
+
+    for (const o of observacoes) {
+      const p = porProduto.get(o.produtoId) ?? { mercados: new Set(), precos: 0, ultimo: 0 };
+      p.mercados.add(o.mercadoId);
+      p.precos += 1;
+      p.ultimo = Math.max(p.ultimo, o.observedAt.getTime());
+      porProduto.set(o.produtoId, p);
+
+      const m = porMercado.get(o.mercadoId) ?? {
+        nome: o.mercadoNome ?? o.mercadoId,
+        produtos: new Set(),
+        precos: 0,
+        ultimo: 0,
+      };
+      if (o.mercadoNome) m.nome = o.mercadoNome;
+      m.produtos.add(o.produtoId);
+      m.precos += 1;
+      m.ultimo = Math.max(m.ultimo, o.observedAt.getTime());
+      porMercado.set(o.mercadoId, m);
+
+      // Contribuidores: exclui a base de seed (não é usuário real).
+      if (o.reporterId !== 'seed') {
+        porReporter.set(o.reporterId, (porReporter.get(o.reporterId) ?? 0) + 1);
+      }
+    }
+
+    const iso = (ms: number): string | null => (ms ? new Date(ms).toISOString() : null);
+
+    const produtos = catalogo
+      .map((p) => {
+        const agg = porProduto.get(p.id);
+        return {
+          id: p.id,
+          nome: p.nome,
+          categoria: p.categoria,
+          mercados: agg?.mercados.size ?? 0,
+          precos: agg?.precos ?? 0,
+          ultimoEm: iso(agg?.ultimo ?? 0),
+        };
+      })
+      // Cobertura mais RASA primeiro: guia o que ainda precisa de mais mercados.
+      .sort(
+        (a, b) => a.mercados - b.mercados || b.precos - a.precos || a.nome.localeCompare(b.nome),
+      );
+
+    const mercados = [...porMercado.entries()]
+      .map(([id, m]) => ({
+        id,
+        nome: m.nome,
+        produtos: m.produtos.size,
+        precos: m.precos,
+        ultimoEm: iso(m.ultimo),
+      }))
+      .sort((a, b) => b.produtos - a.produtos || b.precos - a.precos);
+
+    const topUsuarios = [...porReporter.entries()]
+      .map(([userId, cadastros]) => {
+        const u = usuarioPorId.get(userId);
+        return {
+          userId,
+          nome: u?.nome ?? '(usuário removido)',
+          email: u?.email ?? '—',
+          cadastros,
+        };
+      })
+      .sort((a, b) => b.cadastros - a.cadastros);
+
+    return {
+      totais: {
+        produtosCatalogo: catalogo.length,
+        produtosComPreco: produtos.filter((p) => p.precos > 0).length,
+        produtosMultiMercado: produtos.filter((p) => p.mercados >= 2).length,
+        mercados: porMercado.size,
+        precos: observacoes.length,
+        contribuidores: porReporter.size,
+      },
+      produtos,
+      mercados,
+      topUsuarios,
+    };
   }
 
   /**

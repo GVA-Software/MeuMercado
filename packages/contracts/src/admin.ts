@@ -65,3 +65,45 @@ export const AdminJuntarSchema = z.object({
   removerIds: z.array(IdSchema).min(1).max(20),
 });
 export type AdminJuntarInput = z.infer<typeof AdminJuntarSchema>;
+
+/** Painel de COBERTURA: catálogo, mercados e quem mais cadastra preços. */
+export const AdminCoberturaProdutoSchema = z.object({
+  id: IdSchema,
+  nome: z.string(),
+  categoria: z.string(),
+  /** Mercados distintos com preço deste produto (2+ = dá pra comparar). */
+  mercados: z.number().int().nonnegative(),
+  precos: z.number().int().nonnegative(),
+  ultimoEm: z.string().datetime().nullable(),
+});
+
+export const AdminCoberturaMercadoSchema = z.object({
+  id: z.string(),
+  nome: z.string(),
+  produtos: z.number().int().nonnegative(),
+  precos: z.number().int().nonnegative(),
+  ultimoEm: z.string().datetime().nullable(),
+});
+
+/** Ranking de quem mais cadastra preço (exclui a base de seed). */
+export const AdminContribuidorSchema = z.object({
+  userId: z.string(),
+  nome: z.string(),
+  email: z.string(),
+  cadastros: z.number().int().nonnegative(),
+});
+
+export const AdminCoberturaSchema = z.object({
+  totais: z.object({
+    produtosCatalogo: z.number().int().nonnegative(),
+    produtosComPreco: z.number().int().nonnegative(),
+    produtosMultiMercado: z.number().int().nonnegative(),
+    mercados: z.number().int().nonnegative(),
+    precos: z.number().int().nonnegative(),
+    contribuidores: z.number().int().nonnegative(),
+  }),
+  produtos: z.array(AdminCoberturaProdutoSchema),
+  mercados: z.array(AdminCoberturaMercadoSchema),
+  topUsuarios: z.array(AdminContribuidorSchema),
+});
+export type AdminCoberturaDTO = z.infer<typeof AdminCoberturaSchema>;

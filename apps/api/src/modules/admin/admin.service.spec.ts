@@ -28,8 +28,14 @@ function makeService(
   extra: {
     resumo?: Array<{ name: string; usuarios: number; total: number }>;
     vistos?: string[];
-    observacoes?: Array<{ reporterId: string; produtoId?: string; mercadoId?: string }>;
-    produtos?: Array<{ id: string; nome: string }>;
+    observacoes?: Array<{
+      reporterId: string;
+      produtoId?: string;
+      mercadoId?: string;
+      mercadoNome?: string;
+      observedAt?: Date;
+    }>;
+    produtos?: Array<{ id: string; nome: string; categoria?: string }>;
     proAtivo?: boolean;
     emailLigado?: boolean;
   } = {},
@@ -111,6 +117,41 @@ describe('AdminService — testar e-mail', () => {
     const r = await service.testarEmail('adm@x.com');
     expect(email.enviarTeste).toHaveBeenCalledWith('adm@x.com');
     expect(r.mensagem).toContain('adm@x.com');
+  });
+});
+
+describe('AdminService — cobertura', () => {
+  it('agrega produtos × mercados e ranqueia contribuidores (seed conta na cobertura, não no ranking)', async () => {
+    const d = new Date('2026-07-05T00:00:00Z');
+    const { service } = makeService([user('u1', 'u1@x.com'), user('u2', 'u2@x.com')], {
+      produtos: [
+        { id: 'p1', nome: 'Arroz', categoria: 'Graos' },
+        { id: 'p2', nome: 'Feijao', categoria: 'Graos' },
+        { id: 'p3', nome: 'Cafe', categoria: 'Bebidas' }, // sem preço
+      ],
+      observacoes: [
+        { reporterId: 'u1', produtoId: 'p1', mercadoId: 'm1', mercadoNome: 'A', observedAt: d },
+        { reporterId: 'u1', produtoId: 'p1', mercadoId: 'm2', mercadoNome: 'B', observedAt: d },
+        { reporterId: 'u2', produtoId: 'p2', mercadoId: 'm1', mercadoNome: 'A', observedAt: d },
+        { reporterId: 'seed', produtoId: 'p2', mercadoId: 'm1', mercadoNome: 'A', observedAt: d },
+      ],
+    });
+
+    const c = await service.cobertura();
+    expect(c.totais).toMatchObject({
+      produtosCatalogo: 3,
+      produtosComPreco: 2, // p1, p2
+      produtosMultiMercado: 1, // só p1 (2 mercados)
+      mercados: 2, // m1, m2
+      precos: 4,
+      contribuidores: 2, // u1, u2 (seed fora)
+    });
+    // Rasos primeiro: p3 (0 mercados) encabeça a lista.
+    expect(c.produtos[0]!.id).toBe('p3');
+    expect(c.produtos.find((p) => p.id === 'p1')).toMatchObject({ mercados: 2, precos: 2 });
+    // Ranking: u1 (2) > u2 (1); seed nunca aparece.
+    expect(c.topUsuarios[0]).toMatchObject({ userId: 'u1', cadastros: 2 });
+    expect(c.topUsuarios.map((t) => t.userId)).not.toContain('seed');
   });
 });
 
