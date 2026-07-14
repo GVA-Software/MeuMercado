@@ -59,16 +59,24 @@ export class ApiClient {
   private refreshInFlight: Promise<boolean> | null = null;
 
   private async request<T>(path: string, init?: RequestInit, retryOn401 = true): Promise<T> {
-    const res = await fetch(this.base + path, {
-      ...init,
-      // envia/recebe o cookie httpOnly de refresh
-      credentials: 'include',
-      headers: {
-        'content-type': 'application/json',
-        ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
-        ...(init?.headers ?? {}),
-      },
-    });
+    let res: Response;
+    try {
+      res = await fetch(this.base + path, {
+        ...init,
+        // envia/recebe o cookie httpOnly de refresh
+        credentials: 'include',
+        headers: {
+          'content-type': 'application/json',
+          ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
+          ...(init?.headers ?? {}),
+        },
+      });
+    } catch {
+      // Falha de REDE (offline, ou o servidor frio derrubando a conexão durante o
+      // cold start): normaliza para ApiError status 0, para os chamadores poderem
+      // distinguir "sem servidor" de "erro de sessão" (401) ou "erro do servidor" (5xx).
+      throw new ApiError(0, 'Sem conexão com o servidor.');
+    }
     // Access token expirou? Renova pelo refresh cookie e tenta de novo (1x).
     if (res.status === 401 && retryOn401 && !path.startsWith('/auth/')) {
       if (await this.tryRefresh()) {
@@ -337,6 +345,7 @@ export function formatBRL(cents: number): string {
  */
 export function mensagemDeErro(e: unknown): string {
   if (e instanceof ApiError) {
+    if (e.status === 0) return 'Sem conexão agora. Confira sua internet e tente de novo.';
     if (e.status >= 400 && e.status < 500 && e.message) return e.message;
     return 'Algo deu errado do nosso lado. Tente de novo em instantes.';
   }

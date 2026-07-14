@@ -85,6 +85,28 @@
           this.textContent = mostrar ? '🙈' : '👁️';
         };
       }
+      // Cold start do Render: enquanto o servidor sobe (~30-50s), mostra a NOSSA tela
+      // de "acordando" em vez de deixar o painel vazio / cair no login.
+      function renderAcordando() {
+        document.getElementById('root').innerHTML =
+          '<div class="login"><div class="login-card" style="text-align:center">' +
+          '<div class="brand" style="justify-content:center">' +
+          '<img src="/Loading.png" alt="" style="animation:mmpulse 1.1s ease-in-out infinite"/><b>Meu Mercado</b></div>' +
+          '<h1>Acordando o servidor…</h1>' +
+          '<p class="hint">A primeira abertura do dia leva uns segundos. Já já carrega. 🛒</p>' +
+          '<style>@keyframes mmpulse{0%,100%{opacity:.45;transform:scale(.95)}50%{opacity:1;transform:scale(1)}}</style>' +
+          '</div></div>';
+      }
+      function renderBootErro() {
+        document.getElementById('root').innerHTML =
+          '<div class="login"><div class="login-card" style="text-align:center">' +
+          '<div class="brand" style="justify-content:center"><img src="/Loading.png" alt=""/><b>Meu Mercado</b></div>' +
+          '<h1>Servidor indisponível</h1>' +
+          '<p class="hint">Ele pode estar iniciando. Toque pra tentar de novo.</p>' +
+          '<button class="btn" id="retry" style="margin-top:14px">Tentar de novo</button>' +
+          '</div></div>';
+        el('retry').onclick = boot;
+      }
       async function fazerLogin() {
         var email = el('email').value.trim();
         var senha = el('senha').value;
@@ -497,13 +519,29 @@
         renderLogin('');
       }
 
-      // Boot: tenta usar a sessão existente (cookie de refresh); senão, login.
-      (async function () {
-        if (await tryRefresh()) {
+      // Boot resiliente ao cold start do Render: rede/5xx = servidor frio → mostra
+      // "acordando…" e re-tenta com backoff (NÃO é login). 401/403 = sem sessão → login.
+      // Esgotou as tentativas → "tentar de novo" (nunca deixa a página vazia/quebrada).
+      async function boot() {
+        var MAX = 12; // ~1 min de folga pro servidor subir
+        for (var i = 0; i < MAX; i++) {
           try {
+            var r = await fetch(API_BASE + '/auth/refresh', {
+              method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
+            });
+            if (r.status === 401 || r.status === 403) { renderLogin(''); return; }
+            if (!r.ok) throw new Error('cold-' + r.status);
+            var b = await r.json();
+            token = b.accessToken;
             var me = await apiFetch('/auth/me');
             if (me && me.isAdmin) { return carregar(); }
-          } catch (e) {}
+            renderLogin('Esta conta não é administradora.');
+            return;
+          } catch (e) {
+            renderAcordando();
+            await new Promise(function (res) { setTimeout(res, Math.min(2000 + i * 800, 6000)); });
+          }
         }
-        renderLogin('');
-      })();
+        renderBootErro();
+      }
+      boot();

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { installApiMocks } from './fixtures';
+import { installApiMocks, AUTH } from './fixtures';
 
 /**
  * Jornada crítica do usuário, ponta a ponta:
@@ -30,6 +30,48 @@ test.describe('Meu Mercado — jornada crítica', () => {
 
     // A navegação inferior só existe logado → confirma que passamos do portão.
     await expect(page.getByRole('button', { name: /Nina IA/ })).toBeVisible();
+  });
+
+  test('cold start: servidor frio mostra "acordando" e NÃO cai no login', async ({ page }) => {
+    // Regressão: no cold start do Render o /auth/refresh falha (5xx/rede) por uns
+    // segundos. Isso NÃO pode deslogar o usuário — deve mostrar a NOSSA tela de
+    // "acordando" e recuperar sozinho quando o servidor sobe.
+    await installApiMocks(page); // logado + Pro
+    let refreshCalls = 0;
+    // Sobrepõe /auth/refresh: as 2 primeiras respostas simulam o Render frio (503),
+    // depois "acorda". Registrado depois → tem prioridade sobre o mock base.
+    await page.route(
+      (url) => url.pathname.endsWith('/auth/refresh'),
+      (route) => {
+        if (route.request().method() !== 'POST') return route.fallback();
+        refreshCalls++;
+        if (refreshCalls <= 2) {
+          return route.fulfill({
+            status: 503,
+            contentType: 'text/html',
+            body: 'Service waking up',
+          });
+        }
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: {
+            'access-control-allow-origin': route.request().headers()['origin'] ?? '*',
+            'access-control-allow-credentials': 'true',
+          },
+          body: JSON.stringify(AUTH),
+        });
+      },
+    );
+    await page.goto('/');
+
+    // Enquanto o servidor está frio: a nossa tela de "acordando", NUNCA o login.
+    await expect(page.getByText(/Acordando o servidor/i)).toBeVisible();
+    await expect(page.getByPlaceholder('E-mail')).toHaveCount(0);
+
+    // Recupera sozinho quando o servidor sobe: o app carrega (nav inferior aparece).
+    await expect(page.getByRole('button', { name: /Nina IA/ })).toBeVisible({ timeout: 15000 });
+    expect(refreshCalls).toBeGreaterThanOrEqual(3);
   });
 
   test('Preços: exibe a tendência de alta (regressão do trend)', async ({ page }) => {

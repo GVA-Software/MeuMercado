@@ -20,7 +20,7 @@ const MapaScreen = lazy(() =>
 
 export function App() {
   const { T } = useTheme();
-  const { user, loading } = useAuth();
+  const { user, loading, acordando, bootErro, tentarConectar } = useAuth();
   const [tab, setTab] = useState<Tab>('compra');
   const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
   const [precoReq, setPrecoReq] = useState<{ produtoId?: string } | null>(null);
@@ -43,20 +43,62 @@ export function App() {
     if (user && !onboardingVisto()) setOnboarding(true);
   }, [user]);
 
+  const telaCheia = {
+    height: '100dvh',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    padding: 24,
+    textAlign: 'center' as const,
+    background: T.bg,
+    color: T.muted,
+  };
+
   // Portão: precisa estar logado para usar o app.
   if (loading) {
     return (
-      <div
-        style={{
-          height: '100dvh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: T.bg,
-          color: T.muted,
-        }}
-      >
-        <CartLoader label="Carregando…" />
+      <div style={telaCheia}>
+        <CartLoader
+          label={
+            acordando
+              ? 'Acordando o servidor… a primeira abertura leva uns segundos 🛒'
+              : 'Carregando…'
+          }
+        />
+      </div>
+    );
+  }
+  // Servidor não respondeu depois de várias tentativas (cold start demorou demais /
+  // fora do ar): NÃO desloga — oferece tentar de novo com a nossa cara.
+  if (bootErro) {
+    return (
+      <div style={telaCheia}>
+        <div style={{ fontSize: 40 }}>🛒💤</div>
+        <div style={{ color: T.text, fontWeight: 700, fontSize: 18 }}>
+          Não consegui falar com o servidor
+        </div>
+        <div style={{ maxWidth: 320, lineHeight: 1.5 }}>
+          Ele pode estar iniciando (a primeira abertura do dia demora um pouco). Toque abaixo pra
+          tentar de novo.
+        </div>
+        <button
+          onClick={tentarConectar}
+          style={{
+            marginTop: 8,
+            padding: '12px 24px',
+            borderRadius: 999,
+            border: 'none',
+            background: T.primary,
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: 16,
+            cursor: 'pointer',
+          }}
+        >
+          Tentar de novo
+        </button>
       </div>
     );
   }
