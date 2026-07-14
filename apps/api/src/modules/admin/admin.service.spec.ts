@@ -49,6 +49,8 @@ function makeService(
   const proAtivo = { isProAtivo: () => true } as unknown as Assinatura;
   const billing = {
     forUser: vi.fn(() => Promise.resolve(extra.proAtivo ? proAtivo : assinatura)),
+    mapaResolvido: (ids: string[]) =>
+      Promise.resolve(new Map(ids.map((id) => [id, extra.proAtivo ? proAtivo : assinatura]))),
     toDTO: vi.fn(() => ({
       usuarioId: 'x',
       plano: 'free' as const,

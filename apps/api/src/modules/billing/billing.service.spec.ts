@@ -73,3 +73,13 @@ describe('BillingService — expiração', () => {
     expect(a.plano).toBe('free');
   });
 });
+
+describe('BillingService — mapaResolvido (batch p/ ADM, sem N+1)', () => {
+  it('resolve em lote; quem não tem assinatura vira free', async () => {
+    const { service } = makeService([proVigente('u1')]);
+    const mapa = await service.mapaResolvido(['u1', 'u2']);
+    expect(mapa.size).toBe(2);
+    expect(mapa.get('u1')?.plano).toBe('pro');
+    expect(mapa.get('u2')?.plano).toBe('free');
+  });
+});

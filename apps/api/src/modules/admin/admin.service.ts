@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { chaveProduto, type Periodo } from '@meumercado/domain';
+import { chaveProduto, type Assinatura, type Periodo } from '@meumercado/domain';
 import {
   PLANOS,
   type AdminDuplicadosDTO,
@@ -149,8 +149,8 @@ export class AdminService {
     return this.config.get('ADMIN_EMAILS', { infer: true });
   }
 
-  private async toAdminUser(user: StoredUser): Promise<AdminUserDTO> {
-    const dto = this.billing.toDTO(await this.billing.forUser(user.id));
+  private async toAdminUser(user: StoredUser, assinatura?: Assinatura): Promise<AdminUserDTO> {
+    const dto = this.billing.toDTO(assinatura ?? (await this.billing.forUser(user.id)));
     return {
       id: user.id,
       nome: user.nome,
@@ -169,14 +169,17 @@ export class AdminService {
 
   async listar(limit: number, offset: number): Promise<AdminUsersResponse> {
     const all = await this.users.findAll();
-    const items = await Promise.all(
-      all.slice(offset, offset + limit).map((u) => this.toAdminUser(u)),
-    );
+    const pagina = all.slice(offset, offset + limit);
+    // Uma leitura de assinaturas para a página toda (antes: 1 query por usuário).
+    const subs = await this.billing.mapaResolvido(pagina.map((u) => u.id));
+    const items = await Promise.all(pagina.map((u) => this.toAdminUser(u, subs.get(u.id))));
     return { total: all.length, items };
   }
 
   async stats(): Promise<AdminStatsDTO> {
     const all = await this.users.findAll();
+    // Uma leitura de assinaturas para todos (antes: 1 query por usuário → N+1).
+    const subs = await this.billing.mapaResolvido(all.map((u) => u.id));
     const inicioHoje = new Date();
     inicioHoje.setHours(0, 0, 0, 0);
     const agora = Date.now();
@@ -189,7 +192,7 @@ export class AdminService {
     let cadastros30d = 0;
     for (const u of all) {
       if (isAdminEmail(u.email, this.adminCsv)) admins += 1;
-      const dto = this.billing.toDTO(await this.billing.forUser(u.id));
+      const dto = this.billing.toDTO(subs.get(u.id)!);
       if (!dto.isPro) free += 1;
       else if (dto.status === 'trial') trials += 1;
       else proAtivos += 1;

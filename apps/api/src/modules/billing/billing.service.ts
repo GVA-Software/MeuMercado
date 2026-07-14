@@ -16,6 +16,15 @@ export class BillingService {
     return (await this.repo.get(usuarioId)) ?? Assinatura.free(usuarioId);
   }
 
+  /**
+   * Resolve a assinatura de vários usuários numa ÚNICA leitura (evita N+1 no
+   * painel de ADM). Usuários sem assinatura viram `free`.
+   */
+  async mapaResolvido(userIds: readonly string[]): Promise<Map<string, Assinatura>> {
+    const byId = new Map((await this.repo.todas()).map((a) => [a.usuarioId, a]));
+    return new Map(userIds.map((id) => [id, byId.get(id) ?? Assinatura.free(id)]));
+  }
+
   /** Se o Pro (trial/pago) acabou de vencer: marca como expirada e avisa por push. */
   private async expirarSeVenceu(a: Assinatura, agora: Date): Promise<Assinatura> {
     if ((a.status !== 'ativa' && a.status !== 'trial') || a.isProAtivo(agora)) return a;
