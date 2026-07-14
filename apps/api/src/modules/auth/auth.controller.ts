@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import {
   LoginSchema,
@@ -40,7 +41,9 @@ export class AuthController {
     private readonly config: ConfigService<Env, true>,
   ) {}
 
+  // Anti-brute-force/abuso: bem mais restrito que o limite global. Cadastro é raro.
   @Post('register')
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
   @UseGuards(TurnstileGuard)
   async register(
     @Body(new ZodValidationPipe(RegisterSchema)) body: RegisterInput,
@@ -49,7 +52,9 @@ export class AuthController {
     return this.finish(await this.service.register(body), res);
   }
 
+  // Anti-brute-force de senha: 10 tentativas/min por IP (vs. 120 do limite global).
   @Post('login')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseGuards(TurnstileGuard)
   async login(
     @Body(new ZodValidationPipe(LoginSchema)) body: LoginInput,

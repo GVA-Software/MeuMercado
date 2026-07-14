@@ -31,12 +31,14 @@ export class TokenService {
 
   verifyAccess(token: string): AccessPayload {
     const secret = this.config.get('JWT_ACCESS_SECRET', { infer: true }) as Secret;
-    return jwt.verify(token, secret) as unknown as AccessPayload;
+    // Fixa o algoritmo aceito: impede ataques de confusão de algoritmo (ex.: um
+    // token forjado com "alg":"none" ou trocando HS/RS) — só HS256 é honrado.
+    return jwt.verify(token, secret, { algorithms: ['HS256'] }) as unknown as AccessPayload;
   }
 
   verifyRefresh(token: string): { sub: string } {
     const secret = this.config.get('JWT_REFRESH_SECRET', { infer: true }) as Secret;
-    return jwt.verify(token, secret) as unknown as { sub: string };
+    return jwt.verify(token, secret, { algorithms: ['HS256'] }) as unknown as { sub: string };
   }
 
   get refreshTtlMs(): number {
@@ -44,7 +46,7 @@ export class TokenService {
   }
 
   private sign(payload: object, secret: string, ttlSeconds: number): string {
-    const options: SignOptions = { expiresIn: ttlSeconds };
+    const options: SignOptions = { expiresIn: ttlSeconds, algorithm: 'HS256' };
     return jwt.sign(payload, secret as Secret, options);
   }
 }

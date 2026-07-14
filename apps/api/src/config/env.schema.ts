@@ -93,6 +93,10 @@ export function validateEnv(config: Record<string, unknown>): Env {
         throw new Error('JWT secrets inválidos em produção: defina segredos fortes (≥32 chars).');
       }
     }
+    // Cookies de sessão SEM Secure em produção trafegariam em HTTP → interceptáveis.
+    if (!parsed.data.COOKIE_SECURE) {
+      throw new Error('COOKIE_SECURE deve ser "true" em produção (sessão exige HTTPS).');
+    }
   }
   if (!parsed.success) {
     const issues = parsed.error.issues

@@ -44,8 +44,15 @@ export class AuthService {
   async login(input: LoginInput): Promise<AuthResult> {
     const email = new Email(input.email).value;
     const user = await this.users.findByEmail(email);
-    // Resposta idêntica para "não existe" e "senha errada": não revela quais e-mails existem.
-    if (!user || !(await this.hasher.verify(user.passwordHash, input.senha))) {
+    // Resposta idêntica para "não existe" e "senha errada" — E mesmo custo de tempo:
+    // quando o e-mail não existe, roda um scrypt "descartável" com o MESMO peso da
+    // verificação real, para não vazar a existência da conta por diferença de latência
+    // (oráculo de enumeração por timing).
+    if (!user) {
+      await this.hasher.hash(input.senha);
+      throw new UnauthorizedException('Credenciais inválidas');
+    }
+    if (!(await this.hasher.verify(user.passwordHash, input.senha))) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
     return this.issue(user);
