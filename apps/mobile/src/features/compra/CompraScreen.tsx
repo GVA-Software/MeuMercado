@@ -716,7 +716,6 @@ function AddPanel({
    * pra digitar.
    */
   async function aoBipar(ean: string) {
-    setScanOpen(false);
     setErro(null);
     try {
       const r = await api.buscarProdutoPorEan(ean);
@@ -734,6 +733,9 @@ function AddPanel({
       }
     } catch (e) {
       setErro(mensagemDeErro(e));
+    } finally {
+      // Fecha o scanner só ao terminar — ele mostra o loader até aqui (sem tela morta).
+      setScanOpen(false);
     }
   }
 

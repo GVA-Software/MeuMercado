@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../theme/theme';
+import { CartLoader } from '../../ui/kit';
 
 /** Valida o dígito verificador do GTIN (EAN-8/UPC-A/EAN-13/GTIN-14). */
 export function eanValido(code: string): boolean {
@@ -41,6 +42,9 @@ export function BarcodeScanner({
   const [manual, setManual] = useState('');
   const [temTorch, setTemTorch] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  // Após ler o código, mostra o loader enquanto o pai busca o produto (o pai fecha
+  // o scanner quando termina). Toda espera tem feedback na tela.
+  const [processando, setProcessando] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +71,7 @@ export function BarcodeScanner({
               const txt = reader.decode(bitmap, hints).getText().trim();
               if (eanValido(txt)) {
                 doneRef.current = true;
+                setProcessando(true);
                 onDetectarRef.current(txt);
                 return; // não re-agenda
               }
@@ -146,6 +151,7 @@ export function BarcodeScanner({
     const code = manual.replace(/\D/g, '');
     if (eanValido(code)) {
       doneRef.current = true;
+      setProcessando(true);
       onDetectar(code);
     } else {
       setErro('Código inválido — confira os dígitos do código de barras.');
@@ -163,6 +169,22 @@ export function BarcodeScanner({
         flexDirection: 'column',
       }}
     >
+      {/* Leu o código: cobre tudo com o nosso loader enquanto o produto carrega. */}
+      {processando && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 2,
+            background: T.surface,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <CartLoader label="Encontrei! Buscando o produto…" size={72} />
+        </div>
+      )}
       {/* Câmera */}
       <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
         <video
