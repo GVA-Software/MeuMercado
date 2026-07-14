@@ -33,6 +33,7 @@ export class TypeOrmProdutoRepository implements ProdutoRepository {
       unidade: row.unidade as Unidade,
       ...(row.emoji !== null ? { emoji: row.emoji } : {}),
       ...(row.codigoExterno !== null ? { codigoExterno: row.codigoExterno } : {}),
+      ...(row.ean !== null ? { ean: row.ean } : {}),
     });
   }
 
@@ -49,6 +50,13 @@ export class TypeOrmProdutoRepository implements ProdutoRepository {
     return row ? this.toDomain(row) : null;
   }
 
+  async findByEan(ean: string): Promise<Produto | null> {
+    const seedHit = this.seedProdutos.find((p) => p.ean === ean);
+    if (seedHit) return seedHit;
+    const row = await this.repo.findOne({ where: { ean } });
+    return row ? this.toDomain(row) : null;
+  }
+
   async search(termo: string, limit: number): Promise<Produto[]> {
     const todos = await this.findAll();
     return todos.filter((p) => combinaBusca(p.nome, termo)).slice(0, limit);
@@ -62,6 +70,7 @@ export class TypeOrmProdutoRepository implements ProdutoRepository {
       unidade: produto.unidade,
       emoji: produto.emoji ?? null,
       codigoExterno: produto.codigoExterno ?? null,
+      ean: produto.ean ?? null,
     });
   }
 

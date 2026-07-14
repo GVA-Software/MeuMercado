@@ -1,19 +1,32 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Produto } from '@meumercado/domain';
-import type { CreateProdutoInput, ProdutoDTO } from '@meumercado/contracts';
+import type { CreateProdutoInput, EanLookupDTO, ProdutoDTO } from '@meumercado/contracts';
 import {
   PRICE_OBSERVATION_REPOSITORY,
   type PriceObservationRepository,
 } from '../pricing/price-observation.repository.js';
 import { PRODUTO_REPOSITORY, type ProdutoRepository } from './produtos.repository.js';
+import { OpenFoodFactsService } from './openfoodfacts.service.js';
 
 @Injectable()
 export class ProdutosService {
   constructor(
     @Inject(PRODUTO_REPOSITORY) private readonly repo: ProdutoRepository,
     @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly observations: PriceObservationRepository,
+    private readonly off: OpenFoodFactsService,
   ) {}
+
+  /**
+   * Busca por código de barras (ao bipar). Nossa base primeiro (cresce a cada
+   * bip); se não houver, sugere o nome do Open Food Facts — SEM criar o produto
+   * (só vira produto quando o usuário confirmar a adição).
+   */
+  async lookupPorEan(ean: string): Promise<EanLookupDTO> {
+    const existente = await this.repo.findByEan(ean);
+    if (existente) return { ean, produto: existente.toJSON(), sugestaoNome: null };
+    return { ean, produto: null, sugestaoNome: await this.off.nomePorEan(ean) };
+  }
 
   async listar(): Promise<ProdutoDTO[]> {
     return (await this.repo.findAll()).map((p) => p.toJSON());
@@ -39,6 +52,7 @@ export class ProdutosService {
       categoria: input.categoria ?? 'Outros',
       unidade: input.unidade ?? 'un',
       ...(input.emoji !== undefined ? { emoji: input.emoji } : {}),
+      ...(input.ean !== undefined ? { ean: input.ean } : {}),
     });
     await this.repo.add(produto);
     return produto.toJSON();

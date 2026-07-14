@@ -205,6 +205,10 @@ export async function installApiMocks(page: Page, opts: MockOpts = {}): Promise<
 
       // ---- Catálogo ----
       if (path.includes('/produtos/search')) return json(CAFES);
+      // Busca por EAN: default "não encontrado" (testes dedicados sobrescrevem).
+      // Precisa vir antes do genérico `/produtos` (que devolve array).
+      if (path.includes('/produtos/por-ean/'))
+        return json({ ean: '00000000', produto: null, sugestaoNome: null });
       if (path.includes('/produtos')) return json([PRODUTO]);
 
       // ---- Preços ----

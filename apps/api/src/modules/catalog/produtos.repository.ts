@@ -11,6 +11,8 @@ import { combinaBusca } from '../../common/texto.js';
 export interface ProdutoRepository {
   findAll(): Promise<Produto[]>;
   findById(id: string): Promise<Produto | null>;
+  /** Casa por código de barras (EAN) — usado ao bipar um produto. */
+  findByEan(ean: string): Promise<Produto | null>;
   search(termo: string, limit: number): Promise<Produto[]>;
   add(produto: Produto): Promise<void>;
   /** Remove um produto do catálogo (usado ao juntar duplicados). */
@@ -33,6 +35,10 @@ export class InMemoryProdutoRepository implements ProdutoRepository {
 
   findById(id: string): Promise<Produto | null> {
     return Promise.resolve(this.produtos.find((p) => p.id === id) ?? null);
+  }
+
+  findByEan(ean: string): Promise<Produto | null> {
+    return Promise.resolve(this.produtos.find((p) => p.ean === ean) ?? null);
   }
 
   search(termo: string, limit: number): Promise<Produto[]> {

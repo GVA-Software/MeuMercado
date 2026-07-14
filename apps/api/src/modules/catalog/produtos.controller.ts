@@ -2,7 +2,9 @@ import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '
 import { z } from 'zod';
 import {
   CreateProdutoSchema,
+  EanSchema,
   type CreateProdutoInput,
+  type EanLookupDTO,
   type ProdutoDTO,
 } from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
@@ -31,6 +33,13 @@ export class ProdutosController {
     @Query(new ZodValidationPipe(SearchQuerySchema)) query: z.infer<typeof SearchQuerySchema>,
   ): Promise<ProdutoDTO[]> {
     return this.service.buscar(query.q, query.limit);
+  }
+
+  /** Busca produto por código de barras (ao bipar). Autenticado (dispara fetch externo). */
+  @Get('por-ean/:ean')
+  @UseGuards(JwtAuthGuard)
+  lookupPorEan(@Param('ean', new ZodValidationPipe(EanSchema)) ean: string): Promise<EanLookupDTO> {
+    return this.service.lookupPorEan(ean);
   }
 
   /** Cria um produto no catálogo (catálogo aberto). Exige usuário autenticado. */

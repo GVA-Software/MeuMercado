@@ -176,6 +176,44 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await expect(page.getByText('trocar')).toBeVisible(); // produto pré-selecionado
   });
 
+  test('bipar produto no Adicionar item preenche o nome (via digitar código)', async ({ page }) => {
+    await installApiMocks(page, { pro: true });
+    // Busca por EAN → produto conhecido no catálogo.
+    await page.route(
+      (url) => url.pathname.includes('/produtos/por-ean/'),
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: { 'access-control-allow-origin': '*' },
+          body: JSON.stringify({
+            ean: '7891000315507',
+            produto: {
+              id: 'p-leite',
+              nome: 'LEITE MOÇA 395G',
+              categoria: 'Outros',
+              unidade: 'un',
+              ean: '7891000315507',
+            },
+            sugestaoNome: null,
+          }),
+        }),
+    );
+    await page.goto('/');
+
+    // Abre "Adicionar item" (+ no header) → abre o scanner (📷).
+    await page.getByRole('button', { name: '+', exact: true }).click();
+    await page.getByTitle('Bipar o código de barras').click();
+
+    // Sem câmera no teste: usa o fallback "digitar o código".
+    await page.getByPlaceholder(/7891000315507/).fill('7891000315507');
+    await page.getByRole('button', { name: 'Usar' }).click();
+
+    // Produto veio preenchido: o campo mostra o nome e aparece o preço.
+    await expect(page.getByPlaceholder('Buscar produto…')).toHaveValue('LEITE MOÇA 395G');
+    await expect(page.getByPlaceholder('Preço R$')).toBeVisible();
+  });
+
   test('Nina (Free): mostra o paywall em vez dos insights', async ({ page }) => {
     await installApiMocks(page, { pro: false });
     await page.goto('/');

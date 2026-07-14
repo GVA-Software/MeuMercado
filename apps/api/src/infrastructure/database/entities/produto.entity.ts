@@ -21,4 +21,9 @@ export class ProdutoEntity {
   @Index()
   @Column({ name: 'codigo_externo', type: 'varchar', nullable: true })
   codigoExterno!: string | null;
+
+  /** Código de barras global (EAN/UPC) — casa o produto ao bipar. */
+  @Index()
+  @Column({ name: 'ean', type: 'varchar', nullable: true })
+  ean!: string | null;
 }

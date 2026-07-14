@@ -31,6 +31,7 @@ function make(produtos: Produto[], observations: PriceObservation[]): InsightsSe
   const prodRepo: ProdutoRepository = {
     findAll: () => Promise.resolve(produtos),
     findById: () => Promise.resolve(null),
+    findByEan: () => Promise.resolve(null),
     search: () => Promise.resolve([]),
     add: () => Promise.resolve(),
     delete: () => Promise.resolve(),

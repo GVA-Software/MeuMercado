@@ -10,6 +10,7 @@ export interface ProdutoJSON {
   readonly categoria: Categoria;
   readonly unidade: Unidade;
   readonly emoji?: string;
+  readonly ean?: string;
 }
 
 /**
@@ -29,6 +30,12 @@ export class Produto {
    * é serializado no DTO.
    */
   readonly codigoExterno: string | undefined;
+  /**
+   * Código de barras (EAN-13/EAN-8/UPC). GLOBAL — o mesmo em qualquer loja/lote —,
+   * diferente do `codigoExterno` (SKU por-mercado). Serializado no DTO; usado para
+   * casar o produto ao bipar e unificar o mesmo item entre mercados.
+   */
+  readonly ean: string | undefined;
 
   constructor(params: {
     id: string;
@@ -37,6 +44,7 @@ export class Produto {
     unidade: Unidade;
     emoji?: string;
     codigoExterno?: string;
+    ean?: string;
   }) {
     if (!params.id?.trim()) {
       throw new InvalidProductError('Produto precisa de id');
@@ -53,6 +61,7 @@ export class Produto {
     this.unidade = params.unidade;
     this.emoji = params.emoji;
     this.codigoExterno = params.codigoExterno;
+    this.ean = params.ean;
     Object.freeze(this);
   }
 
@@ -63,6 +72,7 @@ export class Produto {
       categoria: this.categoria,
       unidade: this.unidade,
       ...(this.emoji !== undefined ? { emoji: this.emoji } : {}),
+      ...(this.ean !== undefined ? { ean: this.ean } : {}),
     };
   }
 }

@@ -20,6 +20,7 @@ import {
 import { MarketTag } from '../../ui/market';
 import { emojiDe } from '../../ui/emoji';
 import { MinhasCompras } from '../compras/MinhasCompras';
+import { BarcodeScanner } from '../scan/BarcodeScanner';
 
 /** Saudação conforme a hora do dia. */
 function saudacaoDoDia(): string {
@@ -671,6 +672,9 @@ function AddPanel({
   const [qty, setQty] = useState(1);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanEan, setScanEan] = useState<string | null>(null);
+  const [criando, setCriando] = useState(false);
 
   async function adicionar() {
     if (!sel || precoCents <= 0 || enviando) return;
@@ -685,6 +689,44 @@ function AddPanel({
     }
   }
 
+  /** Cria um produto novo (guardando o EAN bipado, se houver) e o pré-seleciona. */
+  async function criarProdutoNovo(nome: string) {
+    setCriando(true);
+    setErro(null);
+    try {
+      const p = await api.criarProduto({ nome: nome.trim(), ...(scanEan ? { ean: scanEan } : {}) });
+      setSel(p);
+      setBusca(p.nome);
+      setScanEan(null);
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    } finally {
+      setCriando(false);
+    }
+  }
+
+  /** Recebe o EAN bipado: acha no catálogo, sugere pelo OFF ou deixa cadastrar. */
+  async function aoBipar(ean: string) {
+    setScanOpen(false);
+    setErro(null);
+    try {
+      const r = await api.buscarProdutoPorEan(ean);
+      if (r.produto) {
+        setSel(r.produto);
+        setBusca(r.produto.nome);
+        setScanEan(null);
+      } else {
+        // Sem produto ainda: prefixa o nome (sugestão do OFF) e guarda o EAN para
+        // gravá-lo ao criar. O usuário confirma/edita e toca em "Criar".
+        setSel(null);
+        setScanEan(ean);
+        setBusca(r.sugestaoNome ?? '');
+      }
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    }
+  }
+
   const filtrados = useMemo(
     () =>
       busca.trim().length > 0
@@ -692,6 +734,10 @@ function AddPanel({
         : [],
     [busca, produtos],
   );
+  const buscaTrim = busca.trim();
+  const podeCriar =
+    buscaTrim.length >= 2 &&
+    !filtrados.some((p) => p.nome.toLowerCase() === buscaTrim.toLowerCase());
 
   return (
     <Card style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -710,22 +756,70 @@ function AddPanel({
           ✕
         </button>
       </div>
-      <input
-        placeholder="Buscar produto…"
-        value={sel ? sel.nome : busca}
-        onChange={(e) => {
-          setBusca(e.target.value);
-          setSel(null);
-        }}
-        style={{
-          border: `1.5px solid ${T.border}`,
-          borderRadius: 12,
-          padding: '12px 14px',
-          background: T.card,
-          color: T.text,
-          fontSize: 15,
-        }}
-      />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          placeholder="Buscar produto…"
+          value={sel ? sel.nome : busca}
+          onChange={(e) => {
+            setBusca(e.target.value);
+            setSel(null);
+          }}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            border: `1.5px solid ${T.border}`,
+            borderRadius: 12,
+            padding: '12px 14px',
+            background: T.card,
+            color: T.text,
+            fontSize: 15,
+          }}
+        />
+        <button
+          onClick={() => {
+            setErro(null);
+            setScanOpen(true);
+          }}
+          title="Bipar o código de barras"
+          style={{
+            flexShrink: 0,
+            background: T.primaryBg,
+            color: T.primary,
+            border: 'none',
+            borderRadius: 12,
+            padding: '0 14px',
+            fontSize: 20,
+            cursor: 'pointer',
+          }}
+        >
+          📷
+        </button>
+      </div>
+      {!sel && erro && <p style={{ color: T.danger, fontSize: 13, margin: 0 }}>{erro}</p>}
+      {!sel && podeCriar && (
+        <button
+          onClick={() => void criarProdutoNovo(buscaTrim)}
+          disabled={criando}
+          style={{
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+            background: T.primaryBg,
+            border: `1px dashed ${T.primary}`,
+            borderRadius: 12,
+            padding: '10px 12px',
+            cursor: 'pointer',
+            textAlign: 'left',
+            color: T.primary,
+            fontWeight: 700,
+            fontSize: 14,
+          }}
+        >
+          <span style={{ fontSize: 18 }}>＋</span>
+          {criando ? 'Criando…' : `Criar "${buscaTrim}"`}
+          {scanEan ? ' 📷' : ''}
+        </button>
+      )}
       {!sel &&
         filtrados.map((p) => (
           <button
@@ -808,6 +902,12 @@ function AddPanel({
               : `Adicionar ${precoCents > 0 ? formatBRL(precoCents * qty) : ''}`}
           </Btn>
         </>
+      )}
+      {scanOpen && (
+        <BarcodeScanner
+          onDetectar={(ean) => void aoBipar(ean)}
+          onClose={() => setScanOpen(false)}
+        />
       )}
     </Card>
   );

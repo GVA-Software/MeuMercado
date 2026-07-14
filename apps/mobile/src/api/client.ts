@@ -6,6 +6,7 @@ import type {
   CompraDTO,
   ComprasResponse,
   CreateProdutoInput,
+  EanLookupDTO,
   EventName,
   FeedbackTipo,
   InsightsResponse,
@@ -120,6 +121,10 @@ export class ApiClient {
   }
   criarProduto(input: CreateProdutoInput): Promise<ProdutoDTO> {
     return this.request('/produtos', { method: 'POST', body: JSON.stringify(input) });
+  }
+  /** Busca produto pelo código de barras (ao bipar). */
+  buscarProdutoPorEan(ean: string): Promise<EanLookupDTO> {
+    return this.request(`/produtos/por-ean/${encodeURIComponent(ean)}`);
   }
   /** Junta o produto `fromId` em `intoId` (move os preços). Só administradores. */
   juntarProduto(fromId: string, intoId: string): Promise<ProdutoDTO> {
