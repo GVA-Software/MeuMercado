@@ -76,14 +76,16 @@ export class FeedbackService {
     } catch (e) {
       this.logger.warn(`Push da resposta de feedback falhou: ${String(e)}`);
     }
-    try {
-      await this.email.enviar(
+    // O e-mail é secundário (o push já foi) e pode DEMORAR/pendurar quando o SMTP
+    // está bloqueado ou lento (ex.: Render free bloqueia SMTP de saída). Dispara em
+    // background com void+catch para NUNCA segurar a resposta do ADM — cumprindo o
+    // "não bloqueia" prometido acima.
+    void this.email
+      .enviar(
         f.usuarioEmail,
         'Resposta ao seu feedback — Meu Mercado',
         `Oi, ${f.usuarioNome}!\n\nVocê nos escreveu:\n"${f.mensagem}"\n\nNossa resposta:\n${resposta}\n\n— Equipe Meu Mercado 🧡`,
-      );
-    } catch (e) {
-      this.logger.warn(`E-mail da resposta de feedback falhou: ${String(e)}`);
-    }
+      )
+      .catch((e) => this.logger.warn(`E-mail da resposta de feedback falhou: ${String(e)}`));
   }
 }
