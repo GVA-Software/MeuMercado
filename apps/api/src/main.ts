@@ -1,4 +1,10 @@
 import 'reflect-metadata';
+import { setDefaultResultOrder } from 'node:dns';
+// Render (e muitos hosts) não têm rota IPv6 de SAÍDA. Alguns destinos resolvem IPv6
+// primeiro e o connect falha com ENETUNREACH (ex.: smtp.gmail.com → 2607:f8b0:…).
+// Preferir IPv4 em TODAS as resoluções DNS evita isso (fetch já cai no IPv4 via
+// Happy Eyeballs; o SMTP do nodemailer não caía). Precisa vir antes de qualquer lookup.
+setDefaultResultOrder('ipv4first');
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
