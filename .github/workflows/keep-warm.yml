@@ -1,13 +1,15 @@
 name: keep-warm
 
-# Mantém o servidor free do Render "acordado" (evita o cold start de ~30-50s) e,
-# de quebra, roda a varredura de expiração de planos (avisa por push quem venceu).
-# Cobre ~06h-23h BRT (09-01 UTC) — horário de uso — para não gastar toda a cota
-# de horas do Render à toa. Para 24/7, troque por: '*/10 * * * *'.
+# Mantém o servidor free do Render "acordado" (evita o cold start ~30-50s) e roda a
+# varredura de expiração de planos. A cada 5 min (o Render dorme após ~15 min ocioso
+# e o cron do GitHub costuma ATRASAR — 5 min dá margem). Cobre ~06h-23h BRT (09-01
+# UTC) pra não gastar as 750h/mês do free. NOTA: keep-warm NÃO elimina o cold start
+# (o atraso do GitHub ainda abre brechas); só o plano pago do Render (ou um pinger
+# externo tipo UptimeRobot) garante zero cold start.
 on:
   schedule:
-    - cron: '*/10 9-23 * * *'
-    - cron: '*/10 0-1 * * *'
+    - cron: '*/5 9-23 * * *'
+    - cron: '*/5 0-1 * * *'
   workflow_dispatch: {}
 
 # Segredo do cron: por padrão usa o valor embutido (funciona sem configurar). Para

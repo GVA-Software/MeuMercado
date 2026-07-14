@@ -32,6 +32,11 @@ import {
             user: config.get('SMTP_USER', { infer: true }),
             pass: config.get('SMTP_PASS', { infer: true }),
           },
+          // Sem isto o sendMail fica PENDURADO se o SMTP não responder (config
+          // errada/porta bloqueada) — e o botão "Testar" trava em "Enviando…".
+          connectionTimeout: 10_000,
+          greetingTimeout: 10_000,
+          socketTimeout: 15_000,
         }) as unknown as EmailTransporter;
         new Logger('Email').log(`SMTP ativo (${host}).`);
         return new SmtpEmailService(transporter, config.get('SMTP_FROM', { infer: true }));

@@ -13,16 +13,31 @@
 
       async function apiFetch(path, opts) {
         opts = opts || {};
-        var res = await fetch(API_BASE + path, {
-          method: opts.method || 'GET',
-          credentials: 'include',
-          headers: Object.assign(
-            { 'content-type': 'application/json' },
-            token ? { authorization: 'Bearer ' + token } : {},
-            opts.headers || {}
-          ),
-          body: opts.body,
-        });
+        // Timeout de segurança: nenhuma chamada do painel pode ficar pendurada.
+        var ctrl = new AbortController();
+        var to = setTimeout(function () { ctrl.abort(); }, 25000);
+        var res;
+        try {
+          res = await fetch(API_BASE + path, {
+            method: opts.method || 'GET',
+            credentials: 'include',
+            headers: Object.assign(
+              { 'content-type': 'application/json' },
+              token ? { authorization: 'Bearer ' + token } : {},
+              opts.headers || {}
+            ),
+            body: opts.body,
+            signal: ctrl.signal,
+          });
+        } catch (e) {
+          clearTimeout(to);
+          throw new Error(
+            e && e.name === 'AbortError'
+              ? 'Sem resposta do servidor (timeout). Tente de novo.'
+              : (e && e.message) || 'Falha de rede.'
+          );
+        }
+        clearTimeout(to);
         if (res.status === 401 && path.indexOf('/auth/') !== 0) {
           if (await tryRefresh()) return apiFetch(path, opts);
         }
