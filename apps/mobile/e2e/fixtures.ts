@@ -137,10 +137,14 @@ export interface MockOpts {
   /** true (padrão) → marca as boas-vindas como já vistas, pra não cobrir o app.
    *  false → deixa o onboarding aparecer (teste dedicado). */
   onboarded?: boolean;
+  /** true → usuário é administrador (destrava recursos de admin). Padrão: false. */
+  admin?: boolean;
 }
 
 export async function installApiMocks(page: Page, opts: MockOpts = {}): Promise<void> {
-  const { loggedIn = true, pro = true, onboarded = true } = opts;
+  const { loggedIn = true, pro = true, onboarded = true, admin = false } = opts;
+  const authUser = { ...USER, isAdmin: admin };
+  const auth = { ...AUTH, user: authUser };
 
   if (onboarded) {
     await page.addInitScript(() => {
@@ -189,10 +193,10 @@ export async function installApiMocks(page: Page, opts: MockOpts = {}): Promise<
 
       // ---- Auth ----
       if (path.endsWith('/auth/refresh'))
-        return loggedIn ? json(AUTH) : json({ message: 'sem sessão' }, 401);
-      if (path.endsWith('/auth/login')) return json(AUTH);
+        return loggedIn ? json(auth) : json({ message: 'sem sessão' }, 401);
+      if (path.endsWith('/auth/login')) return json(auth);
       if (path.endsWith('/auth/logout')) return json({ ok: true });
-      if (path.endsWith('/auth/me')) return json(USER);
+      if (path.endsWith('/auth/me')) return json(authUser);
 
       // ---- Billing ----
       if (path.endsWith('/billing/me')) return json(pro ? SUB_PRO : SUB_FREE);

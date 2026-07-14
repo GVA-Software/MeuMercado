@@ -28,6 +28,7 @@ import { useNav } from '../../app/nav';
 import { getRecentMarkets, pushRecentMarket } from './recentMarkets';
 import { useAuth } from '../../auth/AuthContext';
 import { NfceFlow } from '../nfce/NfceFlow';
+import { BarcodeScanner } from '../scan/BarcodeScanner';
 
 function fmtData(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
@@ -988,9 +989,12 @@ function PriceEntrySheet({
   onDone: () => void;
 }) {
   const { T } = useTheme();
+  const { user } = useAuth();
   const [produto, setProduto] = useState<ProdutoDTO | null>(preselect ?? null);
   const [buscaProd, setBuscaProd] = useState('');
   const [criando, setCriando] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanEan, setScanEan] = useState<string | null>(null);
   const [mercadoNome, setMercadoNome] = useState('');
   const [mercadoId, setMercadoId] = useState<string | null>(null);
   const [mercadoDados, setMercadoDados] = useState<{
@@ -1035,15 +1039,40 @@ function PriceEntrySheet({
     buscaTrim.length >= 2 &&
     !filtrados.some((p) => p.nome.toLowerCase() === buscaTrim.toLowerCase());
 
-  async function criarProdutoNovo() {
+  async function criarProdutoNovo(nome: string = buscaTrim, ean?: string) {
     setCriando(true);
     setErro(null);
     try {
-      setProduto(await api.criarProduto({ nome: buscaTrim }));
+      const eanUsar = ean ?? scanEan ?? undefined;
+      const p = await api.criarProduto({ nome: nome.trim(), ...(eanUsar ? { ean: eanUsar } : {}) });
+      setProduto(p);
+      setScanEan(null);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : String(e));
+      setErro(mensagemDeErro(e));
     } finally {
       setCriando(false);
+    }
+  }
+
+  /** EAN bipado (admin): acha na base, sugere pelo OFF (auto-cadastra) ou deixa nomear. */
+  async function aoBipar(ean: string) {
+    setErro(null);
+    try {
+      const r = await api.buscarProdutoPorEan(ean);
+      if (r.produto) {
+        setProduto(r.produto);
+        setScanEan(null);
+      } else if (r.sugestaoNome) {
+        await criarProdutoNovo(r.sugestaoNome, ean);
+      } else {
+        setProduto(null);
+        setScanEan(ean);
+        setBuscaProd('');
+      }
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    } finally {
+      setScanOpen(false);
     }
   }
 
@@ -1159,13 +1188,36 @@ function PriceEntrySheet({
         </button>
       ) : (
         <>
-          <input
-            autoFocus
-            placeholder="Buscar produto…"
-            value={buscaProd}
-            onChange={(e) => setBuscaProd(e.target.value)}
-            style={{ ...inputStyle, marginBottom: 8 }}
-          />
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input
+              autoFocus
+              placeholder="Buscar produto…"
+              value={buscaProd}
+              onChange={(e) => setBuscaProd(e.target.value)}
+              style={{ ...inputStyle, flex: 1, minWidth: 0 }}
+            />
+            {user?.isAdmin && (
+              <button
+                onClick={() => {
+                  setErro(null);
+                  setScanOpen(true);
+                }}
+                title="Bipar o código de barras"
+                style={{
+                  flexShrink: 0,
+                  background: T.primaryBg,
+                  color: T.primary,
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '0 14px',
+                  fontSize: 20,
+                  cursor: 'pointer',
+                }}
+              >
+                📷
+              </button>
+            )}
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
             {filtrados.map((p) => (
               <button
@@ -1319,6 +1371,13 @@ function PriceEntrySheet({
       <p style={{ color: T.muted, fontSize: 11, textAlign: 'center', margin: '10px 0 0' }}>
         📷 Dica: use “Ler nota” na tela de Preços para importar tudo pelo QR do cupom.
       </p>
+
+      {scanOpen && (
+        <BarcodeScanner
+          onDetectar={(ean) => void aoBipar(ean)}
+          onClose={() => setScanOpen(false)}
+        />
+      )}
     </BottomSheet>
   );
 }

@@ -265,6 +265,30 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await expect(page.getByRole('button', { name: /^Criar/ })).toHaveCount(0);
   });
 
+  test('Preços: leitor de código de barras só aparece para admin', async ({ page }) => {
+    await installApiMocks(page); // usuário comum (isAdmin: false)
+    await page.goto('/');
+    await page.getByRole('button', { name: /Preços/ }).click();
+    await page
+      .getByRole('button', { name: /Registrar preço/ })
+      .first()
+      .click();
+    // Sheet abriu (subtítulo único) → mas SEM o 📷 para não-admin.
+    await expect(page.getByText(/Ajude a comunidade: quanto custou e onde/)).toBeVisible();
+    await expect(page.getByTitle('Bipar o código de barras')).toHaveCount(0);
+  });
+
+  test('Preços: admin VÊ o leitor de código de barras no Registrar preço', async ({ page }) => {
+    await installApiMocks(page, { admin: true });
+    await page.goto('/');
+    await page.getByRole('button', { name: /Preços/ }).click();
+    await page
+      .getByRole('button', { name: /Registrar preço/ })
+      .first()
+      .click();
+    await expect(page.getByTitle('Bipar o código de barras')).toBeVisible();
+  });
+
   test('Nina (Free): mostra o paywall em vez dos insights', async ({ page }) => {
     await installApiMocks(page, { pro: false });
     await page.goto('/');
