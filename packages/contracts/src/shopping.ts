@@ -30,3 +30,25 @@ export const OndeComprarResponseSchema = z.object({
   totalMercados: z.number().int().nonnegative(),
 });
 export type OndeComprarResponse = z.infer<typeof OndeComprarResponseSchema>;
+
+/** Um mercado avaliado para uma CATEGORIA (conjunto de produtos). */
+export const MercadoAgregadoSchema = z.object({
+  mercadoId: z.string(),
+  mercadoNome: z.string(),
+  endereco: z.string().nullable(),
+  lat: z.number().nullable(),
+  lng: z.number().nullable(),
+  distanciaMetros: z.number().int().nonnegative().nullable(),
+  produtosComPreco: z.number().int().nonnegative(),
+  vitorias: z.number().int().nonnegative(),
+});
+export type MercadoAgregadoDTO = z.infer<typeof MercadoAgregadoSchema>;
+
+/** "Qual o melhor mercado para [categoria]?" — mercados ranqueados + o termo. */
+export const MelhorMercadoResponseSchema = z.object({
+  termo: z.string(),
+  /** Nº de produtos (com preço) que casaram com o termo. */
+  totalProdutos: z.number().int().nonnegative(),
+  mercados: z.array(MercadoAgregadoSchema),
+});
+export type MelhorMercadoResponse = z.infer<typeof MelhorMercadoResponseSchema>;

@@ -36,6 +36,14 @@ describe('interpretar — intenção da conversa da Nina', () => {
     expect(interpretar('pão de forma').termo).toBe('pao de forma');
   });
 
+  it('"qual o melhor mercado para [X]" vira recomendação de mercado', () => {
+    const r = interpretar('Hoje qual o melhor mercado para comprar produtos de limpeza?');
+    expect(r.tipo).toBe('melhor-mercado');
+    if (r.tipo === 'melhor-mercado') expect(r.termo).toContain('limpeza');
+    // Sem mencionar "mercado", continua sendo busca de produto (escolher tipo).
+    expect(interpretar('produtos de limpeza').tipo).toBe('buscar');
+  });
+
   it('entende refinamento por raio quando não há produto na frase', () => {
     const r = interpretar('Quero em um raio de 3km perto de mim, qual seria o melhor mercado?');
     expect(r).toEqual({ tipo: 'refinar', raioMetros: 3000 });

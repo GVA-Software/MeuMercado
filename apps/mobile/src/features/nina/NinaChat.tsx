@@ -108,6 +108,10 @@ export function NinaChat({ T }: { T: Theme }) {
       void refinarUltimo(intent.raioMetros);
       return;
     }
+    if (intent.tipo === 'melhor-mercado') {
+      void recomendarMercado(intent.termo);
+      return;
+    }
     if (!intent.termo) {
       empurrar({
         from: 'nina',
@@ -146,6 +150,58 @@ export function NinaChat({ T }: { T: Theme }) {
         from: 'nina',
         kind: 'text',
         text: 'Ops, não consegui buscar agora. Tenta de novo?',
+      });
+    } finally {
+      setOcupada(false);
+    }
+  }
+
+  /** "Qual o melhor mercado para [categoria]?" — avalia a base e recomenda um mercado. */
+  async function recomendarMercado(termo: string) {
+    setOcupada(true);
+    try {
+      const { lat, lng } = await posicao();
+      const resp = await api.melhorMercado(termo, lat, lng);
+      if (resp.totalProdutos === 0 || resp.mercados.length === 0) {
+        empurrar({
+          from: 'nina',
+          kind: 'text',
+          text: `Ainda não tenho preços de "${termo}" na base pra comparar mercados. Bora registrar alguns na aba Preços? 🧡`,
+        });
+        return;
+      }
+      const top = resp.mercados[0]!;
+      const dist =
+        top.distanciaMetros !== null ? ` (a ${formatDistancia(top.distanciaMetros)})` : '';
+      const porque =
+        top.vitorias > 0
+          ? `tem o menor preço em ${top.vitorias} de ${resp.totalProdutos} ${resp.totalProdutos === 1 ? 'produto' : 'produtos'}`
+          : `é onde temos mais desses produtos`;
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: `Com o que temos hoje, pra ${termo} eu iria de ${top.mercadoNome}${dist} — ${porque}. Quanto mais preços na base, mais certeira fica; quer ver um produto específico? 🧡`,
+      });
+      const resto = resp.mercados.slice(1);
+      if (resto.length > 0) {
+        empurrar({
+          from: 'nina',
+          kind: 'text',
+          text:
+            'Outras opções:\n' +
+            resto
+              .map(
+                (m) =>
+                  `• ${m.mercadoNome}: ${m.produtosComPreco} ${m.produtosComPreco === 1 ? 'produto' : 'produtos'}${m.vitorias > 0 ? `, melhor em ${m.vitorias}` : ''}`,
+              )
+              .join('\n'),
+        });
+      }
+    } catch {
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: 'Não consegui avaliar os mercados agora. Tenta de novo?',
       });
     } finally {
       setOcupada(false);

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   OndeComprarSchema,
   type InsightsResponse,
+  type MelhorMercadoResponse,
   type OndeComprarInput,
   type OndeComprarResponse,
   type ProdutoDTO,
@@ -22,6 +23,12 @@ const BasketSchema = z.object({
       }),
     )
     .max(200),
+});
+
+const MelhorMercadoInputSchema = z.object({
+  termo: z.string().min(1).max(120),
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
 });
 
 // Nina IA é um recurso Pro: exige login + assinatura ativa (trial ou paga).
@@ -56,5 +63,14 @@ export class InsightsController {
     @Body(new ZodValidationPipe(OndeComprarSchema)) body: OndeComprarInput,
   ): Promise<OndeComprarResponse> {
     return this.service.ondeComprar(body.produtoId, body.lat, body.lng);
+  }
+
+  /** "Qual o melhor mercado para [categoria]?" — recomenda um mercado. */
+  @Post('melhor-mercado')
+  melhorMercado(
+    @Body(new ZodValidationPipe(MelhorMercadoInputSchema))
+    body: z.infer<typeof MelhorMercadoInputSchema>,
+  ): Promise<MelhorMercadoResponse> {
+    return this.service.melhorMercado(body.termo, body.lat, body.lng);
   }
 }

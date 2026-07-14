@@ -9,6 +9,8 @@ export type Intencao =
   | { tipo: 'agradecimento' }
   | { tipo: 'ajuda' }
   | { tipo: 'refinar'; raioMetros: number | null }
+  /** "Qual o melhor MERCADO para [categoria]?" — recomenda um mercado, não 1 produto. */
+  | { tipo: 'melhor-mercado'; termo: string; raioMetros: number | null }
   | { tipo: 'buscar'; termo: string; raioMetros: number | null };
 
 const norm = (s: string): string =>
@@ -22,6 +24,9 @@ const AGRADECIMENTO = /(obrigad|brigad|valeu|vlw|agradec|\bobg\b|\btmj\b|\bgrat[
 const SAUDACAO = /\b(oi+|ola|opa|e ?ai|salve|bom dia|boa tarde|boa noite|hey|hello|oie)\b/;
 const AJUDA = /\b(ajuda|me ajuda|como funciona|como usa|o que (voce|vc) faz|pra que serve)\b/;
 const MENCIONA_DISTANCIA = /\b(perto|proxim[oa]s?|raio|distancia|redondezas|redor)\b/;
+/** Pergunta sobre MERCADO (recomendar loja), não sobre um produto específico. */
+const PERGUNTA_MERCADO = /\bmercado/;
+const CUE_RECOMENDA = /(melhor|qual|onde|barat|vale a pena|compensa|indica)/;
 
 /** Frases de "enfeite" (a moldura da pergunta) removidas para achar o produto. */
 const FILLER: RegExp[] = [
@@ -100,6 +105,11 @@ export function interpretar(texto: string): Intencao {
   if (!termo) {
     if (raioMetros !== null || MENCIONA_DISTANCIA.test(n)) return { tipo: 'refinar', raioMetros };
     return { tipo: 'buscar', termo: '', raioMetros: null };
+  }
+  // "Qual o melhor MERCADO para [X]?" → recomenda um mercado avaliando a base,
+  // em vez de listar tipos de produto. Distingue-se por mencionar "mercado".
+  if (PERGUNTA_MERCADO.test(n) && CUE_RECOMENDA.test(n)) {
+    return { tipo: 'melhor-mercado', termo, raioMetros };
   }
   return { tipo: 'buscar', termo, raioMetros };
 }

@@ -92,6 +92,45 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await expect(page.getByText('Rossi', { exact: true })).toBeVisible();
   });
 
+  test('Nina: "qual o melhor mercado para [X]" recomenda um mercado', async ({ page }) => {
+    await installApiMocks(page, { pro: true });
+    await page.context().grantPermissions(['geolocation']);
+    await page.context().setGeolocation({ latitude: -23.55, longitude: -46.63 });
+    await page.route(
+      (url) => url.pathname.endsWith('/insights/melhor-mercado'),
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: { 'access-control-allow-origin': '*' },
+          body: JSON.stringify({
+            termo: 'limpeza',
+            totalProdutos: 3,
+            mercados: [
+              {
+                mercadoId: 'm1',
+                mercadoNome: 'Atacadao',
+                endereco: null,
+                lat: null,
+                lng: null,
+                distanciaMetros: null,
+                produtosComPreco: 3,
+                vitorias: 3,
+              },
+            ],
+          }),
+        }),
+    );
+    await page.goto('/');
+    await page.getByRole('button', { name: /Nina IA/ }).click();
+    const composer = page.getByPlaceholder('Ex.: café, arroz, sabão…');
+    await composer.fill('qual o melhor mercado para produtos de limpeza');
+    await composer.press('Enter');
+
+    // Recomenda um mercado (não pede pra escolher um tipo).
+    await expect(page.getByText(/iria de Atacadao/)).toBeVisible();
+  });
+
   test('Nina entende agradecimento e responde com tom acolhedor', async ({ page }) => {
     await installApiMocks(page, { pro: true });
     await page.goto('/');

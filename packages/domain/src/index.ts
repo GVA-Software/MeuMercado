@@ -66,7 +66,12 @@ export {
 } from './insights/InsightEngine.js';
 
 // Compra assistida ("onde eu compro este produto?")
-export { melhoresMercadosPara, type MercadoRankeado } from './shopping/OndeComprar.js';
+export {
+  melhoresMercadosPara,
+  melhorMercadoPara,
+  type MercadoRankeado,
+  type MercadoAgregado,
+} from './shopping/OndeComprar.js';
 
 // Nina — interpretação de intenção da conversa (determinística)
 export { interpretar, type Intencao } from './nina/Intent.js';

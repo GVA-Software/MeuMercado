@@ -16,6 +16,7 @@ import type {
   NfceDraftDTO,
   NfceImportRequest,
   NfceImportResult,
+  MelhorMercadoResponse,
   OndeComprarResponse,
   PriceHistoryDTO,
   PriceSummaryDTO,
@@ -241,6 +242,17 @@ export class ApiClient {
       method: 'POST',
       body: JSON.stringify({
         produtoId,
+        ...(lat !== undefined ? { lat } : {}),
+        ...(lng !== undefined ? { lng } : {}),
+      }),
+    });
+  }
+  /** "Qual o melhor mercado para [categoria]?" — recomenda um mercado. */
+  melhorMercado(termo: string, lat?: number, lng?: number): Promise<MelhorMercadoResponse> {
+    return this.request('/insights/melhor-mercado', {
+      method: 'POST',
+      body: JSON.stringify({
+        termo,
         ...(lat !== undefined ? { lat } : {}),
         ...(lng !== undefined ? { lng } : {}),
       }),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { melhoresMercadosPara } from './OndeComprar.js';
+import { melhorMercadoPara, melhoresMercadosPara } from './OndeComprar.js';
 import { PriceObservation } from '../pricing/PriceObservation.js';
 import { GeoPoint } from '../geo/GeoPoint.js';
 import { Money } from '../money/Money.js';
@@ -66,5 +66,31 @@ describe('melhoresMercadosPara', () => {
       null,
     );
     expect(r).toEqual([]);
+  });
+});
+
+describe('melhorMercadoPara — melhor mercado por categoria', () => {
+  it('agrega vários produtos e ranqueia por vitórias e cobertura', () => {
+    const observations = [
+      obs({ produtoId: 'p1', mercadoId: 'A', cents: 100, dias: 1 }),
+      obs({ produtoId: 'p2', mercadoId: 'A', cents: 200, dias: 1 }),
+      obs({ produtoId: 'p1', mercadoId: 'B', cents: 120, dias: 1 }),
+    ];
+    const r = melhorMercadoPara(observations, ['p1', 'p2'], null);
+    expect(r[0]!.mercadoNome).toBe('A');
+    expect(r[0]!.vitorias).toBe(2); // mais barato em p1 e p2
+    expect(r[0]!.produtosComPreco).toBe(2);
+    expect(r[1]!.mercadoNome).toBe('B');
+    expect(r[1]!.vitorias).toBe(0);
+    expect(r[1]!.produtosComPreco).toBe(1);
+  });
+
+  it('ignora observações do seed', () => {
+    const observations = [
+      obs({ produtoId: 'p1', mercadoId: 'A', cents: 100, dias: 1, reporterId: 'seed' }),
+      obs({ produtoId: 'p1', mercadoId: 'B', cents: 120, dias: 1 }),
+    ];
+    const r = melhorMercadoPara(observations, ['p1'], null);
+    expect(r.map((m) => m.mercadoNome)).toEqual(['B']); // A era seed → fora
   });
 });

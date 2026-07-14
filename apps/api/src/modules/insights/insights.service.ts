@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   GeoPoint,
   StatisticalInsightEngine,
+  melhorMercadoPara,
   melhoresMercadosPara,
   type BasketLine,
   type InsightContext,
@@ -11,6 +12,7 @@ import {
 import type {
   InsightDTO,
   InsightsResponse,
+  MelhorMercadoResponse,
   OndeComprarResponse,
   ProdutoDTO,
 } from '@meumercado/contracts';
@@ -90,6 +92,24 @@ export class InsightsService {
    * "Onde eu compro este produto?": ranqueia os mercados com preço para o produto
    * por preço + distância. Só dados reais (o filtro de seed está no domínio).
    */
+  /**
+   * "Qual o melhor mercado para [categoria]?" — casa os produtos COM PREÇO pelo
+   * termo (ex.: "limpeza" → todos os LIMP…) e agrega os mercados sobre eles,
+   * recomendando onde vale a pena. Honesto com base rasa (poucos multi-mercado).
+   */
+  async melhorMercado(termo: string, lat?: number, lng?: number): Promise<MelhorMercadoResponse> {
+    const t = termo.trim();
+    const produtoIds = (await this.buscarComPreco(t)).map((p) => p.id);
+    if (produtoIds.length === 0) return { termo: t, totalProdutos: 0, mercados: [] };
+    const observations = await this.prices.all();
+    const usuario = lat !== undefined && lng !== undefined ? new GeoPoint(lat, lng) : null;
+    return {
+      termo: t,
+      totalProdutos: produtoIds.length,
+      mercados: melhorMercadoPara(observations, produtoIds, usuario).slice(0, 3),
+    };
+  }
+
   async ondeComprar(produtoId: string, lat?: number, lng?: number): Promise<OndeComprarResponse> {
     const observations = await this.prices.all();
     const usuario = lat !== undefined && lng !== undefined ? new GeoPoint(lat, lng) : null;

@@ -69,3 +69,66 @@ export function melhoresMercadosPara(
 
   return mercados;
 }
+
+/** Um mercado avaliado para uma CATEGORIA/conjunto de produtos. */
+export interface MercadoAgregado {
+  mercadoId: string;
+  mercadoNome: string;
+  endereco: string | null;
+  lat: number | null;
+  lng: number | null;
+  distanciaMetros: number | null;
+  /** Quantos dos produtos-alvo têm preço neste mercado (cobertura). */
+  produtosComPreco: number;
+  /** Em quantos produtos-alvo este mercado é o MAIS BARATO. */
+  vitorias: number;
+}
+
+/**
+ * "Qual o melhor mercado para [categoria]?" — agrega os mercados sobre um CONJUNTO
+ * de produtos (ex.: todos os de limpeza). Para cada produto pega o mercado mais
+ * barato (via {@link melhoresMercadosPara}) e conta "vitórias" + cobertura. Ordena
+ * por vitórias, depois cobertura, depois proximidade. Honesto com base rasa: com
+ * ~1 mercado por produto, "vitórias" ≈ "onde temos esses produtos".
+ */
+export function melhorMercadoPara(
+  observations: readonly PriceObservation[],
+  produtoIds: readonly string[],
+  usuario: GeoPoint | null,
+): MercadoAgregado[] {
+  const info = new Map<string, MercadoRankeado>();
+  const cobertura = new Map<string, Set<string>>();
+  const vitorias = new Map<string, number>();
+
+  for (const produtoId of new Set(produtoIds)) {
+    const ranked = melhoresMercadosPara(observations, produtoId, usuario);
+    if (ranked.length === 0) continue;
+    for (const m of ranked) {
+      if (!info.has(m.mercadoId)) info.set(m.mercadoId, m);
+      let prods = cobertura.get(m.mercadoId);
+      if (!prods) cobertura.set(m.mercadoId, (prods = new Set()));
+      prods.add(produtoId);
+    }
+    const vencedor = ranked[0]!; // já ordenado por preço (mais barato primeiro)
+    vitorias.set(vencedor.mercadoId, (vitorias.get(vencedor.mercadoId) ?? 0) + 1);
+  }
+
+  const out: MercadoAgregado[] = [...info.values()].map((m) => ({
+    mercadoId: m.mercadoId,
+    mercadoNome: m.mercadoNome,
+    endereco: m.endereco,
+    lat: m.lat,
+    lng: m.lng,
+    distanciaMetros: m.distanciaMetros,
+    produtosComPreco: cobertura.get(m.mercadoId)?.size ?? 0,
+    vitorias: vitorias.get(m.mercadoId) ?? 0,
+  }));
+
+  out.sort(
+    (a, b) =>
+      b.vitorias - a.vitorias ||
+      b.produtosComPreco - a.produtosComPreco ||
+      (a.distanciaMetros ?? Infinity) - (b.distanciaMetros ?? Infinity),
+  );
+  return out;
+}
