@@ -214,6 +214,57 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await expect(page.getByPlaceholder('Preço R$')).toBeVisible();
   });
 
+  test('bipar produto NOVO cai direto no preço (auto-cadastra, sem passo extra)', async ({
+    page,
+  }) => {
+    await installApiMocks(page, { pro: true });
+    // EAN novo: não está na base, mas o OFF sugere um nome.
+    await page.route(
+      (url) => url.pathname.includes('/produtos/por-ean/'),
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: { 'access-control-allow-origin': '*' },
+          body: JSON.stringify({
+            ean: '7891000315507',
+            produto: null,
+            sugestaoNome: 'Leite Shefa Integral 1 L',
+          }),
+        }),
+    );
+    // POST /produtos (auto-cadastro) devolve o produto criado; GET cai no fallback.
+    await page.route(
+      (url) => url.pathname.endsWith('/produtos'),
+      (route) => {
+        if (route.request().method() !== 'POST') return route.fallback();
+        return route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          headers: { 'access-control-allow-origin': '*' },
+          body: JSON.stringify({
+            id: 'p-novo',
+            nome: 'Leite Shefa Integral 1 L',
+            categoria: 'Outros',
+            unidade: 'un',
+            ean: '7891000315507',
+          }),
+        });
+      },
+    );
+    await page.goto('/');
+
+    await page.getByRole('button', { name: '+', exact: true }).click();
+    await page.getByTitle('Bipar o código de barras').click();
+    await page.getByPlaceholder(/7891000315507/).fill('7891000315507');
+    await page.getByRole('button', { name: 'Usar' }).click();
+
+    // Cai DIRETO no preço+qtd com o nome preenchido — sem passo "Criar".
+    await expect(page.getByPlaceholder('Buscar produto…')).toHaveValue('Leite Shefa Integral 1 L');
+    await expect(page.getByPlaceholder('Preço R$')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Criar/ })).toHaveCount(0);
+  });
+
   test('Nina (Free): mostra o paywall em vez dos insights', async ({ page }) => {
     await installApiMocks(page, { pro: false });
     await page.goto('/');

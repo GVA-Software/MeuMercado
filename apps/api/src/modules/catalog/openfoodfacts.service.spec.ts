@@ -34,6 +34,22 @@ describe('OpenFoodFactsService', () => {
     expect(await svc.nomePorEan('7896089012345')).toBe('Café Pilão 500g');
   });
 
+  it('tira ruído de embalagem múltipla e não duplica o tamanho', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        resposta({
+          status: 1,
+          product: { product_name: 'SHEFA Leite Integral 1 L (6 Unidades)', quantity: '6 x 1 L' },
+        }),
+      ),
+    );
+    // "(6 Unidades)" some; "6 x 1 L" não é tamanho simples → não vira sufixo.
+    expect(await new OpenFoodFactsService().nomePorEan('7898900000000')).toBe(
+      'SHEFA Leite Integral 1 L',
+    );
+  });
+
   it('status !== 1 → null', async () => {
     vi.stubGlobal(
       'fetch',

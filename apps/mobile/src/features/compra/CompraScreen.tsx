@@ -689,12 +689,16 @@ function AddPanel({
     }
   }
 
-  /** Cria um produto novo (guardando o EAN bipado, se houver) e o pré-seleciona. */
-  async function criarProdutoNovo(nome: string) {
+  /** Cria um produto novo (guardando o EAN, se houver) e o pré-seleciona. */
+  async function criarProdutoNovo(nome: string, ean?: string) {
     setCriando(true);
     setErro(null);
     try {
-      const p = await api.criarProduto({ nome: nome.trim(), ...(scanEan ? { ean: scanEan } : {}) });
+      const eanUsar = ean ?? scanEan ?? undefined;
+      const p = await api.criarProduto({
+        nome: nome.trim(),
+        ...(eanUsar ? { ean: eanUsar } : {}),
+      });
       setSel(p);
       setBusca(p.nome);
       setScanEan(null);
@@ -705,7 +709,12 @@ function AddPanel({
     }
   }
 
-  /** Recebe o EAN bipado: acha no catálogo, sugere pelo OFF ou deixa cadastrar. */
+  /**
+   * Recebe o EAN bipado e leva DIRETO ao preço + quantidade. Achou na nossa base →
+   * usa (entra no histórico); tem sugestão do OFF → cadastra automaticamente (o
+   * usuário não precisa saber disso); só se não houver nome nenhum é que pedimos
+   * pra digitar.
+   */
   async function aoBipar(ean: string) {
     setScanOpen(false);
     setErro(null);
@@ -715,12 +724,13 @@ function AddPanel({
         setSel(r.produto);
         setBusca(r.produto.nome);
         setScanEan(null);
+      } else if (r.sugestaoNome) {
+        await criarProdutoNovo(r.sugestaoNome, ean); // auto-cadastra → vai pro preço+qtd
       } else {
-        // Sem produto ainda: prefixa o nome (sugestão do OFF) e guarda o EAN para
-        // gravá-lo ao criar. O usuário confirma/edita e toca em "Criar".
+        // Sem nome em lugar nenhum (raro em embalado): deixa o usuário nomear.
         setSel(null);
         setScanEan(ean);
-        setBusca(r.sugestaoNome ?? '');
+        setBusca('');
       }
     } catch (e) {
       setErro(mensagemDeErro(e));

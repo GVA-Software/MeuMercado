@@ -47,11 +47,25 @@ export class OpenFoodFactsService {
   }
 }
 
-/** Nome exibível: nome + tamanho, sem duplicar o tamanho se já vier no nome. */
+/**
+ * Nome exibível e SEM confundir. A pessoa está comprando 1 unidade, então tiramos
+ * ruído de embalagem múltipla ("(6 Unidades)", "6 un", "pack", "leve X pague Y") e
+ * só acrescentamos o tamanho quando ele é simples E o nome ainda não tem número
+ * (senão duplica, ex.: "1 L … 1 litro").
+ */
 function montarNome(p: OffProduct): string | null {
-  const base = (p.product_name_pt || p.product_name || '').trim();
+  const base = (p.product_name_pt || p.product_name || '')
+    .trim()
+    .replace(/\(\s*\d+\s*(unidades?|un|x|pack|p[çc]s?|pe[çc]as?)\b[^)]*\)/gi, ' ')
+    .replace(/\b\d+\s*unidades?\b/gi, ' ')
+    .replace(/\bleve\s+\d+\s+pague\s+\d+\b/gi, ' ')
+    .replace(/\(\s*\)/g, ' ')
+    .replace(/\s+([,.;])/g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
   if (!base) return null;
   const qtd = (p.quantity || '').trim();
-  const nome = qtd && !base.toLowerCase().includes(qtd.toLowerCase()) ? `${base} ${qtd}` : base;
-  return nome.slice(0, 120); // respeita o limite do contrato (nome máx. 120)
+  const tamanhoSimples = /^\d+([.,]\d+)?\s*(g|kg|mg|ml|l|lt|litros?)$/i.test(qtd);
+  const nome = tamanhoSimples && !/\d/.test(base) ? `${base} ${qtd}` : base;
+  return nome.slice(0, 120).trim(); // respeita o limite do contrato (nome máx. 120)
 }
