@@ -16,4 +16,5 @@ jobs:
           curl -fsS --max-time 120 -X POST https://meumercado-prod.onrender.com/api/cron/qa \
             -H "x-cron-secret: ${CRON_SECRET}"
         env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET || 'mzv_8tNV1GBcU5qoVMFIdEBhhAPYQtm0' }}
+          # Sem fallback público: o secret CRON_SECRET DEVE estar definido no repositório.
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

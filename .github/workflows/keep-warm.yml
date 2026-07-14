@@ -26,4 +26,7 @@ jobs:
           curl -fsS --max-time 90 -X POST https://meumercado-prod.onrender.com/api/cron/expiracoes \
             -H "x-cron-secret: ${CRON_SECRET}" > /dev/null || true
         env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET || 'mzv_8tNV1GBcU5qoVMFIdEBhhAPYQtm0' }}
+          # Sem fallback: o secret CRON_SECRET DEVE estar definido no repositório
+          # (Settings → Secrets → Actions). Sem ele, o /cron responde 401 (e o `|| true`
+          # acima evita quebrar o job) — nunca cai num segredo público.
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

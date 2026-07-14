@@ -36,9 +36,10 @@ export const envSchema = z.object({
   ADMIN_EMAILS: z.string().default(''),
 
   /**
-   * Web Push (VAPID). Chaves default embutidas para funcionar sem configuração;
-   * em produção pode-se sobrescrever por env no Render. A privada não expõe dados
-   * (só permite enviar notificações aos próprios inscritos).
+   * Web Push (VAPID). Chaves default embutidas SÓ para o dev rodar sem configurar;
+   * em produção DEVEM ser sobrescritas (a validação recusa o default público — a
+   * privada foi exposta no repo aberto e não pode ser reutilizada). Gere um par novo
+   * com `npx web-push generate-vapid-keys`.
    */
   VAPID_PUBLIC_KEY: z
     .string()
@@ -48,7 +49,10 @@ export const envSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().default('Nt1nOi2pGURXIZPk3aZSgg7Ij25n1IOGNKCv-CRbxs4'),
   VAPID_SUBJECT: z.string().default('mailto:dsoaresdeavila@gmail.com'),
 
-  /** Segredo para as rotas de cron (keep-warm + varredura de expiração). */
+  /**
+   * Segredo das rotas de cron (keep-warm + varredura de expiração). Default embutido
+   * SÓ para dev; em produção a validação recusa o default público (deve vir do ambiente).
+   */
   CRON_SECRET: z.string().default('mzv_8tNV1GBcU5qoVMFIdEBhhAPYQtm0'),
 
   /**
@@ -83,6 +87,16 @@ export type Env = z.infer<typeof envSchema>;
 
 const DEV_SECRETS = ['dev-access-secret-troque-em-prod', 'dev-refresh-secret-troque-em-prod'];
 
+/**
+ * Valores default embutidos no código — portanto PÚBLICOS (o repositório é aberto).
+ * Servem só para o dev rodar sem configurar nada; em PRODUÇÃO são proibidos (a
+ * validação abaixo recusa o boot), forçando segredos reais definidos no ambiente.
+ */
+const PUBLIC_DEFAULTS = new Set<string>([
+  'mzv_8tNV1GBcU5qoVMFIdEBhhAPYQtm0', // CRON_SECRET
+  'Nt1nOi2pGURXIZPk3aZSgg7Ij25n1IOGNKCv-CRbxs4', // VAPID_PRIVATE_KEY
+]);
+
 /** Usada por `ConfigModule.forRoot({ validate })`. */
 export function validateEnv(config: Record<string, unknown>): Env {
   const parsed = envSchema.safeParse(config);
@@ -96,6 +110,15 @@ export function validateEnv(config: Record<string, unknown>): Env {
     // Cookies de sessão SEM Secure em produção trafegariam em HTTP → interceptáveis.
     if (!parsed.data.COOKIE_SECURE) {
       throw new Error('COOKIE_SECURE deve ser "true" em produção (sessão exige HTTPS).');
+    }
+    // Segredos com default público NÃO podem chegar a produção (repo é aberto).
+    if (PUBLIC_DEFAULTS.has(parsed.data.CRON_SECRET)) {
+      throw new Error('CRON_SECRET usa o default público — defina um segredo forte no ambiente.');
+    }
+    if (PUBLIC_DEFAULTS.has(parsed.data.VAPID_PRIVATE_KEY)) {
+      throw new Error(
+        'VAPID_PRIVATE_KEY usa o default público — gere um par novo (web-push) e defina no ambiente.',
+      );
     }
   }
   if (!parsed.success) {
