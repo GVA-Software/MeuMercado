@@ -10,6 +10,8 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# npm (NÃO pnpm): é o mesmo gerenciador do dev local e do deploy no Render. Os deps
+# do workspace usam "*" (npm-workspaces), que o pnpm 9 não linka → install quebrava.
 jobs:
   build-test:
     name: Build · Lint · Typecheck · Test
@@ -17,36 +19,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.0
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      # NOTA: quando um pnpm-lock.yaml for commitado, trocar para
-      # `--frozen-lockfile` e ativar `cache: pnpm` no setup-node acima.
       - name: Install
-        run: pnpm install --no-frozen-lockfile
+        run: npm install --no-audit --no-fund
 
-      # Build primeiro: gera os dist de domain/contracts que api/mobile tipam.
+      # domain/contracts primeiro (geram os dist que api/mobile tipam), depois o resto.
       - name: Build
-        run: pnpm -r build
+        run: npm run build:packages && npm run build
 
       - name: Format check
-        run: pnpm format:check
+        run: npm run format:check
 
       - name: Lint
-        run: pnpm lint
+        run: npm run lint
 
       - name: Typecheck
-        run: pnpm -r run typecheck
+        run: npm run typecheck
 
       - name: Test (unit + integração)
-        run: pnpm -r run test
+        run: npm run test
 
   e2e:
     name: E2E (Playwright)
@@ -54,30 +49,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.0
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Install
-        run: pnpm install --no-frozen-lockfile
+        run: npm install --no-audit --no-fund
 
-      # domain/contracts geram os dist que o dev server do mobile importa.
-      - name: Build
-        run: pnpm -r build
+      # O dev server do mobile importa os dist de domain/contracts.
+      - name: Build packages
+        run: npm run build:packages
 
       # Chromium + WebKit: a jornada roda nos dois motores. WebKit = engine do
       # Safari/iOS, para pegar bugs que só aparecem no iPhone.
       - name: Install Playwright browsers
-        run: pnpm --filter @meumercado/mobile exec playwright install --with-deps chromium webkit
+        working-directory: apps/mobile
+        run: npx playwright install --with-deps chromium webkit
 
       - name: E2E (jornada crítica)
-        run: pnpm --filter @meumercado/mobile run e2e
+        run: npm run e2e -w @meumercado/mobile
 
       - name: Upload report
         if: ${{ !cancelled() }}
@@ -90,15 +81,11 @@ jobs:
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
-    # Informativo — não bloqueia o merge (vulns transitivas nem sempre acionáveis).
-    continue-on-error: true
+    # Informativo — nunca bloqueia (vulns transitivas nem sempre acionáveis).
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: pnpm install --no-frozen-lockfile
-      - run: pnpm audit --audit-level high
+      - run: npm install --no-audit --no-fund
+      - run: npm audit --audit-level high || true
