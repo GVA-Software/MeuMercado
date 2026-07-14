@@ -21,9 +21,10 @@ export class TokenService {
     );
   }
 
-  signRefresh(sub: string): string {
+  /** `jti` = id da sessão de refresh no servidor (permite revogar/rotacionar). */
+  signRefresh(sub: string, jti: string): string {
     return this.sign(
-      { sub },
+      { sub, jti },
       this.config.get('JWT_REFRESH_SECRET', { infer: true }),
       this.config.get('JWT_REFRESH_TTL', { infer: true }),
     );
@@ -36,9 +37,12 @@ export class TokenService {
     return jwt.verify(token, secret, { algorithms: ['HS256'] }) as unknown as AccessPayload;
   }
 
-  verifyRefresh(token: string): { sub: string } {
+  verifyRefresh(token: string): { sub: string; jti?: string } {
     const secret = this.config.get('JWT_REFRESH_SECRET', { infer: true }) as Secret;
-    return jwt.verify(token, secret, { algorithms: ['HS256'] }) as unknown as { sub: string };
+    return jwt.verify(token, secret, { algorithms: ['HS256'] }) as unknown as {
+      sub: string;
+      jti?: string;
+    };
   }
 
   get refreshTtlMs(): number {

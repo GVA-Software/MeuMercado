@@ -70,17 +70,30 @@ export class AuthController {
   ): Promise<AuthResponse> {
     const token = (req.cookies as Record<string, string> | undefined)?.[REFRESH_COOKIE];
     if (!token) throw new UnauthorizedException('Refresh ausente');
-    let sub: string;
+    let payload: { sub: string; jti?: string };
     try {
-      sub = this.tokens.verifyRefresh(token).sub;
+      payload = this.tokens.verifyRefresh(token);
     } catch {
       throw new UnauthorizedException('Refresh inválido');
     }
-    return this.finish(await this.service.refresh(sub), res);
+    return this.finish(await this.service.refresh(payload.sub, payload.jti), res);
   }
 
   @Post('logout')
-  logout(@Res({ passthrough: true }) res: Response): { ok: true } {
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ ok: true }> {
+    // Revoga a sessão no servidor (não só apaga o cookie) — um refresh vazado deixa
+    // de valer imediatamente após o logout.
+    const token = (req.cookies as Record<string, string> | undefined)?.[REFRESH_COOKIE];
+    if (token) {
+      try {
+        await this.service.logout(this.tokens.verifyRefresh(token).jti);
+      } catch {
+        /* cookie inválido/expirado: nada a revogar */
+      }
+    }
     res.clearCookie(REFRESH_COOKIE, { path: REFRESH_PATH });
     return { ok: true };
   }

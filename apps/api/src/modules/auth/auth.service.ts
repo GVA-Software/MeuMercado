@@ -8,6 +8,10 @@ import { isAdminEmail } from '../../common/admin-emails.js';
 import { PASSWORD_HASHER, type PasswordHasher } from './password.hasher.js';
 import { USER_REPOSITORY, type StoredUser, type UserRepository } from './user.repository.js';
 import { NAME_CHANGE_REPOSITORY, type NameChangeRepository } from './name-change.repository.js';
+import {
+  REFRESH_SESSION_REPOSITORY,
+  type RefreshSessionRepository,
+} from './refresh-session.repository.js';
 import { TokenService } from './token.service.js';
 
 export interface AuthResult {
@@ -23,7 +27,15 @@ export class AuthService {
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
     private readonly tokens: TokenService,
     private readonly config: ConfigService<Env, true>,
+    @Inject(REFRESH_SESSION_REPOSITORY) private readonly sessions: RefreshSessionRepository,
   ) {}
+
+  /**
+   * Janela de graça pra corridas BENIGNAS de refresh (2 abas, ou a resposta do
+   * refresh se perde bem em cima da rotação): reapresentar o token recém-rotacionado
+   * dentro dela emite uma sessão nova em vez de derrubar tudo como se fosse reuso.
+   */
+  private readonly GRACE_MS = 15_000;
 
   async register(input: RegisterInput): Promise<AuthResult> {
     const email = new Email(input.email).value; // valida + normaliza
@@ -83,20 +95,78 @@ export class AuthService {
     return this.toDTO(user);
   }
 
-  async refresh(userId: string): Promise<AuthResult> {
-    const user = await this.users.findById(userId);
-    if (!user) throw new UnauthorizedException();
-    return this.issue(user);
+  /**
+   * Renova a sessão ROTACIONANDO o refresh token, com detecção de reuso:
+   * - jti desconhecido/expirado/de outro usuário → inválido (401).
+   * - jti de uma sessão VÁLIDA → emite tokens novos e revoga o atual (rotação).
+   * - jti de uma sessão JÁ REVOGADA → é um token reapresentado:
+   *     · se foi rotacionado agora há pouco (janela de graça) → corrida benigna,
+   *       emite sessão nova sem derrubar nada;
+   *     · senão → provável ROUBO: revoga TODAS as sessões do usuário e recusa.
+   */
+  async refresh(userId: string, jti: string | undefined): Promise<AuthResult> {
+    if (!jti) throw new UnauthorizedException('Sessão inválida');
+    const s = await this.sessions.buscar(jti);
+    const agora = Date.now();
+    if (!s || s.userId !== userId || s.expiresAt.getTime() < agora) {
+      throw new UnauthorizedException('Sessão inválida');
+    }
+    if (s.revoked) {
+      const rotacaoRecente =
+        s.replacedByJti !== null &&
+        s.revokedAt !== null &&
+        agora - s.revokedAt.getTime() < this.GRACE_MS;
+      if (rotacaoRecente) {
+        return (await this.novaSessao(await this.exigirUsuario(userId))).result;
+      }
+      // Reuso de token revogado = provável roubo → derruba a família inteira.
+      await this.sessions.revogarTodasDoUsuario(userId);
+      throw new UnauthorizedException('Sessão revogada');
+    }
+    // Sessão válida → rotaciona: cria a nova e revoga a atual apontando pra ela.
+    const user = await this.exigirUsuario(userId);
+    const { result, jti: novoJti } = await this.novaSessao(user);
+    await this.sessions.revogar(jti, novoJti);
+    return result;
   }
 
-  private issue(user: StoredUser): AuthResult {
+  /** Encerra a sessão de verdade no servidor (revoga o refresh), não só o cookie. */
+  async logout(jti: string | undefined): Promise<void> {
+    if (jti) await this.sessions.revogar(jti, null);
+  }
+
+  private async exigirUsuario(userId: string): Promise<StoredUser> {
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException();
+    return user;
+  }
+
+  /** Cria uma sessão de refresh nova e emite os tokens dela. */
+  private async novaSessao(user: StoredUser): Promise<{ result: AuthResult; jti: string }> {
+    const jti = randomUUID();
+    await this.sessions.criar({
+      jti,
+      userId: user.id,
+      revoked: false,
+      revokedAt: null,
+      replacedByJti: null,
+      expiresAt: new Date(Date.now() + this.tokens.refreshTtlMs),
+      criadoEm: new Date(),
+    });
     return {
-      response: {
-        accessToken: this.tokens.signAccess({ sub: user.id, email: user.email }),
-        user: this.toDTO(user),
+      result: {
+        response: {
+          accessToken: this.tokens.signAccess({ sub: user.id, email: user.email }),
+          user: this.toDTO(user),
+        },
+        refreshToken: this.tokens.signRefresh(user.id, jti),
       },
-      refreshToken: this.tokens.signRefresh(user.id),
+      jti,
     };
+  }
+
+  private async issue(user: StoredUser): Promise<AuthResult> {
+    return (await this.novaSessao(user)).result;
   }
 
   private toDTO(user: StoredUser): UserDTO {

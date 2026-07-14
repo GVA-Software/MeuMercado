@@ -6,6 +6,10 @@ import {
   NAME_CHANGE_REPOSITORY,
 } from '../../modules/auth/name-change.repository.js';
 import {
+  InMemoryRefreshSessionRepository,
+  REFRESH_SESSION_REPOSITORY,
+} from '../../modules/auth/refresh-session.repository.js';
+import {
   InMemoryPushSubscriptionRepository,
   PUSH_SUBSCRIPTION_REPOSITORY,
 } from '../../modules/push/push-subscription.repository.js';
@@ -43,6 +47,7 @@ import { FeedbackEntity } from './entities/feedback.entity.js';
 import { CartEntity, CartItemEntity } from './entities/cart.entity.js';
 import { CompraEntity } from './entities/compra.entity.js';
 import { NameChangeEntity } from './entities/name-change.entity.js';
+import { RefreshSessionEntity } from './entities/refresh-session.entity.js';
 import { PushSubscriptionEntity } from './entities/push-subscription.entity.js';
 import { NfceImportEntity } from './entities/nfce-import.entity.js';
 import { PriceObservationEntity } from './entities/price-observation.entity.js';
@@ -57,6 +62,7 @@ import { TypeOrmProdutoRepository } from './repositories/typeorm-produto.reposit
 import { TypeOrmSubscriptionRepository } from './repositories/typeorm-subscription.repository.js';
 import { TypeOrmUserRepository } from './repositories/typeorm-user.repository.js';
 import { TypeOrmNameChangeRepository } from './repositories/typeorm-name-change.repository.js';
+import { TypeOrmRefreshSessionRepository } from './repositories/typeorm-refresh-session.repository.js';
 import { TypeOrmPushSubscriptionRepository } from './repositories/typeorm-push-subscription.repository.js';
 import { TypeOrmAnalyticsRepository } from './repositories/typeorm-analytics.repository.js';
 import { TypeOrmFeedbackRepository } from './repositories/typeorm-feedback.repository.js';
@@ -64,6 +70,7 @@ import { TypeOrmFeedbackRepository } from './repositories/typeorm-feedback.repos
 const ENTITIES = [
   UserEntity,
   NameChangeEntity,
+  RefreshSessionEntity,
   PushSubscriptionEntity,
   SubscriptionEntity,
   CartEntity,
@@ -78,6 +85,7 @@ const ENTITIES = [
 const TOKENS = [
   USER_REPOSITORY,
   NAME_CHANGE_REPOSITORY,
+  REFRESH_SESSION_REPOSITORY,
   PUSH_SUBSCRIPTION_REPOSITORY,
   SUBSCRIPTION_REPOSITORY,
   CART_STORE,
@@ -107,6 +115,7 @@ export class PersistenceModule {
         providers: [
           { provide: USER_REPOSITORY, useClass: InMemoryUserRepository },
           { provide: NAME_CHANGE_REPOSITORY, useClass: InMemoryNameChangeRepository },
+          { provide: REFRESH_SESSION_REPOSITORY, useClass: InMemoryRefreshSessionRepository },
           { provide: PUSH_SUBSCRIPTION_REPOSITORY, useClass: InMemoryPushSubscriptionRepository },
           { provide: SUBSCRIPTION_REPOSITORY, useClass: InMemorySubscriptionRepository },
           { provide: CART_STORE, useClass: InMemoryCartStore },
@@ -146,6 +155,7 @@ export class PersistenceModule {
       providers: [
         { provide: USER_REPOSITORY, useClass: TypeOrmUserRepository },
         { provide: NAME_CHANGE_REPOSITORY, useClass: TypeOrmNameChangeRepository },
+        { provide: REFRESH_SESSION_REPOSITORY, useClass: TypeOrmRefreshSessionRepository },
         { provide: PUSH_SUBSCRIPTION_REPOSITORY, useClass: TypeOrmPushSubscriptionRepository },
         { provide: SUBSCRIPTION_REPOSITORY, useClass: TypeOrmSubscriptionRepository },
         { provide: CART_STORE, useClass: TypeOrmCartRepository },
