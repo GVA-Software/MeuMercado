@@ -49,6 +49,7 @@ function makeService(
     findById: (id) => Promise.resolve(usuarios.find((u) => u.id === id) ?? null),
     create: () => Promise.resolve(),
     updateNome: () => Promise.resolve(),
+    updateSenha: () => Promise.resolve(),
     findAll: () => Promise.resolve(usuarios),
     count: () => Promise.resolve(usuarios.length),
     delete: (id) => {

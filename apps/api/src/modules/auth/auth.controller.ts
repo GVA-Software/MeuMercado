@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Patch,
   Post,
   Req,
@@ -13,11 +14,15 @@ import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import {
+  EsqueciSenhaSchema,
   LoginSchema,
+  RedefinirSenhaSchema,
   RegisterSchema,
   UpdateNameSchema,
   type AuthResponse,
+  type EsqueciSenhaInput,
   type LoginInput,
+  type RedefinirSenhaInput,
   type RegisterInput,
   type UpdateNameInput,
   type UserDTO,
@@ -25,6 +30,7 @@ import {
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
 import type { Env } from '../../config/env.schema.js';
 import { AuthService, type AuthResult } from './auth.service.js';
+import { PasswordResetService } from './password-reset.service.js';
 import { CurrentUser } from './current-user.decorator.js';
 import { JwtAuthGuard, type AuthedUser } from './jwt-auth.guard.js';
 import { TokenService } from './token.service.js';
@@ -37,9 +43,32 @@ const REFRESH_PATH = '/api/auth';
 export class AuthController {
   constructor(
     private readonly service: AuthService,
+    private readonly resets: PasswordResetService,
     private readonly tokens: TokenService,
     private readonly config: ConfigService<Env, true>,
   ) {}
+
+  /** Pede recuperação: manda o link por e-mail. Sempre 204 (não revela e-mails). */
+  @Post('esqueci-senha')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(204)
+  async esqueciSenha(
+    @Body(new ZodValidationPipe(EsqueciSenhaSchema)) body: EsqueciSenhaInput,
+    @Req() req: Request,
+  ): Promise<void> {
+    const base = `${req.protocol}://${req.get('host')}`;
+    await this.resets.esqueciSenha(body.email, base);
+  }
+
+  /** Redefine a senha a partir do token do e-mail. */
+  @Post('redefinir-senha')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(204)
+  async redefinirSenha(
+    @Body(new ZodValidationPipe(RedefinirSenhaSchema)) body: RedefinirSenhaInput,
+  ): Promise<void> {
+    await this.resets.redefinirSenha(body.token, body.senha);
+  }
 
   // Anti-brute-force/abuso: bem mais restrito que o limite global. Cadastro é raro.
   @Post('register')

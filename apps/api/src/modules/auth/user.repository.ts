@@ -15,6 +15,8 @@ export interface UserRepository {
   create(user: StoredUser): Promise<void>;
   /** Atualiza só o nome (edição de perfil). */
   updateNome(id: string, nome: string): Promise<void>;
+  /** Troca o hash de senha (usado na recuperação de senha). */
+  updateSenha(id: string, passwordHash: string): Promise<void>;
   /** Todos os usuários (mais recentes primeiro) — uso administrativo. */
   findAll(): Promise<StoredUser[]>;
   count(): Promise<number>;
@@ -43,6 +45,14 @@ export class InMemoryUserRepository implements UserRepository {
     const u = this.byId.get(id);
     if (u) {
       u.nome = nome;
+      this.byEmail.set(u.email, u);
+    }
+    return Promise.resolve();
+  }
+  updateSenha(id: string, passwordHash: string): Promise<void> {
+    const u = this.byId.get(id);
+    if (u) {
+      u.passwordHash = passwordHash;
       this.byEmail.set(u.email, u);
     }
     return Promise.resolve();

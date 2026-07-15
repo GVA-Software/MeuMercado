@@ -281,6 +281,17 @@ export class ApiClient {
   logout(): Promise<{ ok: true }> {
     return this.request('/auth/logout', { method: 'POST' });
   }
+  /** Pede recuperação de senha (manda o link por e-mail). Sempre resolve. */
+  esqueciSenha(email: string): Promise<void> {
+    return this.request('/auth/esqueci-senha', { method: 'POST', body: JSON.stringify({ email }) });
+  }
+  /** Redefine a senha a partir do token do e-mail. */
+  redefinirSenha(token: string, senha: string): Promise<void> {
+    return this.request('/auth/redefinir-senha', {
+      method: 'POST',
+      body: JSON.stringify({ token, senha }),
+    });
+  }
   me(): Promise<UserDTO> {
     return this.request('/auth/me');
   }

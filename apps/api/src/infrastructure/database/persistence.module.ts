@@ -10,6 +10,10 @@ import {
   REFRESH_SESSION_REPOSITORY,
 } from '../../modules/auth/refresh-session.repository.js';
 import {
+  InMemoryPasswordResetRepository,
+  PASSWORD_RESET_REPOSITORY,
+} from '../../modules/auth/password-reset.repository.js';
+import {
   InMemoryPushSubscriptionRepository,
   PUSH_SUBSCRIPTION_REPOSITORY,
 } from '../../modules/push/push-subscription.repository.js';
@@ -48,6 +52,7 @@ import { CartEntity, CartItemEntity } from './entities/cart.entity.js';
 import { CompraEntity } from './entities/compra.entity.js';
 import { NameChangeEntity } from './entities/name-change.entity.js';
 import { RefreshSessionEntity } from './entities/refresh-session.entity.js';
+import { PasswordResetEntity } from './entities/password-reset.entity.js';
 import { PushSubscriptionEntity } from './entities/push-subscription.entity.js';
 import { NfceImportEntity } from './entities/nfce-import.entity.js';
 import { PriceObservationEntity } from './entities/price-observation.entity.js';
@@ -63,6 +68,7 @@ import { TypeOrmSubscriptionRepository } from './repositories/typeorm-subscripti
 import { TypeOrmUserRepository } from './repositories/typeorm-user.repository.js';
 import { TypeOrmNameChangeRepository } from './repositories/typeorm-name-change.repository.js';
 import { TypeOrmRefreshSessionRepository } from './repositories/typeorm-refresh-session.repository.js';
+import { TypeOrmPasswordResetRepository } from './repositories/typeorm-password-reset.repository.js';
 import { TypeOrmPushSubscriptionRepository } from './repositories/typeorm-push-subscription.repository.js';
 import { TypeOrmAnalyticsRepository } from './repositories/typeorm-analytics.repository.js';
 import { TypeOrmFeedbackRepository } from './repositories/typeorm-feedback.repository.js';
@@ -71,6 +77,7 @@ const ENTITIES = [
   UserEntity,
   NameChangeEntity,
   RefreshSessionEntity,
+  PasswordResetEntity,
   PushSubscriptionEntity,
   SubscriptionEntity,
   CartEntity,
@@ -86,6 +93,7 @@ const TOKENS = [
   USER_REPOSITORY,
   NAME_CHANGE_REPOSITORY,
   REFRESH_SESSION_REPOSITORY,
+  PASSWORD_RESET_REPOSITORY,
   PUSH_SUBSCRIPTION_REPOSITORY,
   SUBSCRIPTION_REPOSITORY,
   CART_STORE,
@@ -116,6 +124,7 @@ export class PersistenceModule {
           { provide: USER_REPOSITORY, useClass: InMemoryUserRepository },
           { provide: NAME_CHANGE_REPOSITORY, useClass: InMemoryNameChangeRepository },
           { provide: REFRESH_SESSION_REPOSITORY, useClass: InMemoryRefreshSessionRepository },
+          { provide: PASSWORD_RESET_REPOSITORY, useClass: InMemoryPasswordResetRepository },
           { provide: PUSH_SUBSCRIPTION_REPOSITORY, useClass: InMemoryPushSubscriptionRepository },
           { provide: SUBSCRIPTION_REPOSITORY, useClass: InMemorySubscriptionRepository },
           { provide: CART_STORE, useClass: InMemoryCartStore },
@@ -156,6 +165,7 @@ export class PersistenceModule {
         { provide: USER_REPOSITORY, useClass: TypeOrmUserRepository },
         { provide: NAME_CHANGE_REPOSITORY, useClass: TypeOrmNameChangeRepository },
         { provide: REFRESH_SESSION_REPOSITORY, useClass: TypeOrmRefreshSessionRepository },
+        { provide: PASSWORD_RESET_REPOSITORY, useClass: TypeOrmPasswordResetRepository },
         { provide: PUSH_SUBSCRIPTION_REPOSITORY, useClass: TypeOrmPushSubscriptionRepository },
         { provide: SUBSCRIPTION_REPOSITORY, useClass: TypeOrmSubscriptionRepository },
         { provide: CART_STORE, useClass: TypeOrmCartRepository },

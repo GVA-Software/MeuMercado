@@ -17,6 +17,19 @@ export const LoginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof LoginSchema>;
 
+/** Pedido de recuperação de senha (manda o link por e-mail). */
+export const EsqueciSenhaSchema = z.object({
+  email: z.string().email().max(254),
+});
+export type EsqueciSenhaInput = z.infer<typeof EsqueciSenhaSchema>;
+
+/** Redefinição de senha a partir do token do e-mail. */
+export const RedefinirSenhaSchema = z.object({
+  token: z.string().min(10).max(200),
+  senha: z.string().min(8, 'Senha deve ter ao menos 8 caracteres').max(200),
+});
+export type RedefinirSenhaInput = z.infer<typeof RedefinirSenhaSchema>;
+
 export const UserSchema = z.object({
   id: IdSchema,
   email: z.string().email(),
