@@ -342,15 +342,17 @@
         });
         var info = pagInfo(lista.length, state.covProdPag, state.covProdSize);
         var sel = covSelCount();
+        var pagina = lista.slice(info.ini, info.fim);
+        var todosNaPag = pagina.length > 0 && pagina.every(function (p) { return state.covSel[p.id]; });
         box.innerHTML = '<div class="cov-toolbar">' +
-            '<label class="cov-selall"><input type="checkbox" id="cov-sel-all"/> pág.</label>' +
+            '<label class="cov-selall"><input type="checkbox" id="cov-sel-all"' + (todosNaPag ? ' checked' : '') + '/> pág.</label>' +
             '<button id="cov-prod-join" class="cov-join"' + (sel >= 2 ? '' : ' disabled') + '>🔗 Juntar (' + sel + ')</button>' +
             '<button id="cov-prod-cat-btn" class="cov-catbtn"' + (sel ? '' : ' disabled') + '>🏷️ Categoria (' + sel + ')</button>' +
             '<button id="cov-del" class="cov-del"' + (sel ? '' : ' disabled') + '>🗑 Excluir (' + sel + ')</button>' +
             sizeSelect('cov-prod-size', state.covProdSize) + pagBar('cov-prod', info, lista.length) + '</div>' +
           (lista.length
             ? '<div class="cov-table"><div class="cov-h cov-h-p"><span></span><span>Produto</span><span>Merc.</span><span>Preços</span></div>' +
-              lista.slice(info.ini, info.fim).map(function (p) {
+              pagina.map(function (p) {
                 var cls = p.mercados < 2 ? 'cov-r cov-r-p low' : 'cov-r cov-r-p';
                 var tags = tagsDe(p).map(function (n) {
                   var cor = corMercado(n);
@@ -366,8 +368,8 @@
             : '<p class="fnote">Nenhum produto encontrado.</p>');
         var selAll = el('cov-sel-all');
         if (selAll) selAll.onclick = function () {
-          var marcar = this.checked;
-          lista.slice(info.ini, info.fim).forEach(function (p) { if (marcar) state.covSel[p.id] = 1; else delete state.covSel[p.id]; });
+          var marcar = !todosNaPag; // alterna pelo estado real da página, não pelo this.checked
+          pagina.forEach(function (p) { if (marcar) state.covSel[p.id] = 1; else delete state.covSel[p.id]; });
           renderCovProdBox();
         };
         var del = el('cov-del'); if (del) del.onclick = excluirCobertura;
