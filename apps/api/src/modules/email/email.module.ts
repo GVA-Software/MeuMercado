@@ -2,6 +2,7 @@ import { Global, Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../config/env.schema.js';
 import {
+  BrevoEmailService,
   EMAIL_SERVICE,
   NoopEmailService,
   SmtpEmailService,
@@ -9,10 +10,17 @@ import {
   type EmailTransporter,
 } from './email.service.js';
 
+/** Separa "Nome <email>" em nome + email (o SMTP_FROM vira o remetente do Brevo). */
+function parseFrom(from: string): { nome: string; email: string } {
+  const m = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(from);
+  if (m) return { nome: m[1]?.trim() || 'Meu Mercado', email: m[2]!.trim() };
+  return { nome: 'Meu Mercado', email: from.trim() };
+}
+
 /**
- * Provê o EmailService global. SEM `SMTP_HOST` → NoopEmailService (só loga).
- * COM → SMTP via nodemailer (carregado sob demanda). É um config-flip: basta
- * setar as envs SMTP_* que o e-mail passa a sair, sem tocar no código.
+ * Provê o EmailService global (config-flip, sem tocar no código):
+ *   BREVO_API_KEY → Brevo (HTTP, contorna o bloqueio de SMTP do Render free);
+ *   senão SMTP_HOST → SMTP (nodemailer); senão → NoopEmailService (só loga).
  */
 @Global()
 @Module({
@@ -21,6 +29,13 @@ import {
       provide: EMAIL_SERVICE,
       inject: [ConfigService],
       useFactory: async (config: ConfigService<Env, true>): Promise<EmailService> => {
+        const from = config.get('SMTP_FROM', { infer: true });
+        const brevoKey = config.get('BREVO_API_KEY', { infer: true });
+        if (brevoKey) {
+          const { nome, email } = parseFrom(from);
+          new Logger('Email').log(`Brevo (HTTP) ativo — remetente ${email}.`);
+          return new BrevoEmailService(brevoKey, email, nome);
+        }
         const host = config.get('SMTP_HOST', { infer: true });
         if (!host) return new NoopEmailService();
         const nodemailer = await import('nodemailer');

@@ -65,6 +65,12 @@ export const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().default('Meu Mercado <no-reply@meumercado.app>'),
+  /**
+   * Brevo (e-mail por HTTP). Preferido no Render free (SMTP de saída é bloqueado).
+   * COM esta chave → envia pelo Brevo; o remetente vem do SMTP_FROM (verifique-o no
+   * Brevo). Sem ela, cai no SMTP (se configurado) ou fica desligado.
+   */
+  BREVO_API_KEY: z.string().optional(),
 
   /**
    * Postgres (TypeORM). Se definido → usa banco (dados persistem).
