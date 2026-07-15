@@ -33,6 +33,7 @@ export { Money, type Currency, type MoneyJSON } from './money/Money.js';
 // Catálogo
 export { Produto, type ProdutoJSON, type Unidade } from './catalog/Produto.js';
 export { CATEGORIAS, type Categoria, isCategoria } from './catalog/Categoria.js';
+export { sugerirCategoria } from './catalog/sugerirCategoria.js';
 
 // Geo (apoio à aba Mapa)
 export { GeoPoint, type GeoPointJSON } from './geo/GeoPoint.js';

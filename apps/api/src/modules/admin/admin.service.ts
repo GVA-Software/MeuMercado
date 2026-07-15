@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import {
   chaveProduto,
   Produto,
+  sugerirCategoria,
   type Assinatura,
   type Categoria,
   type Periodo,
@@ -368,6 +369,29 @@ export class AdminService {
     if (!ok) {
       throw new BadRequestException('Não foi possível editar o produto (pode ter sido removido).');
     }
+  }
+
+  /**
+   * Auto-classifica os produtos que estão em "Outros" pela heurística de nome
+   * (só mexe nos "Outros"; não sobrescreve o que já foi classificado à mão).
+   */
+  async autoClassificar(): Promise<{
+    classificados: number;
+    porCategoria: Record<string, number>;
+  }> {
+    const produtos = await this.produtos.findAll();
+    const porCategoria: Record<string, number> = {};
+    let classificados = 0;
+    for (const p of produtos) {
+      if (p.categoria !== 'Outros') continue;
+      const sug = sugerirCategoria(p.nome);
+      if (sug === 'Outros') continue;
+      if (await this.produtos.atualizar(p.id, { nome: p.nome, categoria: sug })) {
+        classificados += 1;
+        porCategoria[sug] = (porCategoria[sug] ?? 0) + 1;
+      }
+    }
+    return { classificados, porCategoria };
   }
 
   /** Define a categoria de vários produtos de uma vez (classificação em lote). */

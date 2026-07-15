@@ -110,6 +110,12 @@ export class AdminController {
     return this.service.classificarProdutos(body.ids, body.categoria);
   }
 
+  /** Auto-classifica os produtos que estão em "Outros" pela heurística de nome. */
+  @Post('produtos/auto-classificar')
+  autoClassificar(): Promise<{ classificados: number; porCategoria: Record<string, number> }> {
+    return this.service.autoClassificar();
+  }
+
   /** Junta mercados duplicados: move os preços dos removerIds pro manterId. */
   @Post('mercados/juntar')
   juntarMercados(

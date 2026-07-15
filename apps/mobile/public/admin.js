@@ -269,7 +269,15 @@
             '<p class="fnote">Mais mercados no topo. Os <b style="color:#f59e0b">destacados</b> têm menos de 2 mercados. Filtre por texto (nome/categoria/mercado) e/ou pela categoria.</p>' +
             '<div class="cov-filtros"><input class="cov-busca" id="cov-prod-busca" placeholder="Filtrar produtos… (ex.: arroz, cafe)" value="' + esc(state.covProdBusca) + '"/>' +
             catFiltroHtml() + '</div>' +
+            autoBtnHtml() +
             '<div id="cov-prod-box"></div></div>';
+      }
+      function autoBtnHtml() {
+        var c = state.cobertura;
+        if (!c) return '';
+        var outros = c.produtos.filter(function (p) { return p.categoria === 'Outros'; }).length;
+        if (!outros) return '';
+        return '<button id="cov-auto" class="cov-auto">✨ Auto-classificar os ' + outros + ' em "Outros"</button>';
       }
       function catFiltroHtml() {
         var c = state.cobertura;
@@ -390,6 +398,29 @@
           await carregarCobertura(false);
         } catch (e) {
           toast('Erro: ' + ((e && e.message) || 'falha ao classificar'));
+        }
+      }
+      function autoClassificarUI() {
+        mmModal({
+          title: '✨ Auto-classificar',
+          message: 'Vou definir a categoria dos produtos em "Outros" pela heurística de nome (biscoito→Doces, leite→Laticínios, sabonete→Higiene…). Só mexe nos "Outros" — não toca no que você já classificou. Os poucos ambíguos ficam em Outros pra você ajustar.',
+          okText: 'Auto-classificar',
+          onOk: function () { doAutoClassificar(); },
+        });
+      }
+      async function doAutoClassificar() {
+        toast('✨ Classificando…');
+        try {
+          var r = await apiFetch('/admin/produtos/auto-classificar', { method: 'POST' });
+          var det = r && r.porCategoria
+            ? Object.keys(r.porCategoria).map(function (k) { return [k, r.porCategoria[k]]; })
+                .sort(function (a, b) { return b[1] - a[1]; }).slice(0, 4)
+                .map(function (e) { return e[0] + ' ' + e[1]; }).join(', ')
+            : '';
+          toast('✨ ' + (r && r.classificados != null ? r.classificados : '') + ' classificados' + (det ? ' — ' + det : ''));
+          await carregarCobertura(false);
+        } catch (e) {
+          toast('Erro: ' + ((e && e.message) || 'falha ao auto-classificar'));
         }
       }
       function juntarProdutosUI() {
@@ -847,6 +878,8 @@
           if (pb) pb.oninput = function () { state.covProdBusca = pb.value; state.covProdPag = 1; renderCovProdBox(); };
           var pcat = el('cov-prod-cat');
           if (pcat) pcat.onchange = function () { state.covProdCat = pcat.value; state.covProdPag = 1; renderCovProdBox(); };
+          var autoB = el('cov-auto');
+          if (autoB) autoB.onclick = autoClassificarUI;
           renderCovMercBox();
           renderCovProdBox();
           if (!state.cobertura && !state.coberturaLoading) carregarCobertura();
