@@ -195,6 +195,20 @@
         var toks = String(nome || '').toUpperCase().split(/[\s.,/]+/).filter(function (x) { return x && !COV_STOP[x]; });
         return toks.slice(0, 2).join(' ') || String(nome || '').trim() || '—';
       }
+      // Cores das tags: marcas conhecidas com a cor real; o resto ganha uma cor
+      // estável (hash → paleta), pra cada mercado ter sempre a mesma.
+      var MERC_COR = { ATACADAO: '#f59e0b', CARREFOUR: '#1d4ed8', ROSSI: '#16a34a', GIGA: '#dc2626',
+        EBA: '#7c3aed', ASIA: '#db2777', FOCUS: '#0891b2', FRUTTO: '#65a30d', DIA: '#e11d48',
+        PAODEACUCAR: '#16a34a', EXTRA: '#dc2626', ASSAI: '#ea580c', TENDA: '#2563eb' };
+      var COV_PALETA = ['#0ea5e9', '#f59e0b', '#22c55e', '#a855f7', '#ef4444', '#14b8a6', '#f97316', '#ec4899', '#84cc16', '#6366f1'];
+      function corMercado(tag) {
+        var k = String(tag || '').replace(/\s+/g, '');
+        if (MERC_COR[k]) return MERC_COR[k];
+        var h = 0; for (var i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0;
+        return COV_PALETA[h % COV_PALETA.length];
+      }
+      function fmtDataCurta(iso) { try { return new Date(iso).toLocaleDateString('pt-BR'); } catch (e) { return ''; } }
+      var CATEGORIAS = ['Graos', 'Oleos', 'Basicos', 'Bebidas', 'Laticinios', 'Padaria', 'Massas', 'Conservas', 'Carnes', 'Limpeza', 'Higiene', 'Frutas', 'Verduras', 'Outros'];
       function covSelCount() { return Object.keys(state.covSel).length; }
       function pagInfo(total, pag, size) {
         var paginas = Math.max(1, Math.ceil(total / size));
@@ -315,10 +329,14 @@
             ? '<div class="cov-table"><div class="cov-h cov-h-p"><span></span><span>Produto</span><span>Merc.</span><span>Preços</span></div>' +
               lista.slice(info.ini, info.fim).map(function (p) {
                 var cls = p.mercados < 2 ? 'cov-r cov-r-p low' : 'cov-r cov-r-p';
-                var tags = tagsDe(p).map(function (n) { return '<span class="cov-tag">' + esc(n) + '</span>'; }).join('');
+                var tags = tagsDe(p).map(function (n) {
+                  var cor = corMercado(n);
+                  return '<span class="cov-tag" style="background:' + cor + '22;border-color:' + cor + '66;color:' + cor + '">' + esc(n) + '</span>';
+                }).join('');
                 return '<div class="' + cls + '">' +
                   '<input type="checkbox" class="cov-chk" data-id="' + p.id + '"' + (state.covSel[p.id] ? ' checked' : '') + '/>' +
                   '<span class="cov-cell">' + esc(p.nome) + ' <i>' + esc(p.categoria) + '</i>' +
+                    ' <button class="ed-open" data-edit="' + esc(p.id) + '" title="Editar">✏️</button>' +
                     (tags ? '<span class="cov-tags">' + tags + '</span>' : '') + '</span>' +
                   '<span>' + p.mercados + '</span><span>' + p.precos + '</span></div>';
               }).join('') + '</div>'
@@ -434,6 +452,89 @@
         } catch (e) {
           toast('Erro: ' + ((e && e.message) || 'falha ao excluir'));
         }
+      }
+      // Editor de produto (nome/categoria) + seus reportes de preço (corrigir/excluir).
+      function abrirEditorProduto(id) {
+        var ov = document.createElement('div');
+        ov.className = 'mm-modal-ov';
+        ov.innerHTML = '<div class="mm-modal ed-modal"><h3>✏️ Editar produto</h3>' +
+          '<div id="ed-body"><p class="fnote">Carregando…</p></div>' +
+          '<div class="mm-modal-acts"><button class="mm-btn-ghost" data-ed="close">Fechar</button></div></div>';
+        var recarregar = false;
+        var dados = null;
+        function fechar() {
+          if (ov.parentNode) ov.parentNode.removeChild(ov);
+          if (recarregar) carregarCobertura(false);
+        }
+        function pintar() {
+          var cats = CATEGORIAS.map(function (cat) {
+            return '<option value="' + cat + '"' + (cat === dados.categoria ? ' selected' : '') + '>' + cat + '</option>';
+          }).join('');
+          var precos = dados.precos.length ? dados.precos.map(function (pr) {
+            return '<div class="ed-preco"><div class="ed-preco-top"><b>' + esc(pr.mercadoNome) + '</b>' +
+              '<span>' + fmtDataCurta(pr.observedAt) + '</span></div>' +
+              '<div class="ed-preco-bot"><span class="ed-rs">R$</span>' +
+              '<input type="number" step="0.01" min="0" class="ed-val" id="edval-' + esc(pr.id) + '" value="' + (pr.precoCents / 100).toFixed(2) + '"/>' +
+              '<button class="ed-mini" data-ed="save-preco" data-pid="' + esc(pr.id) + '">Salvar</button>' +
+              '<button class="ed-mini ed-danger" data-ed="del-preco" data-pid="' + esc(pr.id) + '">🗑</button></div></div>';
+          }).join('') : '<p class="fnote">Sem reportes de preço.</p>';
+          el('ed-body').innerHTML =
+            '<label>Nome</label><input class="mm-select" id="ed-nome" value="' + esc(dados.nome) + '"/>' +
+            '<label>Categoria</label><select class="mm-select" id="ed-cat">' + cats + '</select>' +
+            '<button class="mm-btn ed-full" data-ed="save-prod">Salvar produto</button>' +
+            '<div class="ed-sep">Reportes de preço</div>' + precos;
+        }
+        async function fetchDados() {
+          try {
+            dados = await apiFetch('/admin/produtos/' + encodeURIComponent(id) + '/edicao');
+            pintar();
+          } catch (e) {
+            el('ed-body').innerHTML = '<p class="fnote" style="color:#ef4444">' + esc((e && e.message) || 'Falha ao carregar.') + '</p>';
+          }
+        }
+        async function salvarProduto() {
+          var nome = (el('ed-nome').value || '').trim();
+          if (!nome) { toast('Informe o nome'); return; }
+          try {
+            await apiFetch('/admin/produtos/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify({ nome: nome, categoria: el('ed-cat').value }) });
+            recarregar = true; toast('✓ Produto salvo');
+          } catch (e) { toast('Erro: ' + ((e && e.message) || 'falha')); }
+        }
+        async function salvarPreco(pid) {
+          var inp = el('edval-' + pid);
+          if (!inp) return;
+          var cents = Math.round(parseFloat(inp.value) * 100);
+          if (!(cents > 0)) { toast('Valor inválido'); return; }
+          try {
+            await apiFetch('/admin/precos/' + encodeURIComponent(pid), { method: 'PATCH', body: JSON.stringify({ precoCents: cents }) });
+            recarregar = true; toast('✓ Preço corrigido'); await fetchDados();
+          } catch (e) { toast('Erro: ' + ((e && e.message) || 'falha')); }
+        }
+        function armarExcluir(btn) {
+          var pid = btn.getAttribute('data-pid');
+          if (btn.getAttribute('data-armed') !== '1') {
+            btn.setAttribute('data-armed', '1'); btn.textContent = 'Excluir?';
+            setTimeout(function () { if (btn.getAttribute('data-armed') === '1') { btn.removeAttribute('data-armed'); btn.textContent = '🗑'; } }, 2500);
+            return;
+          }
+          doExcluirPreco(pid);
+        }
+        async function doExcluirPreco(pid) {
+          try {
+            await apiFetch('/admin/precos/' + encodeURIComponent(pid), { method: 'DELETE' });
+            recarregar = true; toast('🗑 Reporte excluído'); await fetchDados();
+          } catch (e) { toast('Erro: ' + ((e && e.message) || 'falha')); }
+        }
+        ov.addEventListener('click', function (ev) {
+          var t = ev.target;
+          var acao = t.getAttribute && t.getAttribute('data-ed');
+          if (t === ov || acao === 'close') { fechar(); return; }
+          if (acao === 'save-prod') salvarProduto();
+          else if (acao === 'save-preco') salvarPreco(t.getAttribute('data-pid'));
+          else if (acao === 'del-preco') armarExcluir(t);
+        });
+        document.body.appendChild(ov);
+        fetchDados();
       }
       function wireCovPag(prefix, pagKey, sizeKey, rerender) {
         var fn = rerender || renderDashboard;
@@ -684,6 +785,8 @@
       });
 
       document.addEventListener('click', function (ev) {
+        var edBtn = ev.target.closest ? ev.target.closest('[data-edit]') : null;
+        if (edBtn) { abrirEditorProduto(edBtn.getAttribute('data-edit')); return; }
         var head = ev.target.closest ? ev.target.closest('[data-toggle]') : null;
         if (head) {
           var id = head.getAttribute('data-toggle');

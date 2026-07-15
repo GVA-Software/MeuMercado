@@ -5,11 +5,14 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import {
+  AdminEditarPrecoSchema,
+  AdminEditarProdutoSchema,
   AdminExcluirMercadosSchema,
   AdminExcluirProdutosSchema,
   AdminGrantProSchema,
@@ -19,12 +22,15 @@ import {
   ResponderFeedbackSchema,
   type AdminCoberturaDTO,
   type AdminDuplicadosDTO,
+  type AdminEditarPrecoInput,
+  type AdminEditarProdutoInput,
   type AdminExcluirMercadosInput,
   type AdminExcluirProdutosInput,
   type AdminFunnelDTO,
   type AdminGrantProInput,
   type AdminJuntarInput,
   type AdminJuntarMercadosInput,
+  type AdminProdutoEdicaoDTO,
   type AdminStatsDTO,
   type AdminUserDTO,
   type AdminUsersResponse,
@@ -106,6 +112,39 @@ export class AdminController {
     @Body(new ZodValidationPipe(AdminExcluirMercadosSchema)) body: AdminExcluirMercadosInput,
   ): Promise<{ mercados: number; precos: number }> {
     return this.service.excluirMercados(body.ids);
+  }
+
+  /** Dados de um produto + seus reportes de preço (para o editor). */
+  @Get('produtos/:id/edicao')
+  produtoEdicao(@Param('id') id: string): Promise<AdminProdutoEdicaoDTO> {
+    return this.service.produtoEdicao(id);
+  }
+
+  /** Edita nome/categoria de um produto. */
+  @Patch('produtos/:id')
+  @HttpCode(204)
+  editarProduto(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(AdminEditarProdutoSchema)) body: AdminEditarProdutoInput,
+  ): Promise<void> {
+    return this.service.editarProduto(id, body.nome, body.categoria);
+  }
+
+  /** Corrige o valor de um reporte de preço. */
+  @Patch('precos/:id')
+  @HttpCode(204)
+  editarPreco(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(AdminEditarPrecoSchema)) body: AdminEditarPrecoInput,
+  ): Promise<void> {
+    return this.service.editarPreco(id, body.precoCents);
+  }
+
+  /** Exclui um reporte de preço (report errado). */
+  @Delete('precos/:id')
+  @HttpCode(204)
+  excluirPreco(@Param('id') id: string): Promise<void> {
+    return this.service.excluirPreco(id);
   }
 
   @Get('qa-conversa')

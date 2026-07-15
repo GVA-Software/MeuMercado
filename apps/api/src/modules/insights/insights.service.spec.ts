@@ -30,6 +30,8 @@ function make(produtos: Produto[], observations: PriceObservation[]): InsightsSe
     reassignMercado: () => Promise.resolve(),
     deleteByProduto: () => Promise.resolve(),
     deleteByMercado: () => Promise.resolve(),
+    updatePreco: () => Promise.resolve(),
+    deleteById: () => Promise.resolve(),
   };
   const prodRepo: ProdutoRepository = {
     findAll: () => Promise.resolve(produtos),
@@ -37,6 +39,7 @@ function make(produtos: Produto[], observations: PriceObservation[]): InsightsSe
     findByEan: () => Promise.resolve(null),
     search: () => Promise.resolve([]),
     add: () => Promise.resolve(),
+    atualizar: () => Promise.resolve(true),
     delete: () => Promise.resolve(),
   };
   const seed = { mercados: [], produtos: [] } as unknown as SeedData;

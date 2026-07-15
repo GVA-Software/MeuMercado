@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Produto } from '@meumercado/domain';
+import { Produto, type Categoria } from '@meumercado/domain';
 import { SEED_DATA } from '../../data/data.module.js';
 import type { SeedData } from '../../data/seed.js';
 import { combinaBusca } from '../../common/texto.js';
@@ -15,6 +15,11 @@ export interface ProdutoRepository {
   findByEan(ean: string): Promise<Produto | null>;
   search(termo: string, limit: number): Promise<Produto[]>;
   add(produto: Produto): Promise<void>;
+  /**
+   * Atualiza nome/categoria de um produto. Retorna `false` se não deu pra editar
+   * (não existe, ou é item fixo da base). Usado na correção pós-merge.
+   */
+  atualizar(id: string, campos: { nome: string; categoria: Categoria }): Promise<boolean>;
   /** Remove um produto do catálogo (usado ao juntar duplicados). */
   delete(id: string): Promise<void>;
 }
@@ -50,6 +55,22 @@ export class InMemoryProdutoRepository implements ProdutoRepository {
   add(produto: Produto): Promise<void> {
     this.produtos.push(produto);
     return Promise.resolve();
+  }
+
+  atualizar(id: string, campos: { nome: string; categoria: Categoria }): Promise<boolean> {
+    const i = this.produtos.findIndex((p) => p.id === id);
+    if (i < 0) return Promise.resolve(false);
+    const p = this.produtos[i]!;
+    this.produtos[i] = new Produto({
+      id: p.id,
+      nome: campos.nome,
+      categoria: campos.categoria,
+      unidade: p.unidade,
+      ...(p.emoji !== undefined ? { emoji: p.emoji } : {}),
+      ...(p.codigoExterno !== undefined ? { codigoExterno: p.codigoExterno } : {}),
+      ...(p.ean !== undefined ? { ean: p.ean } : {}),
+    });
+    return Promise.resolve(true);
   }
 
   delete(id: string): Promise<void> {

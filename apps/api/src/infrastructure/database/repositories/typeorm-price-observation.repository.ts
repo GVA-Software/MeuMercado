@@ -101,4 +101,14 @@ export class TypeOrmPriceObservationRepository implements PriceObservationReposi
     await this.repo.delete({ mercadoId });
     this.invalidar();
   }
+
+  async updatePreco(id: string, priceCents: number): Promise<void> {
+    await this.repo.update({ id }, { priceCents });
+    this.invalidar();
+  }
+
+  async deleteById(id: string): Promise<void> {
+    await this.repo.delete(id);
+    this.invalidar();
+  }
 }

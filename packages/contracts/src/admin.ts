@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { IdSchema } from './common.js';
+import { CategoriaSchema } from './catalog.js';
 import { PeriodoSchema, PlanoSchema, StatusAssinaturaSchema } from './billing.js';
 
 /** Um usuário na visão do administrador (perfil + situação da assinatura). */
@@ -134,3 +135,37 @@ export const AdminExcluirMercadosSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(50),
 });
 export type AdminExcluirMercadosInput = z.infer<typeof AdminExcluirMercadosSchema>;
+
+/** Um reporte de preço na edição do ADM (para corrigir valor errado / excluir). */
+export const AdminPrecoSchema = z.object({
+  id: z.string(),
+  mercadoNome: z.string(),
+  endereco: z.string().nullable(),
+  precoCents: z.number().int().nonnegative(),
+  observedAt: z.string().datetime(),
+  source: z.string(),
+});
+export type AdminPrecoDTO = z.infer<typeof AdminPrecoSchema>;
+
+/** Payload de edição de um produto: dados + seus reportes de preço. */
+export const AdminProdutoEdicaoSchema = z.object({
+  id: IdSchema,
+  nome: z.string(),
+  categoria: z.string(),
+  unidade: z.string(),
+  precos: z.array(AdminPrecoSchema),
+});
+export type AdminProdutoEdicaoDTO = z.infer<typeof AdminProdutoEdicaoSchema>;
+
+/** Editar nome/categoria de um produto (ex.: corrigir gramatura após um merge). */
+export const AdminEditarProdutoSchema = z.object({
+  nome: z.string().min(1).max(120),
+  categoria: CategoriaSchema,
+});
+export type AdminEditarProdutoInput = z.infer<typeof AdminEditarProdutoSchema>;
+
+/** Corrigir o valor de UM reporte de preço (ex.: marcou a caixa em vez da unidade). */
+export const AdminEditarPrecoSchema = z.object({
+  precoCents: z.number().int().positive().max(100_000_000),
+});
+export type AdminEditarPrecoInput = z.infer<typeof AdminEditarPrecoSchema>;

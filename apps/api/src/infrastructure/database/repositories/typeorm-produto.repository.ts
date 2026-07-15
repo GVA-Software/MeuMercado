@@ -74,6 +74,13 @@ export class TypeOrmProdutoRepository implements ProdutoRepository {
     });
   }
 
+  async atualizar(id: string, campos: { nome: string; categoria: Categoria }): Promise<boolean> {
+    // Itens do seed são fixos no código — não dá pra editar por aqui.
+    if (this.seedIds.has(id)) return false;
+    const r = await this.repo.update({ id }, { nome: campos.nome, categoria: campos.categoria });
+    return (r.affected ?? 0) > 0;
+  }
+
   async delete(id: string): Promise<void> {
     // Itens do seed são fixos (não estão no banco) — não há o que remover.
     if (this.seedIds.has(id)) return;

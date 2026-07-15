@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { PriceObservation } from '@meumercado/domain';
+import { Money, PriceObservation } from '@meumercado/domain';
 import { SEED_DATA } from '../../data/data.module.js';
 import type { SeedData } from '../../data/seed.js';
 
@@ -24,6 +24,10 @@ export interface PriceObservationRepository {
   deleteByProduto(produtoId: string): Promise<void>;
   /** Apaga todas as observações de um mercado (ao excluir o mercado). */
   deleteByMercado(mercadoId: string): Promise<void>;
+  /** Corrige o valor de UMA observação (ex.: preço da caixa em vez da unidade). */
+  updatePreco(id: string, priceCents: number): Promise<void>;
+  /** Apaga UMA observação pelo id (reporte errado). */
+  deleteById(id: string): Promise<void>;
 }
 
 export const PRICE_OBSERVATION_REPOSITORY = 'PRICE_OBSERVATION_REPOSITORY';
@@ -87,6 +91,33 @@ export class InMemoryPriceObservationRepository implements PriceObservationRepos
     for (let i = this.observations.length - 1; i >= 0; i--) {
       if (this.observations[i]!.mercadoId === mercadoId) this.observations.splice(i, 1);
     }
+    return Promise.resolve();
+  }
+
+  updatePreco(id: string, priceCents: number): Promise<void> {
+    for (let i = 0; i < this.observations.length; i++) {
+      const o = this.observations[i]!;
+      if (o.id !== id) continue;
+      this.observations[i] = new PriceObservation({
+        id: o.id,
+        produtoId: o.produtoId,
+        mercadoId: o.mercadoId,
+        price: Money.fromCents(priceCents),
+        source: o.source,
+        reporterId: o.reporterId,
+        observedAt: o.observedAt,
+        ...(o.mercadoNome !== undefined ? { mercadoNome: o.mercadoNome } : {}),
+        ...(o.mercadoEndereco !== undefined ? { mercadoEndereco: o.mercadoEndereco } : {}),
+        ...(o.mercadoLat !== undefined ? { mercadoLat: o.mercadoLat } : {}),
+        ...(o.mercadoLng !== undefined ? { mercadoLng: o.mercadoLng } : {}),
+      });
+    }
+    return Promise.resolve();
+  }
+
+  deleteById(id: string): Promise<void> {
+    const i = this.observations.findIndex((o) => o.id === id);
+    if (i >= 0) this.observations.splice(i, 1);
     return Promise.resolve();
   }
 

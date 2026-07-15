@@ -38,6 +38,8 @@ function makeService(observations: PriceObservation[], produtos: Produto[]): Pri
     reassignMercado: () => Promise.resolve(),
     deleteByProduto: () => Promise.resolve(),
     deleteByMercado: () => Promise.resolve(),
+    updatePreco: () => Promise.resolve(),
+    deleteById: () => Promise.resolve(),
   };
   const prodRepo: ProdutoRepository = {
     findAll: () => Promise.resolve(produtos),
@@ -45,6 +47,7 @@ function makeService(observations: PriceObservation[], produtos: Produto[]): Pri
     findByEan: () => Promise.resolve(null),
     search: () => Promise.resolve([]),
     add: () => Promise.resolve(),
+    atualizar: () => Promise.resolve(true),
     delete: () => Promise.resolve(),
   };
   return new PricingService(obsRepo, prodRepo);

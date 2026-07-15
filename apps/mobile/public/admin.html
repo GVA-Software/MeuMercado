@@ -149,6 +149,24 @@
       .mm-btn.mm-danger { background: var(--danger); }
       .mm-btn-ghost { background: transparent; color: var(--sub); border: 1.5px solid var(--border); }
 
+      /* Editor de produto */
+      .ed-open { background: transparent; border: none; cursor: pointer; font-size: 13px; padding: 0 2px; opacity: .8; }
+      .ed-open:hover { opacity: 1; }
+      .ed-modal { max-width: 460px; max-height: 86vh; overflow-y: auto; }
+      .ed-modal label { display: block; color: var(--sub); font-size: 12px; font-weight: 700; margin: 10px 0 4px; }
+      .ed-full { width: 100%; margin: 8px 0 4px; }
+      .ed-sep { margin: 16px 0 8px; color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; border-top: 1px solid var(--border); padding-top: 12px; }
+      .ed-preco { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+      .ed-preco-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+      .ed-preco-top b { color: var(--text); font-size: 14px; }
+      .ed-preco-top span { color: var(--muted); font-size: 12px; }
+      .ed-preco-bot { display: flex; align-items: center; gap: 8px; }
+      .ed-rs { color: var(--sub); font-size: 13px; font-weight: 700; }
+      .ed-val { flex: 1; min-width: 0; background: var(--surface); color: var(--text); border: 1.5px solid var(--border); border-radius: 9px; padding: 8px 10px; font-size: 14px; }
+      .ed-val:focus { border-color: var(--primary); outline: none; }
+      .ed-mini { background: var(--primary); color: #fff; border: none; border-radius: 9px; font-size: 12px; font-weight: 700; padding: 8px 12px; cursor: pointer; white-space: nowrap; }
+      .ed-mini.ed-danger { background: rgba(239,68,68,.15); color: var(--danger); border: 1px solid rgba(239,68,68,.4); }
+
       /* Stats */
       .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 12px; }
       @media (min-width: 640px) { .stats { grid-template-columns: repeat(4, 1fr); } }

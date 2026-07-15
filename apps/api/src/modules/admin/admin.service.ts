@@ -7,12 +7,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { chaveProduto, type Assinatura, type Periodo } from '@meumercado/domain';
+import { chaveProduto, type Assinatura, type Categoria, type Periodo } from '@meumercado/domain';
 import {
   PLANOS,
   type AdminCoberturaDTO,
   type AdminDuplicadosDTO,
   type AdminFunnelDTO,
+  type AdminProdutoEdicaoDTO,
   type AdminStatsDTO,
   type AdminUserDTO,
   type AdminUsersResponse,
@@ -331,6 +332,47 @@ export class AdminService {
       mercados += 1;
     }
     return { mercados, precos };
+  }
+
+  /** Dados de um produto + seus reportes de preço (para o editor do ADM). */
+  async produtoEdicao(id: string): Promise<AdminProdutoEdicaoDTO> {
+    const p = await this.produtos.findById(id);
+    if (!p) throw new NotFoundException('Produto não encontrado.');
+    const obs = await this.prices.findByProduto(id);
+    const precos = obs
+      .map((o) => ({
+        id: o.id,
+        mercadoNome: o.mercadoNome ?? o.mercadoId,
+        endereco: o.mercadoEndereco ?? null,
+        precoCents: o.price.cents,
+        observedAt: o.observedAt.toISOString(),
+        source: o.source,
+      }))
+      .sort((a, b) => b.observedAt.localeCompare(a.observedAt));
+    return { id: p.id, nome: p.nome, categoria: p.categoria, unidade: p.unidade, precos };
+  }
+
+  /** Edita nome/categoria de um produto (ex.: corrigir gramatura pós-merge). */
+  async editarProduto(id: string, nome: string, categoria: Categoria): Promise<void> {
+    if (!(await this.produtos.findById(id))) {
+      throw new NotFoundException('Produto não encontrado.');
+    }
+    const ok = await this.produtos.atualizar(id, { nome: nome.trim(), categoria });
+    if (!ok) {
+      throw new BadRequestException('Este produto é da base e não pode ser editado por aqui.');
+    }
+  }
+
+  /** Corrige o valor de UM reporte de preço. */
+  async editarPreco(id: string, precoCents: number): Promise<void> {
+    const existe = (await this.prices.all()).some((o) => o.id === id);
+    if (!existe) throw new NotFoundException('Reporte de preço não encontrado.');
+    await this.prices.updatePreco(id, precoCents);
+  }
+
+  /** Exclui UM reporte de preço (report errado). */
+  async excluirPreco(id: string): Promise<void> {
+    await this.prices.deleteById(id);
   }
 
   /**

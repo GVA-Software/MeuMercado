@@ -29,6 +29,7 @@ function makeService(
     resumo?: Array<{ name: string; usuarios: number; total: number }>;
     vistos?: string[];
     observacoes?: Array<{
+      id?: string;
       reporterId: string;
       produtoId?: string;
       mercadoId?: string;
@@ -39,6 +40,7 @@ function makeService(
     produtos?: Array<{ id: string; nome: string; categoria?: string }>;
     proAtivo?: boolean;
     emailLigado?: boolean;
+    atualizarOk?: boolean;
   } = {},
 ) {
   const deleted: string[] = [];
@@ -84,9 +86,13 @@ function makeService(
   const precosApagados: string[] = [];
   const produtosApagados: string[] = [];
   const mercadosApagados: string[] = [];
+  const precosEditados: Array<[string, number]> = [];
+  const produtosEditados: Array<[string, string, string]> = [];
   const reassignsMercado: Array<[string, string, string, string | null]> = [];
   const prices = {
     all: () => Promise.resolve(extra.observacoes ?? []),
+    findByProduto: (pid: string) =>
+      Promise.resolve((extra.observacoes ?? []).filter((o) => o.produtoId === pid)),
     deleteByProduto: (id: string) => {
       precosApagados.push(id);
       return Promise.resolve();
@@ -99,11 +105,19 @@ function makeService(
       reassignsMercado.push([from, to, nome, endereco]);
       return Promise.resolve();
     },
+    updatePreco: (id: string, cents: number) => {
+      precosEditados.push([id, cents]);
+      return Promise.resolve();
+    },
   } as unknown as PriceObservationRepository;
   const produtos = {
     findAll: () => Promise.resolve(extra.produtos ?? []),
     findById: (id: string) =>
       Promise.resolve((extra.produtos ?? []).find((p) => p.id === id) ?? null),
+    atualizar: (id: string, campos: { nome: string; categoria: string }) => {
+      produtosEditados.push([id, campos.nome, campos.categoria]);
+      return Promise.resolve(extra.atualizarOk ?? true);
+    },
     delete: (id: string) => {
       produtosApagados.push(id);
       return Promise.resolve();
@@ -133,6 +147,8 @@ function makeService(
     precosApagados,
     produtosApagados,
     mercadosApagados,
+    precosEditados,
+    produtosEditados,
     reassignsMercado,
   };
 }
@@ -275,6 +291,46 @@ describe('AdminService — juntar mercados', () => {
     const r = await service.excluirMercados(['m1', 'fantasma']);
     expect(r).toEqual({ mercados: 1, precos: 2 }); // m1 tinha 2 preços; fantasma ignorado
     expect(mercadosApagados).toEqual(['m1']);
+  });
+});
+
+describe('AdminService — editar produto e preço', () => {
+  const d = new Date('2026-07-05T00:00:00Z');
+
+  it('editarProduto atualiza nome/categoria de um produto existente', async () => {
+    const { service, produtosEditados } = makeService([], {
+      produtos: [{ id: 'p1', nome: 'ARROZ 1KG' }],
+    });
+    await service.editarProduto('p1', '  ARROZ 5KG  ', 'Graos');
+    expect(produtosEditados).toEqual([['p1', 'ARROZ 5KG', 'Graos']]); // nome trimado
+  });
+
+  it('editarProduto rejeita produto inexistente', async () => {
+    const { service } = makeService([], { produtos: [] });
+    await expect(service.editarProduto('nada', 'X', 'Outros')).rejects.toThrow(/não encontrado/i);
+  });
+
+  it('editarProduto rejeita item da base (atualizar → false)', async () => {
+    const { service } = makeService([], {
+      produtos: [{ id: 'seed1', nome: 'Base' }],
+      atualizarOk: false,
+    });
+    await expect(service.editarProduto('seed1', 'Novo', 'Outros')).rejects.toThrow(/base/i);
+  });
+
+  it('editarPreco corrige o valor de um reporte existente', async () => {
+    const { service, precosEditados } = makeService([], {
+      observacoes: [
+        { id: 'obs1', reporterId: 'u1', produtoId: 'p1', mercadoId: 'm1', observedAt: d },
+      ],
+    });
+    await service.editarPreco('obs1', 159);
+    expect(precosEditados).toEqual([['obs1', 159]]);
+  });
+
+  it('editarPreco rejeita reporte inexistente', async () => {
+    const { service } = makeService([], { observacoes: [] });
+    await expect(service.editarPreco('fantasma', 100)).rejects.toThrow(/não encontrado/i);
   });
 });
 

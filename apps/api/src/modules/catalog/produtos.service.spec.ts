@@ -23,6 +23,8 @@ function makeService(produtos: Produto[], offNome: string | null = null) {
     reassignMercado: () => Promise.resolve(),
     deleteByProduto: () => Promise.resolve(),
     deleteByMercado: () => Promise.resolve(),
+    updatePreco: () => Promise.resolve(),
+    deleteById: () => Promise.resolve(),
   };
   const prodRepo: ProdutoRepository = {
     findAll: () => Promise.resolve(produtos),
@@ -30,6 +32,7 @@ function makeService(produtos: Produto[], offNome: string | null = null) {
     findByEan: (ean) => Promise.resolve(produtos.find((p) => p.ean === ean) ?? null),
     search: () => Promise.resolve([]),
     add: () => Promise.resolve(),
+    atualizar: () => Promise.resolve(true),
     delete: (id) => {
       deleted.push(id);
       return Promise.resolve();
