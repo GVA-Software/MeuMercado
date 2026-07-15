@@ -79,6 +79,19 @@ export class TypeOrmPriceObservationRepository implements PriceObservationReposi
     this.invalidar();
   }
 
+  async reassignMercado(
+    fromId: string,
+    toId: string,
+    nome: string,
+    endereco: string | null,
+  ): Promise<void> {
+    await this.repo.update(
+      { mercadoId: fromId },
+      { mercadoId: toId, mercadoNome: nome, mercadoEndereco: endereco },
+    );
+    this.invalidar();
+  }
+
   async deleteByProduto(produtoId: string): Promise<void> {
     await this.repo.delete({ produtoId });
     this.invalidar();

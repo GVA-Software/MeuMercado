@@ -116,3 +116,15 @@ export const AdminExcluirProdutosSchema = z.object({
   ids: z.array(IdSchema).min(1).max(200),
 });
 export type AdminExcluirProdutosInput = z.infer<typeof AdminExcluirProdutosSchema>;
+
+/**
+ * Juntar mercados: unifica o mesmo mercado cadastrado sob nomes/ids diferentes
+ * (ex.: "Carrefour" manual vs "CARREFOUR ... LTDA" da NFC-e). Os preços dos
+ * `removerIds` passam a apontar pro `manterId` (com o nome/endereço dele).
+ * Os ids de mercado não são UUID (podem vir de CNPJ), por isso `z.string()`.
+ */
+export const AdminJuntarMercadosSchema = z.object({
+  manterId: z.string().min(1),
+  removerIds: z.array(z.string().min(1)).min(1).max(50),
+});
+export type AdminJuntarMercadosInput = z.infer<typeof AdminJuntarMercadosSchema>;

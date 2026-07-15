@@ -274,6 +274,48 @@ export class AdminService {
   }
 
   /**
+   * Junta mercados: os preços dos `removerIds` passam a apontar pro `manterId`,
+   * adotando o nome do destino. O endereço é PRESERVADO — usa o do destino ou, se
+   * ele não tiver, o primeiro endereço não-vazio do grupo (não perde o dado bom).
+   */
+  async juntarMercados(manterId: string, removerIds: string[]): Promise<{ mercados: number }> {
+    const observacoes = await this.prices.all();
+    const infos = new Map<string, { nome: string; endereco: string | null }>();
+    for (const o of observacoes) {
+      const atual = infos.get(o.mercadoId);
+      if (!atual) {
+        infos.set(o.mercadoId, {
+          nome: o.mercadoNome ?? o.mercadoId,
+          endereco: o.mercadoEndereco ?? null,
+        });
+      } else if (o.mercadoEndereco && !atual.endereco) {
+        atual.endereco = o.mercadoEndereco;
+      }
+    }
+    const alvo = infos.get(manterId);
+    if (!alvo) {
+      throw new BadRequestException('Mercado de destino não existe mais — recarregue a lista.');
+    }
+    let endereco = alvo.endereco;
+    if (!endereco) {
+      for (const id of removerIds) {
+        const e = infos.get(id)?.endereco;
+        if (e) {
+          endereco = e;
+          break;
+        }
+      }
+    }
+    let mercados = 0;
+    for (const from of removerIds) {
+      if (from === manterId || !infos.has(from)) continue;
+      await this.prices.reassignMercado(from, manterId, alvo.nome, endereco);
+      mercados += 1;
+    }
+    return { mercados };
+  }
+
+  /**
    * Funil de ativação: do cadastro ao 1º preço. A base já está ativa — "registrou
    * preço" é derivado de `reporter_id` (sem seed); só o topo (onboarding) é evento.
    */

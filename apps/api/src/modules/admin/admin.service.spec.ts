@@ -83,10 +83,15 @@ function makeService(
   } as unknown as AnalyticsRepository;
   const precosApagados: string[] = [];
   const produtosApagados: string[] = [];
+  const reassignsMercado: Array<[string, string, string, string | null]> = [];
   const prices = {
     all: () => Promise.resolve(extra.observacoes ?? []),
     deleteByProduto: (id: string) => {
       precosApagados.push(id);
+      return Promise.resolve();
+    },
+    reassignMercado: (from: string, to: string, nome: string, endereco: string | null) => {
+      reassignsMercado.push([from, to, nome, endereco]);
       return Promise.resolve();
     },
   } as unknown as PriceObservationRepository;
@@ -114,7 +119,16 @@ function makeService(
     produtos,
     email as unknown as EmailService,
   );
-  return { service, deleted, push, billing, email, precosApagados, produtosApagados };
+  return {
+    service,
+    deleted,
+    push,
+    billing,
+    email,
+    precosApagados,
+    produtosApagados,
+    reassignsMercado,
+  };
 }
 
 describe('AdminService — testar e-mail', () => {
@@ -189,6 +203,59 @@ describe('AdminService — excluir produtos', () => {
     expect(r.excluidos).toBe(2); // fantasma ignorado
     expect(precosApagados).toEqual(['p1', 'p2']); // preços apagados antes do produto
     expect(produtosApagados).toEqual(['p1', 'p2']);
+  });
+});
+
+describe('AdminService — juntar mercados', () => {
+  const d = new Date('2026-07-05T00:00:00Z');
+
+  it('move os preços pro destino, adotando o nome e preservando o endereço dele', async () => {
+    const { service, reassignsMercado } = makeService([], {
+      observacoes: [
+        {
+          reporterId: 'u1',
+          produtoId: 'p1',
+          mercadoId: 'm1',
+          mercadoNome: 'CARREFOUR LTDA',
+          mercadoEndereco: 'Av X',
+          observedAt: d,
+        },
+        {
+          reporterId: 'u1',
+          produtoId: 'p2',
+          mercadoId: 'm2',
+          mercadoNome: 'Carrefour',
+          observedAt: d,
+        },
+      ],
+    });
+    const r = await service.juntarMercados('m1', ['m2']);
+    expect(r.mercados).toBe(1);
+    expect(reassignsMercado).toEqual([['m2', 'm1', 'CARREFOUR LTDA', 'Av X']]);
+  });
+
+  it('herda o endereço do grupo mesmo mantendo o mercado que estava sem endereço', async () => {
+    const { service, reassignsMercado } = makeService([], {
+      observacoes: [
+        {
+          reporterId: 'u1',
+          produtoId: 'p1',
+          mercadoId: 'm1',
+          mercadoNome: 'Carrefour',
+          observedAt: d,
+        },
+        {
+          reporterId: 'u1',
+          produtoId: 'p2',
+          mercadoId: 'm2',
+          mercadoNome: 'CARREFOUR LTDA',
+          mercadoEndereco: 'Av X',
+          observedAt: d,
+        },
+      ],
+    });
+    await service.juntarMercados('m1', ['m2']);
+    expect(reassignsMercado[0]).toEqual(['m2', 'm1', 'Carrefour', 'Av X']);
   });
 });
 

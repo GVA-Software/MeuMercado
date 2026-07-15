@@ -1,7 +1,7 @@
       'use strict';
       var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
       var token = null;
-      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', covProdPag: 1, covProdSize: 20, covMercPag: 1, covMercSize: 20, covSel: {}, users: [], busca: '', aberto: null, agindo: null, erro: '' };
+      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', covProdPag: 1, covProdSize: 20, covMercPag: 1, covMercSize: 20, covSel: {}, covMercSel: {}, users: [], busca: '', aberto: null, agindo: null, erro: '' };
       var FB_TIPO = { bug: '🐛 Bug', sugestao: '💡 Sugestão', elogio: '❤️ Elogio', outro: '💬 Outro' };
 
       function esc(s) {
@@ -242,31 +242,41 @@
             }).join('') + '</ol>'
           : '<p class="fnote">Ninguém cadastrou preço ainda (fora a base inicial).</p>';
 
-        // Mercados: endereço abaixo do nome + paginação.
+        // Mercados: checkbox p/ juntar duplicados + endereço abaixo do nome + paginação.
         var mInfo = pagInfo(c.mercados.length, state.covMercPag, state.covMercSize);
+        var mSel = Object.keys(state.covMercSel).length;
         var merc = c.mercados.length
-          ? '<div class="cov-table"><div class="cov-h cov-h-m"><span>Mercado</span><span>Prod.</span><span>Preços</span></div>' +
+          ? '<div class="cov-table"><div class="cov-h cov-h-m"><span></span><span>Mercado</span><span>Prod.</span><span>Preços</span></div>' +
             c.mercados.slice(mInfo.ini, mInfo.fim).map(function (m) {
-              return '<div class="cov-r cov-r-m"><span class="cov-cell">' + esc(m.nome) +
-                (m.endereco ? '<i class="cov-end">📍 ' + esc(m.endereco) + '</i>' : '') + '</span>' +
+              return '<div class="cov-r cov-r-m">' +
+                '<input type="checkbox" class="cov-mchk" data-id="' + esc(m.id) + '"' + (state.covMercSel[m.id] ? ' checked' : '') + '/>' +
+                '<span class="cov-cell">' + esc(m.nome) +
+                (m.endereco ? '<i class="cov-end">📍 ' + esc(m.endereco) + '</i>' : '<i class="cov-end cov-noend">sem endereço</i>') + '</span>' +
                 '<span>' + m.produtos + '</span><span>' + m.precos + '</span></div>';
             }).join('') + '</div>' +
-            '<div class="cov-toolbar">' + sizeSelect('cov-merc-size', state.covMercSize) + pagBar('cov-merc', mInfo, c.mercados.length) + '</div>'
+            '<div class="cov-toolbar">' +
+              '<button id="cov-merc-join" class="cov-join"' + (mSel >= 2 ? '' : ' disabled') + '>🔗 Juntar (' + mSel + ')</button>' +
+              sizeSelect('cov-merc-size', state.covMercSize) + pagBar('cov-merc', mInfo, c.mercados.length) + '</div>'
           : '<p class="fnote">Nenhum mercado com preço ainda.</p>';
 
-        // Produtos: tags de mercado, seleção/exclusão, paginação.
-        var pInfo = pagInfo(c.produtos.length, state.covProdPag, state.covProdSize);
+        // Produtos: tags de mercado (deduplicadas), ordenados por MAIS tags primeiro.
+        function tagsDe(p) {
+          var v = {}, arr = [];
+          (p.mercadosNomes || []).forEach(function (nm) { var s = mercadoCurto(nm); if (!v[s]) { v[s] = 1; arr.push(s); } });
+          return arr;
+        }
+        var ordenados = c.produtos.slice().sort(function (a, b) {
+          return tagsDe(b).length - tagsDe(a).length || b.precos - a.precos || a.nome.localeCompare(b.nome);
+        });
+        var pInfo = pagInfo(ordenados.length, state.covProdPag, state.covProdSize);
         var sel = covSelCount();
         var barra = '<div class="cov-toolbar">' +
           '<label class="cov-selall"><input type="checkbox" id="cov-sel-all"/> pág.</label>' +
           '<button id="cov-del" class="cov-del"' + (sel ? '' : ' disabled') + '>🗑 Excluir (' + sel + ')</button>' +
-          sizeSelect('cov-prod-size', state.covProdSize) + pagBar('cov-prod', pInfo, c.produtos.length) + '</div>';
-        var rows = c.produtos.slice(pInfo.ini, pInfo.fim).map(function (p) {
+          sizeSelect('cov-prod-size', state.covProdSize) + pagBar('cov-prod', pInfo, ordenados.length) + '</div>';
+        var rows = ordenados.slice(pInfo.ini, pInfo.fim).map(function (p) {
           var cls = p.mercados < 2 ? 'cov-r cov-r-p low' : 'cov-r cov-r-p';
-          var vistas = {};
-          var tags = (p.mercadosNomes || []).map(mercadoCurto).filter(function (n) {
-            if (vistas[n]) return false; vistas[n] = 1; return true;
-          }).map(function (n) { return '<span class="cov-tag">' + esc(n) + '</span>'; }).join('');
+          var tags = tagsDe(p).map(function (n) { return '<span class="cov-tag">' + esc(n) + '</span>'; }).join('');
           return '<div class="' + cls + '">' +
             '<input type="checkbox" class="cov-chk" data-id="' + p.id + '"' + (state.covSel[p.id] ? ' checked' : '') + '/>' +
             '<span class="cov-cell">' + esc(p.nome) + ' <i>' + esc(p.categoria) + '</i>' +
@@ -277,9 +287,10 @@
 
         return cards +
           '<div class="funnel"><p class="ftitle">🏆 Quem mais cadastra <button id="cov-refresh" class="cov-mini-btn">↻ atualizar</button></p>' + top + '</div>' +
-          '<div class="funnel"><p class="ftitle">🏪 Mercados cadastrados</p>' + merc + '</div>' +
+          '<div class="funnel"><p class="ftitle">🏪 Mercados cadastrados</p>' +
+            '<p class="fnote">Marque 2+ e clique em <b>Juntar</b> pra unificar a mesma loja cadastrada com nomes diferentes (o endereço é preservado).</p>' + merc + '</div>' +
           '<div class="funnel"><p class="ftitle">📦 Produtos — cobertura</p>' +
-            '<p class="fnote">Ordenados por cobertura mais rasa. Os <b style="color:#f59e0b">destacados</b> têm menos de 2 mercados. Marque e exclua os que forem lixo — some do catálogo e da comparação nos apps.</p>' +
+            '<p class="fnote">Mais mercados no topo. Os <b style="color:#f59e0b">destacados</b> têm menos de 2 mercados — não geram comparação. Marque e exclua o que for lixo (some do catálogo e dos apps).</p>' +
             barra + prod + '</div>';
       }
       async function carregarCobertura(comToast) {
@@ -293,12 +304,37 @@
         state.coberturaLoading = false;
         renderDashboard();
       }
-      async function excluirCobertura() {
+      // Modal próprio (no tema do painel) — substitui o confirm() do navegador.
+      function mmModal(opts) {
+        var ov = document.createElement('div');
+        ov.className = 'mm-modal-ov';
+        ov.innerHTML = '<div class="mm-modal">' +
+          '<h3>' + esc(opts.title) + '</h3>' +
+          (opts.message ? '<p>' + esc(opts.message) + '</p>' : '') +
+          (opts.bodyHtml || '') +
+          '<div class="mm-modal-acts">' +
+            '<button class="mm-btn-ghost" data-mm="cancel">Cancelar</button>' +
+            '<button class="mm-btn ' + (opts.okClass || '') + '" data-mm="ok">' + esc(opts.okText || 'Confirmar') + '</button>' +
+          '</div></div>';
+        function fechar() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
+        ov.addEventListener('click', function (ev) {
+          var act = ev.target.getAttribute && ev.target.getAttribute('data-mm');
+          if (ev.target === ov || act === 'cancel') { fechar(); return; }
+          if (act === 'ok') { if (opts.onOk) opts.onOk(ov); fechar(); }
+        });
+        document.body.appendChild(ov);
+      }
+      function excluirCobertura() {
         var ids = Object.keys(state.covSel);
         if (!ids.length) return;
-        if (!confirm('Excluir ' + ids.length + ' produto(s)?\n\nIsso remove do catálogo e some da comparação nos apps dos usuários. Não dá pra desfazer.')) return;
-        var btn = el('cov-del');
-        if (btn) { btn.disabled = true; btn.textContent = 'Excluindo…'; }
+        mmModal({
+          title: 'Excluir ' + ids.length + ' produto(s)?',
+          message: 'Isso remove do catálogo e some da comparação nos apps dos usuários. Não dá pra desfazer.',
+          okText: 'Excluir', okClass: 'mm-danger',
+          onOk: function () { doExcluirCobertura(ids); },
+        });
+      }
+      async function doExcluirCobertura(ids) {
         try {
           var r = await apiFetch('/admin/produtos/excluir', { method: 'POST', body: JSON.stringify({ ids: ids }) });
           state.covSel = {};
@@ -306,7 +342,36 @@
           await carregarCobertura(false);
         } catch (e) {
           toast('Erro: ' + ((e && e.message) || 'falha ao excluir'));
-          renderDashboard();
+        }
+      }
+      function juntarMercadosUI() {
+        var c = state.cobertura;
+        if (!c) return;
+        var sel = c.mercados.filter(function (m) { return state.covMercSel[m.id]; });
+        if (sel.length < 2) { toast('Selecione 2+ mercados pra juntar'); return; }
+        var opts = sel.map(function (m) {
+          return '<option value="' + esc(m.id) + '">' + esc(m.nome) +
+            (m.endereco ? ' — ' + esc(m.endereco) : ' (sem endereço)') + '</option>';
+        }).join('');
+        mmModal({
+          title: 'Juntar ' + sel.length + ' mercados',
+          message: 'Escolha qual manter. Os preços dos outros passam pra ele (o endereço é preservado).',
+          bodyHtml: '<select class="mm-select" data-mm-keep>' + opts + '</select>',
+          okText: 'Juntar',
+          onOk: function (ov) {
+            var keep = ov.querySelector('[data-mm-keep]').value;
+            doJuntarMercados(keep, sel.map(function (m) { return m.id; }).filter(function (id) { return id !== keep; }));
+          },
+        });
+      }
+      async function doJuntarMercados(manterId, removerIds) {
+        try {
+          var r = await apiFetch('/admin/mercados/juntar', { method: 'POST', body: JSON.stringify({ manterId: manterId, removerIds: removerIds }) });
+          state.covMercSel = {};
+          toast('🔗 ' + (r && r.mercados != null ? r.mercados : removerIds.length) + ' mercado(s) unificado(s)');
+          await carregarCobertura(false);
+        } catch (e) {
+          toast('Erro: ' + ((e && e.message) || 'falha ao juntar'));
         }
       }
       function wireCovPag(prefix, pagKey, sizeKey) {
@@ -521,6 +586,8 @@
           if (covBtn) covBtn.onclick = function () { carregarCobertura(true); };
           var delBtn = el('cov-del');
           if (delBtn) delBtn.onclick = excluirCobertura;
+          var joinBtn = el('cov-merc-join');
+          if (joinBtn) joinBtn.onclick = juntarMercadosUI;
           var selAll = el('cov-sel-all');
           if (selAll) selAll.onclick = function () {
             var c = state.cobertura;
@@ -546,17 +613,20 @@
       }
 
       // Delegação de eventos (toggle + ações)
-      // Checkbox de produto na Cobertura: atualiza a seleção sem re-render (mantém o scroll).
+      // Checkboxes da Cobertura: atualizam a seleção sem re-render (mantêm o scroll).
       document.addEventListener('change', function (ev) {
-        var chk = ev.target;
-        if (!chk || !chk.classList || !chk.classList.contains('cov-chk')) return;
-        var pid = chk.getAttribute('data-id');
-        if (chk.checked) state.covSel[pid] = 1; else delete state.covSel[pid];
-        var del = document.getElementById('cov-del');
-        if (del) {
-          var n = covSelCount();
-          del.disabled = n === 0;
-          del.textContent = '🗑 Excluir (' + n + ')';
+        var t = ev.target;
+        if (!t || !t.classList) return;
+        if (t.classList.contains('cov-chk')) {
+          var pid = t.getAttribute('data-id');
+          if (t.checked) state.covSel[pid] = 1; else delete state.covSel[pid];
+          var del = document.getElementById('cov-del');
+          if (del) { var n = covSelCount(); del.disabled = n === 0; del.textContent = '🗑 Excluir (' + n + ')'; }
+        } else if (t.classList.contains('cov-mchk')) {
+          var mid = t.getAttribute('data-id');
+          if (t.checked) state.covMercSel[mid] = 1; else delete state.covMercSel[mid];
+          var jn = document.getElementById('cov-merc-join');
+          if (jn) { var m = Object.keys(state.covMercSel).length; jn.disabled = m < 2; jn.textContent = '🔗 Juntar (' + m + ')'; }
         }
       });
 

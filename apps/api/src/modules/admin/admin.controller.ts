@@ -12,6 +12,7 @@ import {
 import {
   AdminExcluirProdutosSchema,
   AdminGrantProSchema,
+  AdminJuntarMercadosSchema,
   AdminJuntarSchema,
   PageQuerySchema,
   ResponderFeedbackSchema,
@@ -21,6 +22,7 @@ import {
   type AdminFunnelDTO,
   type AdminGrantProInput,
   type AdminJuntarInput,
+  type AdminJuntarMercadosInput,
   type AdminStatsDTO,
   type AdminUserDTO,
   type AdminUsersResponse,
@@ -86,6 +88,14 @@ export class AdminController {
     @Body(new ZodValidationPipe(AdminExcluirProdutosSchema)) body: AdminExcluirProdutosInput,
   ): Promise<{ excluidos: number }> {
     return this.service.excluirProdutos(body.ids);
+  }
+
+  /** Junta mercados duplicados: move os preços dos removerIds pro manterId. */
+  @Post('mercados/juntar')
+  juntarMercados(
+    @Body(new ZodValidationPipe(AdminJuntarMercadosSchema)) body: AdminJuntarMercadosInput,
+  ): Promise<{ mercados: number }> {
+    return this.service.juntarMercados(body.manterId, body.removerIds);
   }
 
   @Get('qa-conversa')

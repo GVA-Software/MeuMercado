@@ -20,6 +20,7 @@ function makeService(produtos: Produto[], offNome: string | null = null) {
       reassigned.push([from, to]);
       return Promise.resolve();
     },
+    reassignMercado: () => Promise.resolve(),
     deleteByProduto: () => Promise.resolve(),
   };
   const prodRepo: ProdutoRepository = {
