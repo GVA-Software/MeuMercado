@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  AdminClassificarSchema,
   AdminEditarPrecoSchema,
   AdminEditarProdutoSchema,
   AdminExcluirMercadosSchema,
@@ -21,6 +22,7 @@ import {
   AdminSepararPrecoSchema,
   PageQuerySchema,
   ResponderFeedbackSchema,
+  type AdminClassificarInput,
   type AdminCoberturaDTO,
   type AdminDuplicadosDTO,
   type AdminEditarPrecoInput,
@@ -98,6 +100,14 @@ export class AdminController {
     @Body(new ZodValidationPipe(AdminExcluirProdutosSchema)) body: AdminExcluirProdutosInput,
   ): Promise<{ excluidos: number }> {
     return this.service.excluirProdutos(body.ids);
+  }
+
+  /** Classifica produtos em lote (define a categoria de vários de uma vez). */
+  @Post('produtos/categoria')
+  classificarProdutos(
+    @Body(new ZodValidationPipe(AdminClassificarSchema)) body: AdminClassificarInput,
+  ): Promise<{ classificados: number }> {
+    return this.service.classificarProdutos(body.ids, body.categoria);
   }
 
   /** Junta mercados duplicados: move os preços dos removerIds pro manterId. */

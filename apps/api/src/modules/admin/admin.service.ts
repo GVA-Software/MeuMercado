@@ -370,6 +370,20 @@ export class AdminService {
     }
   }
 
+  /** Define a categoria de vários produtos de uma vez (classificação em lote). */
+  async classificarProdutos(
+    ids: string[],
+    categoria: Categoria,
+  ): Promise<{ classificados: number }> {
+    let classificados = 0;
+    for (const id of ids) {
+      const p = await this.produtos.findById(id);
+      if (!p) continue;
+      if (await this.produtos.atualizar(id, { nome: p.nome, categoria })) classificados += 1;
+    }
+    return { classificados };
+  }
+
   /** Corrige o valor de UM reporte de preço. */
   async editarPreco(id: string, precoCents: number): Promise<void> {
     const existe = (await this.prices.all()).some((o) => o.id === id);

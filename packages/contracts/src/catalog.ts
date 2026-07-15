@@ -20,6 +20,9 @@ export const CategoriaSchema = z.enum([
   'Higiene',
   'Frutas',
   'Verduras',
+  'Legumes',
+  'Doces',
+  'Utilidades',
   'Outros',
 ]);
 export type CategoriaDTO = z.infer<typeof CategoriaSchema>;

@@ -364,6 +364,21 @@ describe('AdminService — editar produto e preço', () => {
     const { service } = makeService([], { observacoes: [] });
     await expect(service.separarPreco('fantasma', 'X')).rejects.toThrow(/não encontrado/i);
   });
+
+  it('classificarProdutos define a categoria de vários (mantém o nome; ignora fantasma)', async () => {
+    const { service, produtosEditados } = makeService([], {
+      produtos: [
+        { id: 'p1', nome: 'BISC OREO' },
+        { id: 'p2', nome: 'CHOC LACTA' },
+      ],
+    });
+    const r = await service.classificarProdutos(['p1', 'p2', 'fantasma'], 'Doces');
+    expect(r.classificados).toBe(2);
+    expect(produtosEditados).toEqual([
+      ['p1', 'BISC OREO', 'Doces'],
+      ['p2', 'CHOC LACTA', 'Doces'],
+    ]);
+  });
 });
 
 describe('AdminService — guardas de duplicados e trial', () => {

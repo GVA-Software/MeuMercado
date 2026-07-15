@@ -16,6 +16,9 @@ export const CATEGORIAS = [
   'Higiene',
   'Frutas',
   'Verduras',
+  'Legumes',
+  'Doces',
+  'Utilidades',
   'Outros',
 ] as const;
 

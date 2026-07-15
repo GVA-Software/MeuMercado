@@ -1,7 +1,7 @@
       'use strict';
       var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
       var token = null;
-      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', covProdPag: 1, covProdSize: 20, covMercPag: 1, covMercSize: 20, covSel: {}, covMercSel: {}, covProdBusca: '', covMercBusca: '', users: [], busca: '', aberto: null, agindo: null, erro: '' };
+      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', covProdPag: 1, covProdSize: 20, covMercPag: 1, covMercSize: 20, covSel: {}, covMercSel: {}, covProdBusca: '', covMercBusca: '', covProdCat: '', users: [], busca: '', aberto: null, agindo: null, erro: '' };
       var FB_TIPO = { bug: '🐛 Bug', sugestao: '💡 Sugestão', elogio: '❤️ Elogio', outro: '💬 Outro' };
 
       function esc(s) {
@@ -208,7 +208,7 @@
         return COV_PALETA[h % COV_PALETA.length];
       }
       function fmtDataCurta(iso) { try { return new Date(iso).toLocaleDateString('pt-BR'); } catch (e) { return ''; } }
-      var CATEGORIAS = ['Graos', 'Oleos', 'Basicos', 'Bebidas', 'Laticinios', 'Padaria', 'Massas', 'Conservas', 'Carnes', 'Limpeza', 'Higiene', 'Frutas', 'Verduras', 'Outros'];
+      var CATEGORIAS = ['Graos', 'Oleos', 'Basicos', 'Bebidas', 'Laticinios', 'Padaria', 'Massas', 'Conservas', 'Carnes', 'Limpeza', 'Higiene', 'Frutas', 'Verduras', 'Legumes', 'Doces', 'Utilidades', 'Outros'];
       function covSelCount() { return Object.keys(state.covSel).length; }
       function pagInfo(total, pag, size) {
         var paginas = Math.max(1, Math.ceil(total / size));
@@ -266,9 +266,21 @@
             '<input class="cov-busca" id="cov-merc-busca" placeholder="Filtrar mercados… (ex.: carrefour, atacadao)" value="' + esc(state.covMercBusca) + '"/>' +
             '<div id="cov-merc-box"></div></div>' +
           '<div class="funnel"><p class="ftitle">📦 Produtos — cobertura</p>' +
-            '<p class="fnote">Mais mercados no topo. Os <b style="color:#f59e0b">destacados</b> têm menos de 2 mercados. Filtre por nome, categoria ou mercado — vários termos por vírgula.</p>' +
-            '<input class="cov-busca" id="cov-prod-busca" placeholder="Filtrar produtos… (ex.: arroz, cafe)" value="' + esc(state.covProdBusca) + '"/>' +
+            '<p class="fnote">Mais mercados no topo. Os <b style="color:#f59e0b">destacados</b> têm menos de 2 mercados. Filtre por texto (nome/categoria/mercado) e/ou pela categoria.</p>' +
+            '<div class="cov-filtros"><input class="cov-busca" id="cov-prod-busca" placeholder="Filtrar produtos… (ex.: arroz, cafe)" value="' + esc(state.covProdBusca) + '"/>' +
+            catFiltroHtml() + '</div>' +
             '<div id="cov-prod-box"></div></div>';
+      }
+      function catFiltroHtml() {
+        var c = state.cobertura;
+        if (!c) return '';
+        var cont = {};
+        c.produtos.forEach(function (p) { cont[p.categoria] = (cont[p.categoria] || 0) + 1; });
+        var opts = '<option value="">Todas as categorias (' + c.produtos.length + ')</option>' +
+          CATEGORIAS.filter(function (cat) { return cont[cat]; }).map(function (cat) {
+            return '<option value="' + cat + '"' + (state.covProdCat === cat ? ' selected' : '') + '>' + cat + ' (' + cont[cat] + ')</option>';
+          }).join('');
+        return '<select class="cov-busca cov-catfiltro" id="cov-prod-cat">' + opts + '</select>';
       }
       function tagsDe(p) {
         var v = {}, arr = [];
@@ -315,6 +327,7 @@
         if (!box || !c) return;
         var ts = covTermos(state.covProdBusca);
         var lista = c.produtos.filter(function (p) {
+          if (state.covProdCat && p.categoria !== state.covProdCat) return false;
           return covCasa((p.nome || '') + ' ' + (p.categoria || '') + ' ' + (p.mercadosNomes || []).join(' '), ts);
         }).sort(function (a, b) {
           return tagsDe(b).length - tagsDe(a).length || b.precos - a.precos || a.nome.localeCompare(b.nome);
@@ -324,6 +337,7 @@
         box.innerHTML = '<div class="cov-toolbar">' +
             '<label class="cov-selall"><input type="checkbox" id="cov-sel-all"/> pág.</label>' +
             '<button id="cov-prod-join" class="cov-join"' + (sel >= 2 ? '' : ' disabled') + '>🔗 Juntar (' + sel + ')</button>' +
+            '<button id="cov-prod-cat-btn" class="cov-catbtn"' + (sel ? '' : ' disabled') + '>🏷️ Categoria (' + sel + ')</button>' +
             '<button id="cov-del" class="cov-del"' + (sel ? '' : ' disabled') + '>🗑 Excluir (' + sel + ')</button>' +
             sizeSelect('cov-prod-size', state.covProdSize) + pagBar('cov-prod', info, lista.length) + '</div>' +
           (lista.length
@@ -350,7 +364,33 @@
         };
         var del = el('cov-del'); if (del) del.onclick = excluirCobertura;
         var pjoin = el('cov-prod-join'); if (pjoin) pjoin.onclick = juntarProdutosUI;
+        var pcat = el('cov-prod-cat-btn'); if (pcat) pcat.onclick = classificarUI;
         wireCovPag('cov-prod', 'covProdPag', 'covProdSize', renderCovProdBox);
+      }
+      function classificarUI() {
+        var ids = Object.keys(state.covSel);
+        if (!ids.length) return;
+        var opts = CATEGORIAS.map(function (cat) { return '<option value="' + cat + '">' + cat + '</option>'; }).join('');
+        mmModal({
+          title: 'Classificar ' + ids.length + ' produto(s)',
+          message: 'Define a categoria de todos os selecionados de uma vez.',
+          bodyHtml: '<select class="mm-select" data-mm-cat>' + opts + '</select>',
+          okText: 'Aplicar',
+          onOk: function (mov) {
+            var cat = (mov.querySelector('[data-mm-cat]') || {}).value;
+            doClassificar(ids, cat);
+          },
+        });
+      }
+      async function doClassificar(ids, categoria) {
+        try {
+          var r = await apiFetch('/admin/produtos/categoria', { method: 'POST', body: JSON.stringify({ ids: ids, categoria: categoria }) });
+          state.covSel = {};
+          toast('🏷️ ' + (r && r.classificados != null ? r.classificados : ids.length) + ' classificado(s) como ' + categoria);
+          await carregarCobertura(false);
+        } catch (e) {
+          toast('Erro: ' + ((e && e.message) || 'falha ao classificar'));
+        }
       }
       function juntarProdutosUI() {
         var c = state.cobertura;
@@ -805,6 +845,8 @@
           if (mb) mb.oninput = function () { state.covMercBusca = mb.value; state.covMercPag = 1; renderCovMercBox(); };
           var pb = el('cov-prod-busca');
           if (pb) pb.oninput = function () { state.covProdBusca = pb.value; state.covProdPag = 1; renderCovProdBox(); };
+          var pcat = el('cov-prod-cat');
+          if (pcat) pcat.onchange = function () { state.covProdCat = pcat.value; state.covProdPag = 1; renderCovProdBox(); };
           renderCovMercBox();
           renderCovProdBox();
           if (!state.cobertura && !state.coberturaLoading) carregarCobertura();
@@ -830,6 +872,8 @@
           if (del) { del.disabled = n === 0; del.textContent = '🗑 Excluir (' + n + ')'; }
           var pj = document.getElementById('cov-prod-join');
           if (pj) { pj.disabled = n < 2; pj.textContent = '🔗 Juntar (' + n + ')'; }
+          var pcb = document.getElementById('cov-prod-cat-btn');
+          if (pcb) { pcb.disabled = n === 0; pcb.textContent = '🏷️ Categoria (' + n + ')'; }
         } else if (t.classList.contains('cov-mchk')) {
           var mid = t.getAttribute('data-id');
           if (t.checked) state.covMercSel[mid] = 1; else delete state.covMercSel[mid];

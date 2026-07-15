@@ -175,3 +175,10 @@ export const AdminSepararPrecoSchema = z.object({
   nome: z.string().min(1).max(120),
 });
 export type AdminSepararPrecoInput = z.infer<typeof AdminSepararPrecoSchema>;
+
+/** Classificar produtos em lote (definir a categoria de vários de uma vez). */
+export const AdminClassificarSchema = z.object({
+  ids: z.array(IdSchema).min(1).max(200),
+  categoria: CategoriaSchema,
+});
+export type AdminClassificarInput = z.infer<typeof AdminClassificarSchema>;
