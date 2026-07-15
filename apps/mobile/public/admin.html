@@ -134,7 +134,8 @@
       .cov-pgn { color: var(--sub); }
 
       /* Toast */
-      .mm-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 12px 20px; font-size: 14px; font-weight: 700; box-shadow: 0 10px 30px rgba(0,0,0,.5); z-index: 9999; opacity: 1; transition: opacity .35s; }
+      /* z-index acima dos modais (mm-modal-ov = 10000) para o toast aparecer SEMPRE na frente. */
+      .mm-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 12px 20px; font-size: 14px; font-weight: 700; box-shadow: 0 10px 30px rgba(0,0,0,.5); z-index: 100000; opacity: 1; transition: opacity .35s; }
       .mm-toast.out { opacity: 0; }
 
       /* Modal próprio (tema do painel) */
