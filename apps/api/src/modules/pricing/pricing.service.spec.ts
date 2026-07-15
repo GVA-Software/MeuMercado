@@ -35,6 +35,7 @@ function makeService(observations: PriceObservation[], produtos: Produto[]): Pri
     findByProduto: (id) => Promise.resolve(observations.filter((o) => o.produtoId === id)),
     add: () => Promise.resolve(),
     reassignProduto: () => Promise.resolve(),
+    deleteByProduto: () => Promise.resolve(),
   };
   const prodRepo: ProdutoRepository = {
     findAll: () => Promise.resolve(produtos),

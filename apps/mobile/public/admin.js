@@ -1,7 +1,7 @@
       'use strict';
       var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
       var token = null;
-      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', users: [], busca: '', aberto: null, agindo: null, erro: '' };
+      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', covProdPag: 1, covProdSize: 20, covMercPag: 1, covMercSize: 20, covSel: {}, users: [], busca: '', aberto: null, agindo: null, erro: '' };
       var FB_TIPO = { bug: '🐛 Bug', sugestao: '💡 Sugestão', elogio: '❤️ Elogio', outro: '💬 Outro' };
 
       function esc(s) {
@@ -185,6 +185,34 @@
       }
 
       // ---------- Cobertura (produtos × mercados + contribuidores) ----------
+      // Encurta o nome legal do mercado para virar uma tag limpa (ex.:
+      // "CARREFOUR COMERCIO E INDUSTRIA LTDA" -> "CARREFOUR").
+      var COV_STOP = { COMERCIO: 1, COM: 1, INDUSTRIA: 1, IND: 1, LTDA: 1, LTD: 1, ME: 1, EPP: 1,
+        EIRELI: 1, SA: 1, DE: 1, DA: 1, DO: 1, DOS: 1, DAS: 1, E: 1, EM: 1, GERAL: 1, VAREJO: 1,
+        VAREJISTA: 1, SUPERMERCADO: 1, SUPERMERCADOS: 1, MERCADO: 1, MERCADINHO: 1, ATACADO: 1,
+        ATACADISTA: 1, NEW: 1, DISTRIBUIDORA: 1, VARIEDADES: 1 };
+      function mercadoCurto(nome) {
+        var toks = String(nome || '').toUpperCase().split(/[\s.,/]+/).filter(function (x) { return x && !COV_STOP[x]; });
+        return toks.slice(0, 2).join(' ') || String(nome || '').trim() || '—';
+      }
+      function covSelCount() { return Object.keys(state.covSel).length; }
+      function pagInfo(total, pag, size) {
+        var paginas = Math.max(1, Math.ceil(total / size));
+        var p = Math.min(Math.max(1, pag), paginas);
+        var ini = (p - 1) * size;
+        return { p: p, paginas: paginas, ini: ini, fim: Math.min(ini + size, total) };
+      }
+      function sizeSelect(id, size) {
+        return '<select id="' + id + '" class="cov-size">' + [20, 30, 40, 50].map(function (n) {
+          return '<option value="' + n + '"' + (n === size ? ' selected' : '') + '>' + n + '/pág</option>';
+        }).join('') + '</select>';
+      }
+      function pagBar(prefix, info, total) {
+        return '<span class="cov-pag">' + (total ? info.ini + 1 + '–' + info.fim : 0) + ' de ' + total +
+          ' <button class="cov-pg" id="' + prefix + '-prev"' + (info.p <= 1 ? ' disabled' : '') + '>‹</button>' +
+          '<b class="cov-pgn">' + info.p + '/' + info.paginas + '</b>' +
+          '<button class="cov-pg" id="' + prefix + '-next"' + (info.p >= info.paginas ? ' disabled' : '') + '>›</button></span>';
+      }
       function coberturaHtml() {
         if (state.coberturaErro) {
           return '<div class="funnel"><p class="fnote" style="color:#ef4444">' + esc(state.coberturaErro) + '</p>' +
@@ -214,36 +242,89 @@
             }).join('') + '</ol>'
           : '<p class="fnote">Ninguém cadastrou preço ainda (fora a base inicial).</p>';
 
+        // Mercados: endereço abaixo do nome + paginação.
+        var mInfo = pagInfo(c.mercados.length, state.covMercPag, state.covMercSize);
         var merc = c.mercados.length
-          ? '<div class="cov-table"><div class="cov-h"><span>Mercado</span><span>Prod.</span><span>Preços</span></div>' +
-            c.mercados.map(function (m) {
-              return '<div class="cov-r"><span>' + esc(m.nome) + '</span><span>' + m.produtos + '</span><span>' + m.precos + '</span></div>';
-            }).join('') + '</div>'
+          ? '<div class="cov-table"><div class="cov-h cov-h-m"><span>Mercado</span><span>Prod.</span><span>Preços</span></div>' +
+            c.mercados.slice(mInfo.ini, mInfo.fim).map(function (m) {
+              return '<div class="cov-r cov-r-m"><span class="cov-cell">' + esc(m.nome) +
+                (m.endereco ? '<i class="cov-end">📍 ' + esc(m.endereco) + '</i>' : '') + '</span>' +
+                '<span>' + m.produtos + '</span><span>' + m.precos + '</span></div>';
+            }).join('') + '</div>' +
+            '<div class="cov-toolbar">' + sizeSelect('cov-merc-size', state.covMercSize) + pagBar('cov-merc', mInfo, c.mercados.length) + '</div>'
           : '<p class="fnote">Nenhum mercado com preço ainda.</p>';
 
-        var prod = '<div class="cov-table"><div class="cov-h"><span>Produto</span><span>Merc.</span><span>Preços</span></div>' +
-          c.produtos.map(function (p) {
-            var cls = p.mercados < 2 ? 'cov-r low' : 'cov-r';
-            return '<div class="' + cls + '"><span>' + esc(p.nome) + ' <i>' + esc(p.categoria) + '</i></span>' +
-              '<span>' + p.mercados + '</span><span>' + p.precos + '</span></div>';
-          }).join('') + '</div>';
+        // Produtos: tags de mercado, seleção/exclusão, paginação.
+        var pInfo = pagInfo(c.produtos.length, state.covProdPag, state.covProdSize);
+        var sel = covSelCount();
+        var barra = '<div class="cov-toolbar">' +
+          '<label class="cov-selall"><input type="checkbox" id="cov-sel-all"/> pág.</label>' +
+          '<button id="cov-del" class="cov-del"' + (sel ? '' : ' disabled') + '>🗑 Excluir (' + sel + ')</button>' +
+          sizeSelect('cov-prod-size', state.covProdSize) + pagBar('cov-prod', pInfo, c.produtos.length) + '</div>';
+        var rows = c.produtos.slice(pInfo.ini, pInfo.fim).map(function (p) {
+          var cls = p.mercados < 2 ? 'cov-r cov-r-p low' : 'cov-r cov-r-p';
+          var vistas = {};
+          var tags = (p.mercadosNomes || []).map(mercadoCurto).filter(function (n) {
+            if (vistas[n]) return false; vistas[n] = 1; return true;
+          }).map(function (n) { return '<span class="cov-tag">' + esc(n) + '</span>'; }).join('');
+          return '<div class="' + cls + '">' +
+            '<input type="checkbox" class="cov-chk" data-id="' + p.id + '"' + (state.covSel[p.id] ? ' checked' : '') + '/>' +
+            '<span class="cov-cell">' + esc(p.nome) + ' <i>' + esc(p.categoria) + '</i>' +
+              (tags ? '<span class="cov-tags">' + tags + '</span>' : '') + '</span>' +
+            '<span>' + p.mercados + '</span><span>' + p.precos + '</span></div>';
+        }).join('');
+        var prod = '<div class="cov-table"><div class="cov-h cov-h-p"><span></span><span>Produto</span><span>Merc.</span><span>Preços</span></div>' + rows + '</div>';
 
         return cards +
           '<div class="funnel"><p class="ftitle">🏆 Quem mais cadastra <button id="cov-refresh" class="cov-mini-btn">↻ atualizar</button></p>' + top + '</div>' +
           '<div class="funnel"><p class="ftitle">🏪 Mercados cadastrados</p>' + merc + '</div>' +
           '<div class="funnel"><p class="ftitle">📦 Produtos — cobertura</p>' +
-            '<p class="fnote">Ordenados por cobertura mais rasa. Os <b style="color:#f59e0b">destacados</b> têm menos de 2 mercados — não geram comparação e são os alvos do próximo cadastro.</p>' +
-            prod + '</div>';
+            '<p class="fnote">Ordenados por cobertura mais rasa. Os <b style="color:#f59e0b">destacados</b> têm menos de 2 mercados. Marque e exclua os que forem lixo — some do catálogo e da comparação nos apps.</p>' +
+            barra + prod + '</div>';
       }
-      async function carregarCobertura() {
+      async function carregarCobertura(comToast) {
         state.coberturaLoading = true; state.coberturaErro = '';
         try {
           state.cobertura = await apiFetch('/admin/cobertura');
+          if (comToast) toast('✓ Cobertura atualizada');
         } catch (e) {
           state.coberturaErro = (e && e.message) || 'Falha ao carregar a cobertura.';
         }
         state.coberturaLoading = false;
         renderDashboard();
+      }
+      async function excluirCobertura() {
+        var ids = Object.keys(state.covSel);
+        if (!ids.length) return;
+        if (!confirm('Excluir ' + ids.length + ' produto(s)?\n\nIsso remove do catálogo e some da comparação nos apps dos usuários. Não dá pra desfazer.')) return;
+        var btn = el('cov-del');
+        if (btn) { btn.disabled = true; btn.textContent = 'Excluindo…'; }
+        try {
+          var r = await apiFetch('/admin/produtos/excluir', { method: 'POST', body: JSON.stringify({ ids: ids }) });
+          state.covSel = {};
+          toast('🗑 ' + (r && r.excluidos != null ? r.excluidos : ids.length) + ' produto(s) excluído(s)');
+          await carregarCobertura(false);
+        } catch (e) {
+          toast('Erro: ' + ((e && e.message) || 'falha ao excluir'));
+          renderDashboard();
+        }
+      }
+      function wireCovPag(prefix, pagKey, sizeKey) {
+        var sz = el(prefix + '-size');
+        if (sz) sz.onchange = function () { state[sizeKey] = parseInt(this.value, 10) || 20; state[pagKey] = 1; renderDashboard(); };
+        var pv = el(prefix + '-prev');
+        if (pv) pv.onclick = function () { state[pagKey] = Math.max(1, state[pagKey] - 1); renderDashboard(); };
+        var nx = el(prefix + '-next');
+        if (nx) nx.onclick = function () { state[pagKey] = state[pagKey] + 1; renderDashboard(); };
+      }
+      function toast(msg) {
+        var old = document.getElementById('mm-toast');
+        if (old) old.parentNode.removeChild(old);
+        var d = document.createElement('div');
+        d.id = 'mm-toast'; d.className = 'mm-toast'; d.textContent = msg;
+        document.body.appendChild(d);
+        setTimeout(function () { d.className = 'mm-toast out'; }, 1800);
+        setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 2200);
       }
 
       var LENTE_EMOJI = { busca: '🔎', fluxo: '🧭', cobertura: '🗺️', copy: '💬', edge: '🧪' };
@@ -437,7 +518,23 @@
           if (dupsBtn) dupsBtn.onclick = rodarDups;
         } else if (tab === 'cobertura') {
           var covBtn = el('cov-refresh');
-          if (covBtn) covBtn.onclick = function () { state.cobertura = null; carregarCobertura(); };
+          if (covBtn) covBtn.onclick = function () { carregarCobertura(true); };
+          var delBtn = el('cov-del');
+          if (delBtn) delBtn.onclick = excluirCobertura;
+          var selAll = el('cov-sel-all');
+          if (selAll) selAll.onclick = function () {
+            var c = state.cobertura;
+            if (c) {
+              var info = pagInfo(c.produtos.length, state.covProdPag, state.covProdSize);
+              var marcar = this.checked;
+              c.produtos.slice(info.ini, info.fim).forEach(function (p) {
+                if (marcar) state.covSel[p.id] = 1; else delete state.covSel[p.id];
+              });
+            }
+            renderDashboard();
+          };
+          wireCovPag('cov-prod', 'covProdPag', 'covProdSize');
+          wireCovPag('cov-merc', 'covMercPag', 'covMercSize');
           if (!state.cobertura && !state.coberturaLoading) carregarCobertura();
         }
       }
@@ -449,6 +546,20 @@
       }
 
       // Delegação de eventos (toggle + ações)
+      // Checkbox de produto na Cobertura: atualiza a seleção sem re-render (mantém o scroll).
+      document.addEventListener('change', function (ev) {
+        var chk = ev.target;
+        if (!chk || !chk.classList || !chk.classList.contains('cov-chk')) return;
+        var pid = chk.getAttribute('data-id');
+        if (chk.checked) state.covSel[pid] = 1; else delete state.covSel[pid];
+        var del = document.getElementById('cov-del');
+        if (del) {
+          var n = covSelCount();
+          del.disabled = n === 0;
+          del.textContent = '🗑 Excluir (' + n + ')';
+        }
+      });
+
       document.addEventListener('click', function (ev) {
         var head = ev.target.closest ? ev.target.closest('[data-toggle]') : null;
         if (head) {

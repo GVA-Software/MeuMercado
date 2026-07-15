@@ -33,6 +33,7 @@ function makeService(
       produtoId?: string;
       mercadoId?: string;
       mercadoNome?: string;
+      mercadoEndereco?: string;
       observedAt?: Date;
     }>;
     produtos?: Array<{ id: string; nome: string; categoria?: string }>;
@@ -80,13 +81,23 @@ function makeService(
     resumo: () => Promise.resolve(extra.resumo ?? []),
     usuariosComEvento: () => Promise.resolve(extra.vistos ?? []),
   } as unknown as AnalyticsRepository;
+  const precosApagados: string[] = [];
+  const produtosApagados: string[] = [];
   const prices = {
     all: () => Promise.resolve(extra.observacoes ?? []),
+    deleteByProduto: (id: string) => {
+      precosApagados.push(id);
+      return Promise.resolve();
+    },
   } as unknown as PriceObservationRepository;
   const produtos = {
     findAll: () => Promise.resolve(extra.produtos ?? []),
     findById: (id: string) =>
       Promise.resolve((extra.produtos ?? []).find((p) => p.id === id) ?? null),
+    delete: (id: string) => {
+      produtosApagados.push(id);
+      return Promise.resolve();
+    },
   } as unknown as ProdutoRepository;
   const email = {
     enviar: () => Promise.resolve(),
@@ -103,7 +114,7 @@ function makeService(
     produtos,
     email as unknown as EmailService,
   );
-  return { service, deleted, push, billing, email };
+  return { service, deleted, push, billing, email, precosApagados, produtosApagados };
 }
 
 describe('AdminService — testar e-mail', () => {
@@ -130,7 +141,14 @@ describe('AdminService — cobertura', () => {
         { id: 'p3', nome: 'Cafe', categoria: 'Bebidas' }, // sem preço
       ],
       observacoes: [
-        { reporterId: 'u1', produtoId: 'p1', mercadoId: 'm1', mercadoNome: 'A', observedAt: d },
+        {
+          reporterId: 'u1',
+          produtoId: 'p1',
+          mercadoId: 'm1',
+          mercadoNome: 'A',
+          mercadoEndereco: 'Rua 1',
+          observedAt: d,
+        },
         { reporterId: 'u1', produtoId: 'p1', mercadoId: 'm2', mercadoNome: 'B', observedAt: d },
         { reporterId: 'u2', produtoId: 'p2', mercadoId: 'm1', mercadoNome: 'A', observedAt: d },
         { reporterId: 'seed', produtoId: 'p2', mercadoId: 'm1', mercadoNome: 'A', observedAt: d },
@@ -149,9 +167,28 @@ describe('AdminService — cobertura', () => {
     // Rasos primeiro: p3 (0 mercados) encabeça a lista.
     expect(c.produtos[0]!.id).toBe('p3');
     expect(c.produtos.find((p) => p.id === 'p1')).toMatchObject({ mercados: 2, precos: 2 });
+    // Tags de mercado no produto (nomes, ordenados).
+    expect(c.produtos.find((p) => p.id === 'p1')!.mercadosNomes).toEqual(['A', 'B']);
+    // Endereço do mercado propagado.
+    expect(c.mercados.find((m) => m.id === 'm1')!.endereco).toBe('Rua 1');
     // Ranking: u1 (2) > u2 (1); seed nunca aparece.
     expect(c.topUsuarios[0]).toMatchObject({ userId: 'u1', cadastros: 2 });
     expect(c.topUsuarios.map((t) => t.userId)).not.toContain('seed');
+  });
+});
+
+describe('AdminService — excluir produtos', () => {
+  it('exclui em lote: apaga os preços e o produto; ignora ids inexistentes', async () => {
+    const { service, precosApagados, produtosApagados } = makeService([], {
+      produtos: [
+        { id: 'p1', nome: 'A' },
+        { id: 'p2', nome: 'B' },
+      ],
+    });
+    const r = await service.excluirProdutos(['p1', 'p2', 'fantasma']);
+    expect(r.excluidos).toBe(2); // fantasma ignorado
+    expect(precosApagados).toEqual(['p1', 'p2']); // preços apagados antes do produto
+    expect(produtosApagados).toEqual(['p1', 'p2']);
   });
 });
 

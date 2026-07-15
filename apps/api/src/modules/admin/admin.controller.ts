@@ -10,12 +10,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  AdminExcluirProdutosSchema,
   AdminGrantProSchema,
   AdminJuntarSchema,
   PageQuerySchema,
   ResponderFeedbackSchema,
   type AdminCoberturaDTO,
   type AdminDuplicadosDTO,
+  type AdminExcluirProdutosInput,
   type AdminFunnelDTO,
   type AdminGrantProInput,
   type AdminJuntarInput,
@@ -76,6 +78,14 @@ export class AdminController {
   @Get('cobertura')
   cobertura(): Promise<AdminCoberturaDTO> {
     return this.service.cobertura();
+  }
+
+  /** Exclui produtos em lote (some do catálogo e dos apps; apaga os preços). */
+  @Post('produtos/excluir')
+  excluirProdutos(
+    @Body(new ZodValidationPipe(AdminExcluirProdutosSchema)) body: AdminExcluirProdutosInput,
+  ): Promise<{ excluidos: number }> {
+    return this.service.excluirProdutos(body.ids);
   }
 
   @Get('qa-conversa')

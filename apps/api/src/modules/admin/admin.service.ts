@@ -158,7 +158,13 @@ export class AdminService {
     const porProduto = new Map<string, { mercados: Set<string>; precos: number; ultimo: number }>();
     const porMercado = new Map<
       string,
-      { nome: string; produtos: Set<string>; precos: number; ultimo: number }
+      {
+        nome: string;
+        endereco: string | null;
+        produtos: Set<string>;
+        precos: number;
+        ultimo: number;
+      }
     >();
     const porReporter = new Map<string, number>();
 
@@ -171,11 +177,13 @@ export class AdminService {
 
       const m = porMercado.get(o.mercadoId) ?? {
         nome: o.mercadoNome ?? o.mercadoId,
+        endereco: null,
         produtos: new Set(),
         precos: 0,
         ultimo: 0,
       };
       if (o.mercadoNome) m.nome = o.mercadoNome;
+      if (o.mercadoEndereco) m.endereco = o.mercadoEndereco;
       m.produtos.add(o.produtoId);
       m.precos += 1;
       m.ultimo = Math.max(m.ultimo, o.observedAt.getTime());
@@ -192,11 +200,17 @@ export class AdminService {
     const produtos = catalogo
       .map((p) => {
         const agg = porProduto.get(p.id);
+        const mercadosNomes = agg
+          ? [...agg.mercados]
+              .map((id) => porMercado.get(id)?.nome ?? id)
+              .sort((a, b) => a.localeCompare(b))
+          : [];
         return {
           id: p.id,
           nome: p.nome,
           categoria: p.categoria,
           mercados: agg?.mercados.size ?? 0,
+          mercadosNomes,
           precos: agg?.precos ?? 0,
           ultimoEm: iso(agg?.ultimo ?? 0),
         };
@@ -210,6 +224,7 @@ export class AdminService {
       .map(([id, m]) => ({
         id,
         nome: m.nome,
+        endereco: m.endereco,
         produtos: m.produtos.size,
         precos: m.precos,
         ultimoEm: iso(m.ultimo),
@@ -241,6 +256,21 @@ export class AdminService {
       mercados,
       topUsuarios,
     };
+  }
+
+  /**
+   * Exclui produtos em lote: apaga os preços do produto E o produto do catálogo —
+   * some da comparação nos apps dos usuários. Ignora ids que já não existem.
+   */
+  async excluirProdutos(ids: string[]): Promise<{ excluidos: number }> {
+    let excluidos = 0;
+    for (const id of ids) {
+      if (!(await this.produtos.findById(id))) continue;
+      await this.prices.deleteByProduto(id);
+      await this.produtos.delete(id);
+      excluidos += 1;
+    }
+    return { excluidos };
   }
 
   /**

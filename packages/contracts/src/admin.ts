@@ -73,6 +73,8 @@ export const AdminCoberturaProdutoSchema = z.object({
   categoria: z.string(),
   /** Mercados distintos com preço deste produto (2+ = dá pra comparar). */
   mercados: z.number().int().nonnegative(),
+  /** Nomes dos mercados onde o produto tem preço (viram tags na UI). */
+  mercadosNomes: z.array(z.string()),
   precos: z.number().int().nonnegative(),
   ultimoEm: z.string().datetime().nullable(),
 });
@@ -80,6 +82,7 @@ export const AdminCoberturaProdutoSchema = z.object({
 export const AdminCoberturaMercadoSchema = z.object({
   id: z.string(),
   nome: z.string(),
+  endereco: z.string().nullable(),
   produtos: z.number().int().nonnegative(),
   precos: z.number().int().nonnegative(),
   ultimoEm: z.string().datetime().nullable(),
@@ -107,3 +110,9 @@ export const AdminCoberturaSchema = z.object({
   topUsuarios: z.array(AdminContribuidorSchema),
 });
 export type AdminCoberturaDTO = z.infer<typeof AdminCoberturaSchema>;
+
+/** Exclusão de produtos em lote (some do catálogo e dos apps; apaga os preços). */
+export const AdminExcluirProdutosSchema = z.object({
+  ids: z.array(IdSchema).min(1).max(200),
+});
+export type AdminExcluirProdutosInput = z.infer<typeof AdminExcluirProdutosSchema>;
