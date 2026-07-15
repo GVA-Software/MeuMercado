@@ -96,4 +96,9 @@ export class TypeOrmPriceObservationRepository implements PriceObservationReposi
     await this.repo.delete({ produtoId });
     this.invalidar();
   }
+
+  async deleteByMercado(mercadoId: string): Promise<void> {
+    await this.repo.delete({ mercadoId });
+    this.invalidar();
+  }
 }

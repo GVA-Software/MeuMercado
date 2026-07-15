@@ -1,7 +1,7 @@
       'use strict';
       var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
       var token = null;
-      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', covProdPag: 1, covProdSize: 20, covMercPag: 1, covMercSize: 20, covSel: {}, covMercSel: {}, users: [], busca: '', aberto: null, agindo: null, erro: '' };
+      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', covProdPag: 1, covProdSize: 20, covMercPag: 1, covMercSize: 20, covSel: {}, covMercSel: {}, covProdBusca: '', covMercBusca: '', users: [], busca: '', aberto: null, agindo: null, erro: '' };
       var FB_TIPO = { bug: '🐛 Bug', sugestao: '💡 Sugestão', elogio: '❤️ Elogio', outro: '💬 Outro' };
 
       function esc(s) {
@@ -242,56 +242,95 @@
             }).join('') + '</ol>'
           : '<p class="fnote">Ninguém cadastrou preço ainda (fora a base inicial).</p>';
 
-        // Mercados: checkbox p/ juntar duplicados + endereço abaixo do nome + paginação.
-        var mInfo = pagInfo(c.mercados.length, state.covMercPag, state.covMercSize);
+        // Mercados e Produtos são renderizados em boxes próprios (renderCov*Box) pra
+        // permitir filtro/paginação sem re-render total — o input de busca fica FORA
+        // do box, então não perde o foco enquanto digita.
+        return cards +
+          '<div class="funnel"><p class="ftitle">🏆 Quem mais cadastra <button id="cov-refresh" class="cov-mini-btn">↻ atualizar</button></p>' + top + '</div>' +
+          '<div class="funnel"><p class="ftitle">🏪 Mercados cadastrados</p>' +
+            '<p class="fnote">Marque pra <b>Juntar</b> (2+, unifica a mesma loja) ou <b>Excluir</b>. Filtre por nome/endereço — vários termos separados por vírgula.</p>' +
+            '<input class="cov-busca" id="cov-merc-busca" placeholder="Filtrar mercados… (ex.: carrefour, atacadao)" value="' + esc(state.covMercBusca) + '"/>' +
+            '<div id="cov-merc-box"></div></div>' +
+          '<div class="funnel"><p class="ftitle">📦 Produtos — cobertura</p>' +
+            '<p class="fnote">Mais mercados no topo. Os <b style="color:#f59e0b">destacados</b> têm menos de 2 mercados. Filtre por nome, categoria ou mercado — vários termos por vírgula.</p>' +
+            '<input class="cov-busca" id="cov-prod-busca" placeholder="Filtrar produtos… (ex.: arroz, cafe)" value="' + esc(state.covProdBusca) + '"/>' +
+            '<div id="cov-prod-box"></div></div>';
+      }
+      function tagsDe(p) {
+        var v = {}, arr = [];
+        (p.mercadosNomes || []).forEach(function (nm) { var s = mercadoCurto(nm); if (!v[s]) { v[s] = 1; arr.push(s); } });
+        return arr;
+      }
+      function covTermos(q) {
+        return (q || '').toLowerCase().split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+      }
+      function covCasa(texto, ts) {
+        if (!ts.length) return true;
+        var low = String(texto).toLowerCase();
+        return ts.some(function (t) { return low.indexOf(t) >= 0; });
+      }
+      function renderCovMercBox() {
+        var box = el('cov-merc-box');
+        var c = state.cobertura;
+        if (!box || !c) return;
+        var ts = covTermos(state.covMercBusca);
+        var lista = c.mercados.filter(function (m) { return covCasa((m.nome || '') + ' ' + (m.endereco || ''), ts); });
+        var info = pagInfo(lista.length, state.covMercPag, state.covMercSize);
         var mSel = Object.keys(state.covMercSel).length;
-        var merc = c.mercados.length
+        box.innerHTML = (lista.length
           ? '<div class="cov-table"><div class="cov-h cov-h-m"><span></span><span>Mercado</span><span>Prod.</span><span>Preços</span></div>' +
-            c.mercados.slice(mInfo.ini, mInfo.fim).map(function (m) {
+            lista.slice(info.ini, info.fim).map(function (m) {
               return '<div class="cov-r cov-r-m">' +
                 '<input type="checkbox" class="cov-mchk" data-id="' + esc(m.id) + '"' + (state.covMercSel[m.id] ? ' checked' : '') + '/>' +
                 '<span class="cov-cell">' + esc(m.nome) +
                 (m.endereco ? '<i class="cov-end">📍 ' + esc(m.endereco) + '</i>' : '<i class="cov-end cov-noend">sem endereço</i>') + '</span>' +
                 '<span>' + m.produtos + '</span><span>' + m.precos + '</span></div>';
-            }).join('') + '</div>' +
-            '<div class="cov-toolbar">' +
-              '<button id="cov-merc-join" class="cov-join"' + (mSel >= 2 ? '' : ' disabled') + '>🔗 Juntar (' + mSel + ')</button>' +
-              sizeSelect('cov-merc-size', state.covMercSize) + pagBar('cov-merc', mInfo, c.mercados.length) + '</div>'
-          : '<p class="fnote">Nenhum mercado com preço ainda.</p>';
-
-        // Produtos: tags de mercado (deduplicadas), ordenados por MAIS tags primeiro.
-        function tagsDe(p) {
-          var v = {}, arr = [];
-          (p.mercadosNomes || []).forEach(function (nm) { var s = mercadoCurto(nm); if (!v[s]) { v[s] = 1; arr.push(s); } });
-          return arr;
-        }
-        var ordenados = c.produtos.slice().sort(function (a, b) {
+            }).join('') + '</div>'
+          : '<p class="fnote">Nenhum mercado encontrado.</p>') +
+          '<div class="cov-toolbar">' +
+            '<button id="cov-merc-join" class="cov-join"' + (mSel >= 2 ? '' : ' disabled') + '>🔗 Juntar (' + mSel + ')</button>' +
+            '<button id="cov-merc-del" class="cov-del"' + (mSel >= 1 ? '' : ' disabled') + '>🗑 Excluir (' + mSel + ')</button>' +
+            sizeSelect('cov-merc-size', state.covMercSize) + pagBar('cov-merc', info, lista.length) + '</div>';
+        var jn = el('cov-merc-join'); if (jn) jn.onclick = juntarMercadosUI;
+        var ex = el('cov-merc-del'); if (ex) ex.onclick = excluirMercadosUI;
+        wireCovPag('cov-merc', 'covMercPag', 'covMercSize', renderCovMercBox);
+      }
+      function renderCovProdBox() {
+        var box = el('cov-prod-box');
+        var c = state.cobertura;
+        if (!box || !c) return;
+        var ts = covTermos(state.covProdBusca);
+        var lista = c.produtos.filter(function (p) {
+          return covCasa((p.nome || '') + ' ' + (p.categoria || '') + ' ' + (p.mercadosNomes || []).join(' '), ts);
+        }).sort(function (a, b) {
           return tagsDe(b).length - tagsDe(a).length || b.precos - a.precos || a.nome.localeCompare(b.nome);
         });
-        var pInfo = pagInfo(ordenados.length, state.covProdPag, state.covProdSize);
+        var info = pagInfo(lista.length, state.covProdPag, state.covProdSize);
         var sel = covSelCount();
-        var barra = '<div class="cov-toolbar">' +
-          '<label class="cov-selall"><input type="checkbox" id="cov-sel-all"/> pág.</label>' +
-          '<button id="cov-del" class="cov-del"' + (sel ? '' : ' disabled') + '>🗑 Excluir (' + sel + ')</button>' +
-          sizeSelect('cov-prod-size', state.covProdSize) + pagBar('cov-prod', pInfo, ordenados.length) + '</div>';
-        var rows = ordenados.slice(pInfo.ini, pInfo.fim).map(function (p) {
-          var cls = p.mercados < 2 ? 'cov-r cov-r-p low' : 'cov-r cov-r-p';
-          var tags = tagsDe(p).map(function (n) { return '<span class="cov-tag">' + esc(n) + '</span>'; }).join('');
-          return '<div class="' + cls + '">' +
-            '<input type="checkbox" class="cov-chk" data-id="' + p.id + '"' + (state.covSel[p.id] ? ' checked' : '') + '/>' +
-            '<span class="cov-cell">' + esc(p.nome) + ' <i>' + esc(p.categoria) + '</i>' +
-              (tags ? '<span class="cov-tags">' + tags + '</span>' : '') + '</span>' +
-            '<span>' + p.mercados + '</span><span>' + p.precos + '</span></div>';
-        }).join('');
-        var prod = '<div class="cov-table"><div class="cov-h cov-h-p"><span></span><span>Produto</span><span>Merc.</span><span>Preços</span></div>' + rows + '</div>';
-
-        return cards +
-          '<div class="funnel"><p class="ftitle">🏆 Quem mais cadastra <button id="cov-refresh" class="cov-mini-btn">↻ atualizar</button></p>' + top + '</div>' +
-          '<div class="funnel"><p class="ftitle">🏪 Mercados cadastrados</p>' +
-            '<p class="fnote">Marque 2+ e clique em <b>Juntar</b> pra unificar a mesma loja cadastrada com nomes diferentes (o endereço é preservado).</p>' + merc + '</div>' +
-          '<div class="funnel"><p class="ftitle">📦 Produtos — cobertura</p>' +
-            '<p class="fnote">Mais mercados no topo. Os <b style="color:#f59e0b">destacados</b> têm menos de 2 mercados — não geram comparação. Marque e exclua o que for lixo (some do catálogo e dos apps).</p>' +
-            barra + prod + '</div>';
+        box.innerHTML = '<div class="cov-toolbar">' +
+            '<label class="cov-selall"><input type="checkbox" id="cov-sel-all"/> pág.</label>' +
+            '<button id="cov-del" class="cov-del"' + (sel ? '' : ' disabled') + '>🗑 Excluir (' + sel + ')</button>' +
+            sizeSelect('cov-prod-size', state.covProdSize) + pagBar('cov-prod', info, lista.length) + '</div>' +
+          (lista.length
+            ? '<div class="cov-table"><div class="cov-h cov-h-p"><span></span><span>Produto</span><span>Merc.</span><span>Preços</span></div>' +
+              lista.slice(info.ini, info.fim).map(function (p) {
+                var cls = p.mercados < 2 ? 'cov-r cov-r-p low' : 'cov-r cov-r-p';
+                var tags = tagsDe(p).map(function (n) { return '<span class="cov-tag">' + esc(n) + '</span>'; }).join('');
+                return '<div class="' + cls + '">' +
+                  '<input type="checkbox" class="cov-chk" data-id="' + p.id + '"' + (state.covSel[p.id] ? ' checked' : '') + '/>' +
+                  '<span class="cov-cell">' + esc(p.nome) + ' <i>' + esc(p.categoria) + '</i>' +
+                    (tags ? '<span class="cov-tags">' + tags + '</span>' : '') + '</span>' +
+                  '<span>' + p.mercados + '</span><span>' + p.precos + '</span></div>';
+              }).join('') + '</div>'
+            : '<p class="fnote">Nenhum produto encontrado.</p>');
+        var selAll = el('cov-sel-all');
+        if (selAll) selAll.onclick = function () {
+          var marcar = this.checked;
+          lista.slice(info.ini, info.fim).forEach(function (p) { if (marcar) state.covSel[p.id] = 1; else delete state.covSel[p.id]; });
+          renderCovProdBox();
+        };
+        var del = el('cov-del'); if (del) del.onclick = excluirCobertura;
+        wireCovPag('cov-prod', 'covProdPag', 'covProdSize', renderCovProdBox);
       }
       async function carregarCobertura(comToast) {
         state.coberturaLoading = true; state.coberturaErro = '';
@@ -374,13 +413,36 @@
           toast('Erro: ' + ((e && e.message) || 'falha ao juntar'));
         }
       }
-      function wireCovPag(prefix, pagKey, sizeKey) {
+      function excluirMercadosUI() {
+        var ids = Object.keys(state.covMercSel);
+        if (!ids.length) return;
+        mmModal({
+          title: 'Excluir ' + ids.length + ' mercado(s)?',
+          message: 'Apaga TODOS os preços desses mercados — some da comparação nos apps. Os produtos ficam no catálogo, mas perdem essa cobertura. Não dá pra desfazer.',
+          okText: 'Excluir', okClass: 'mm-danger',
+          onOk: function () { doExcluirMercados(ids); },
+        });
+      }
+      async function doExcluirMercados(ids) {
+        try {
+          var r = await apiFetch('/admin/mercados/excluir', { method: 'POST', body: JSON.stringify({ ids: ids }) });
+          state.covMercSel = {};
+          var msg = '🗑 ' + (r && r.mercados != null ? r.mercados : ids.length) + ' mercado(s)';
+          if (r && r.precos != null) msg += ' e ' + r.precos + ' preço(s)';
+          toast(msg + ' excluído(s)');
+          await carregarCobertura(false);
+        } catch (e) {
+          toast('Erro: ' + ((e && e.message) || 'falha ao excluir'));
+        }
+      }
+      function wireCovPag(prefix, pagKey, sizeKey, rerender) {
+        var fn = rerender || renderDashboard;
         var sz = el(prefix + '-size');
-        if (sz) sz.onchange = function () { state[sizeKey] = parseInt(this.value, 10) || 20; state[pagKey] = 1; renderDashboard(); };
+        if (sz) sz.onchange = function () { state[sizeKey] = parseInt(this.value, 10) || 20; state[pagKey] = 1; fn(); };
         var pv = el(prefix + '-prev');
-        if (pv) pv.onclick = function () { state[pagKey] = Math.max(1, state[pagKey] - 1); renderDashboard(); };
+        if (pv) pv.onclick = function () { state[pagKey] = Math.max(1, state[pagKey] - 1); fn(); };
         var nx = el(prefix + '-next');
-        if (nx) nx.onclick = function () { state[pagKey] = state[pagKey] + 1; renderDashboard(); };
+        if (nx) nx.onclick = function () { state[pagKey] = state[pagKey] + 1; fn(); };
       }
       function toast(msg) {
         var old = document.getElementById('mm-toast');
@@ -584,24 +646,12 @@
         } else if (tab === 'cobertura') {
           var covBtn = el('cov-refresh');
           if (covBtn) covBtn.onclick = function () { carregarCobertura(true); };
-          var delBtn = el('cov-del');
-          if (delBtn) delBtn.onclick = excluirCobertura;
-          var joinBtn = el('cov-merc-join');
-          if (joinBtn) joinBtn.onclick = juntarMercadosUI;
-          var selAll = el('cov-sel-all');
-          if (selAll) selAll.onclick = function () {
-            var c = state.cobertura;
-            if (c) {
-              var info = pagInfo(c.produtos.length, state.covProdPag, state.covProdSize);
-              var marcar = this.checked;
-              c.produtos.slice(info.ini, info.fim).forEach(function (p) {
-                if (marcar) state.covSel[p.id] = 1; else delete state.covSel[p.id];
-              });
-            }
-            renderDashboard();
-          };
-          wireCovPag('cov-prod', 'covProdPag', 'covProdSize');
-          wireCovPag('cov-merc', 'covMercPag', 'covMercSize');
+          var mb = el('cov-merc-busca');
+          if (mb) mb.oninput = function () { state.covMercBusca = mb.value; state.covMercPag = 1; renderCovMercBox(); };
+          var pb = el('cov-prod-busca');
+          if (pb) pb.oninput = function () { state.covProdBusca = pb.value; state.covProdPag = 1; renderCovProdBox(); };
+          renderCovMercBox();
+          renderCovProdBox();
           if (!state.cobertura && !state.coberturaLoading) carregarCobertura();
         }
       }
@@ -625,8 +675,11 @@
         } else if (t.classList.contains('cov-mchk')) {
           var mid = t.getAttribute('data-id');
           if (t.checked) state.covMercSel[mid] = 1; else delete state.covMercSel[mid];
+          var m = Object.keys(state.covMercSel).length;
           var jn = document.getElementById('cov-merc-join');
-          if (jn) { var m = Object.keys(state.covMercSel).length; jn.disabled = m < 2; jn.textContent = '🔗 Juntar (' + m + ')'; }
+          if (jn) { jn.disabled = m < 2; jn.textContent = '🔗 Juntar (' + m + ')'; }
+          var mex = document.getElementById('cov-merc-del');
+          if (mex) { mex.disabled = m < 1; mex.textContent = '🗑 Excluir (' + m + ')'; }
         }
       });
 

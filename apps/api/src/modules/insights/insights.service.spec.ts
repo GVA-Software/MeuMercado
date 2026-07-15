@@ -29,6 +29,7 @@ function make(produtos: Produto[], observations: PriceObservation[]): InsightsSe
     reassignProduto: () => Promise.resolve(),
     reassignMercado: () => Promise.resolve(),
     deleteByProduto: () => Promise.resolve(),
+    deleteByMercado: () => Promise.resolve(),
   };
   const prodRepo: ProdutoRepository = {
     findAll: () => Promise.resolve(produtos),

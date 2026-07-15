@@ -316,6 +316,24 @@ export class AdminService {
   }
 
   /**
+   * Exclui mercados: apaga TODOS os preços dos mercados (some da comparação nos apps).
+   * Os produtos ficam no catálogo — só perdem a cobertura daquele mercado.
+   */
+  async excluirMercados(ids: string[]): Promise<{ mercados: number; precos: number }> {
+    const observacoes = await this.prices.all();
+    const existentes = new Set(observacoes.map((o) => o.mercadoId));
+    const alvos = new Set(ids);
+    const precos = observacoes.filter((o) => alvos.has(o.mercadoId)).length;
+    let mercados = 0;
+    for (const id of ids) {
+      if (!existentes.has(id)) continue;
+      await this.prices.deleteByMercado(id);
+      mercados += 1;
+    }
+    return { mercados, precos };
+  }
+
+  /**
    * Funil de ativação: do cadastro ao 1º preço. A base já está ativa — "registrou
    * preço" é derivado de `reporter_id` (sem seed); só o topo (onboarding) é evento.
    */

@@ -22,6 +22,7 @@ function makeService(produtos: Produto[], offNome: string | null = null) {
     },
     reassignMercado: () => Promise.resolve(),
     deleteByProduto: () => Promise.resolve(),
+    deleteByMercado: () => Promise.resolve(),
   };
   const prodRepo: ProdutoRepository = {
     findAll: () => Promise.resolve(produtos),

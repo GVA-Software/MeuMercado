@@ -83,11 +83,16 @@ function makeService(
   } as unknown as AnalyticsRepository;
   const precosApagados: string[] = [];
   const produtosApagados: string[] = [];
+  const mercadosApagados: string[] = [];
   const reassignsMercado: Array<[string, string, string, string | null]> = [];
   const prices = {
     all: () => Promise.resolve(extra.observacoes ?? []),
     deleteByProduto: (id: string) => {
       precosApagados.push(id);
+      return Promise.resolve();
+    },
+    deleteByMercado: (id: string) => {
+      mercadosApagados.push(id);
       return Promise.resolve();
     },
     reassignMercado: (from: string, to: string, nome: string, endereco: string | null) => {
@@ -127,6 +132,7 @@ function makeService(
     email,
     precosApagados,
     produtosApagados,
+    mercadosApagados,
     reassignsMercado,
   };
 }
@@ -256,6 +262,19 @@ describe('AdminService — juntar mercados', () => {
     });
     await service.juntarMercados('m1', ['m2']);
     expect(reassignsMercado[0]).toEqual(['m2', 'm1', 'Carrefour', 'Av X']);
+  });
+
+  it('excluir mercados apaga os preços deles e conta certo; ignora ids fantasma', async () => {
+    const { service, mercadosApagados } = makeService([], {
+      observacoes: [
+        { reporterId: 'u1', produtoId: 'p1', mercadoId: 'm1', observedAt: d },
+        { reporterId: 'u1', produtoId: 'p2', mercadoId: 'm1', observedAt: d },
+        { reporterId: 'u1', produtoId: 'p3', mercadoId: 'm2', observedAt: d },
+      ],
+    });
+    const r = await service.excluirMercados(['m1', 'fantasma']);
+    expect(r).toEqual({ mercados: 1, precos: 2 }); // m1 tinha 2 preços; fantasma ignorado
+    expect(mercadosApagados).toEqual(['m1']);
   });
 });
 

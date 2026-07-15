@@ -128,3 +128,9 @@ export const AdminJuntarMercadosSchema = z.object({
   removerIds: z.array(z.string().min(1)).min(1).max(50),
 });
 export type AdminJuntarMercadosInput = z.infer<typeof AdminJuntarMercadosSchema>;
+
+/** Excluir mercados: apaga TODOS os preços dos mercados (some da comparação nos apps). */
+export const AdminExcluirMercadosSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(50),
+});
+export type AdminExcluirMercadosInput = z.infer<typeof AdminExcluirMercadosSchema>;

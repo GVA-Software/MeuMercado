@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  AdminExcluirMercadosSchema,
   AdminExcluirProdutosSchema,
   AdminGrantProSchema,
   AdminJuntarMercadosSchema,
@@ -18,6 +19,7 @@ import {
   ResponderFeedbackSchema,
   type AdminCoberturaDTO,
   type AdminDuplicadosDTO,
+  type AdminExcluirMercadosInput,
   type AdminExcluirProdutosInput,
   type AdminFunnelDTO,
   type AdminGrantProInput,
@@ -96,6 +98,14 @@ export class AdminController {
     @Body(new ZodValidationPipe(AdminJuntarMercadosSchema)) body: AdminJuntarMercadosInput,
   ): Promise<{ mercados: number }> {
     return this.service.juntarMercados(body.manterId, body.removerIds);
+  }
+
+  /** Exclui mercados: apaga todos os preços deles (some da comparação nos apps). */
+  @Post('mercados/excluir')
+  excluirMercados(
+    @Body(new ZodValidationPipe(AdminExcluirMercadosSchema)) body: AdminExcluirMercadosInput,
+  ): Promise<{ mercados: number; precos: number }> {
+    return this.service.excluirMercados(body.ids);
   }
 
   @Get('qa-conversa')

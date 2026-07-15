@@ -22,6 +22,8 @@ export interface PriceObservationRepository {
   ): Promise<void>;
   /** Apaga todas as observações de um produto (ao excluir o produto). */
   deleteByProduto(produtoId: string): Promise<void>;
+  /** Apaga todas as observações de um mercado (ao excluir o mercado). */
+  deleteByMercado(mercadoId: string): Promise<void>;
 }
 
 export const PRICE_OBSERVATION_REPOSITORY = 'PRICE_OBSERVATION_REPOSITORY';
@@ -77,6 +79,13 @@ export class InMemoryPriceObservationRepository implements PriceObservationRepos
   deleteByProduto(produtoId: string): Promise<void> {
     for (let i = this.observations.length - 1; i >= 0; i--) {
       if (this.observations[i]!.produtoId === produtoId) this.observations.splice(i, 1);
+    }
+    return Promise.resolve();
+  }
+
+  deleteByMercado(mercadoId: string): Promise<void> {
+    for (let i = this.observations.length - 1; i >= 0; i--) {
+      if (this.observations[i]!.mercadoId === mercadoId) this.observations.splice(i, 1);
     }
     return Promise.resolve();
   }
