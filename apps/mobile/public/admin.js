@@ -323,6 +323,7 @@
         var sel = covSelCount();
         box.innerHTML = '<div class="cov-toolbar">' +
             '<label class="cov-selall"><input type="checkbox" id="cov-sel-all"/> pág.</label>' +
+            '<button id="cov-prod-join" class="cov-join"' + (sel >= 2 ? '' : ' disabled') + '>🔗 Juntar (' + sel + ')</button>' +
             '<button id="cov-del" class="cov-del"' + (sel ? '' : ' disabled') + '>🗑 Excluir (' + sel + ')</button>' +
             sizeSelect('cov-prod-size', state.covProdSize) + pagBar('cov-prod', info, lista.length) + '</div>' +
           (lista.length
@@ -348,7 +349,39 @@
           renderCovProdBox();
         };
         var del = el('cov-del'); if (del) del.onclick = excluirCobertura;
+        var pjoin = el('cov-prod-join'); if (pjoin) pjoin.onclick = juntarProdutosUI;
         wireCovPag('cov-prod', 'covProdPag', 'covProdSize', renderCovProdBox);
+      }
+      function juntarProdutosUI() {
+        var c = state.cobertura;
+        if (!c) return;
+        var byId = {};
+        c.produtos.forEach(function (p) { byId[p.id] = p; });
+        var sel = Object.keys(state.covSel).map(function (id) { return byId[id]; }).filter(Boolean);
+        if (sel.length < 2) { toast('Selecione 2+ produtos pra juntar'); return; }
+        var opts = sel.map(function (p) {
+          return '<option value="' + esc(p.id) + '">' + esc(p.nome) + ' (' + p.precos + ' preço' + (p.precos === 1 ? '' : 's') + ')</option>';
+        }).join('');
+        mmModal({
+          title: 'Juntar ' + sel.length + ' produtos',
+          message: 'Escolha qual manter. Os preços dos outros passam pra ele e os outros são removidos. Use quando é o MESMO produto com nomes diferentes.',
+          bodyHtml: '<select class="mm-select" data-mm-keep>' + opts + '</select>',
+          okText: 'Juntar',
+          onOk: function (mov) {
+            var keep = (mov.querySelector('[data-mm-keep]') || {}).value;
+            doJuntarProdutos(keep, sel.map(function (p) { return p.id; }).filter(function (x) { return x !== keep; }));
+          },
+        });
+      }
+      async function doJuntarProdutos(manterId, removerIds) {
+        try {
+          await apiFetch('/admin/duplicados/juntar', { method: 'POST', body: JSON.stringify({ manterId: manterId, removerIds: removerIds }) });
+          state.covSel = {};
+          toast('🔗 ' + (removerIds.length + 1) + ' produtos unificados');
+          await carregarCobertura(false);
+        } catch (e) {
+          toast('Erro: ' + ((e && e.message) || 'falha ao juntar'));
+        }
       }
       async function carregarCobertura(comToast) {
         state.coberturaLoading = true; state.coberturaErro = '';
@@ -792,8 +825,11 @@
         if (t.classList.contains('cov-chk')) {
           var pid = t.getAttribute('data-id');
           if (t.checked) state.covSel[pid] = 1; else delete state.covSel[pid];
+          var n = covSelCount();
           var del = document.getElementById('cov-del');
-          if (del) { var n = covSelCount(); del.disabled = n === 0; del.textContent = '🗑 Excluir (' + n + ')'; }
+          if (del) { del.disabled = n === 0; del.textContent = '🗑 Excluir (' + n + ')'; }
+          var pj = document.getElementById('cov-prod-join');
+          if (pj) { pj.disabled = n < 2; pj.textContent = '🔗 Juntar (' + n + ')'; }
         } else if (t.classList.contains('cov-mchk')) {
           var mid = t.getAttribute('data-id');
           if (t.checked) state.covMercSel[mid] = 1; else delete state.covMercSel[mid];

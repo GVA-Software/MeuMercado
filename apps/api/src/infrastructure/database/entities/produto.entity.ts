@@ -26,4 +26,12 @@ export class ProdutoEntity {
   @Index()
   @Column({ name: 'ean', type: 'varchar', nullable: true })
   ean!: string | null;
+
+  /**
+   * Oculto: itens da base (seed) são fixos no código; pra "excluí-los" gravamos aqui
+   * uma linha materializada com hidden=true, que o findAll passa a esconder. Também
+   * materializa edições de itens de seed (nome/categoria).
+   */
+  @Column({ type: 'boolean', default: false })
+  hidden!: boolean;
 }

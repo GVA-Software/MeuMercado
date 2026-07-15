@@ -366,7 +366,7 @@ export class AdminService {
     }
     const ok = await this.produtos.atualizar(id, { nome: nome.trim(), categoria });
     if (!ok) {
-      throw new BadRequestException('Este produto é da base e não pode ser editado por aqui.');
+      throw new BadRequestException('Não foi possível editar o produto (pode ter sido removido).');
     }
   }
 

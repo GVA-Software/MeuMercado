@@ -322,12 +322,14 @@ describe('AdminService — editar produto e preço', () => {
     await expect(service.editarProduto('nada', 'X', 'Outros')).rejects.toThrow(/não encontrado/i);
   });
 
-  it('editarProduto rejeita item da base (atualizar → false)', async () => {
+  it('editarProduto rejeita quando o repo não consegue atualizar (ex.: removido)', async () => {
     const { service } = makeService([], {
-      produtos: [{ id: 'seed1', nome: 'Base' }],
+      produtos: [{ id: 'p9', nome: 'X' }],
       atualizarOk: false,
     });
-    await expect(service.editarProduto('seed1', 'Novo', 'Outros')).rejects.toThrow(/base/i);
+    await expect(service.editarProduto('p9', 'Novo', 'Outros')).rejects.toThrow(
+      /não foi possível/i,
+    );
   });
 
   it('editarPreco corrige o valor de um reporte existente', async () => {

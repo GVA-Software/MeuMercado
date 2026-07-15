@@ -37,24 +37,59 @@ export class TypeOrmProdutoRepository implements ProdutoRepository {
     });
   }
 
+  /** Linha de banco que materializa um item de seed (para editá-lo ou ocultá-lo). */
+  private materializar(
+    p: Produto,
+    hidden: boolean,
+    nome?: string,
+    categoria?: Categoria,
+  ): Partial<ProdutoEntity> {
+    return {
+      id: p.id,
+      nome: nome ?? p.nome,
+      categoria: categoria ?? p.categoria,
+      unidade: p.unidade,
+      emoji: p.emoji ?? null,
+      codigoExterno: p.codigoExterno ?? null,
+      ean: p.ean ?? null,
+      hidden,
+    };
+  }
+
   async findAll(): Promise<Produto[]> {
     const rows = await this.repo.find();
-    const doBanco = rows.filter((r) => !this.seedIds.has(r.id)).map((r) => this.toDomain(r));
-    return [...this.seedProdutos, ...doBanco];
+    const overrides = new Map<string, ProdutoEntity>();
+    const doBanco: ProdutoEntity[] = [];
+    for (const r of rows) {
+      if (this.seedIds.has(r.id)) overrides.set(r.id, r);
+      else if (!r.hidden) doBanco.push(r);
+    }
+    const seed = this.seedProdutos
+      .map((p) => {
+        const ov = overrides.get(p.id);
+        if (!ov) return p; // seed intacto
+        return ov.hidden ? null : this.toDomain(ov); // editado, ou ocultado (excluído)
+      })
+      .filter((p): p is Produto => p !== null);
+    return [...seed, ...doBanco.map((r) => this.toDomain(r))];
   }
 
   async findById(id: string): Promise<Produto | null> {
-    const seedHit = this.seedProdutos.find((p) => p.id === id);
-    if (seedHit) return seedHit;
     const row = await this.repo.findOne({ where: { id } });
-    return row ? this.toDomain(row) : null;
+    if (row) return row.hidden ? null : this.toDomain(row);
+    const seedHit = this.seedProdutos.find((p) => p.id === id);
+    return seedHit ?? null;
   }
 
   async findByEan(ean: string): Promise<Produto | null> {
+    const rows = await this.repo.find({ where: { ean } });
+    const vivo = rows.find((r) => !r.hidden && !this.seedIds.has(r.id));
+    if (vivo) return this.toDomain(vivo);
     const seedHit = this.seedProdutos.find((p) => p.ean === ean);
-    if (seedHit) return seedHit;
-    const row = await this.repo.findOne({ where: { ean } });
-    return row ? this.toDomain(row) : null;
+    if (!seedHit) return null;
+    const ov = await this.repo.findOne({ where: { id: seedHit.id } });
+    if (ov) return ov.hidden ? null : this.toDomain(ov);
+    return seedHit;
   }
 
   async search(termo: string, limit: number): Promise<Produto[]> {
@@ -75,15 +110,35 @@ export class TypeOrmProdutoRepository implements ProdutoRepository {
   }
 
   async atualizar(id: string, campos: { nome: string; categoria: Categoria }): Promise<boolean> {
-    // Itens do seed são fixos no código — não dá pra editar por aqui.
-    if (this.seedIds.has(id)) return false;
+    if (this.seedIds.has(id)) {
+      // Materializa a edição do item de seed numa linha do banco (que passa a
+      // sobrescrever o hardcoded no findAll).
+      const seed = this.seedProdutos.find((p) => p.id === id);
+      if (!seed) return false;
+      const existe = await this.repo.findOne({ where: { id } });
+      if (existe) {
+        await this.repo.update({ id }, { nome: campos.nome, categoria: campos.categoria });
+      } else {
+        await this.repo.insert(this.materializar(seed, false, campos.nome, campos.categoria));
+      }
+      return true;
+    }
     const r = await this.repo.update({ id }, { nome: campos.nome, categoria: campos.categoria });
     return (r.affected ?? 0) > 0;
   }
 
   async delete(id: string): Promise<void> {
-    // Itens do seed são fixos (não estão no banco) — não há o que remover.
-    if (this.seedIds.has(id)) return;
+    if (this.seedIds.has(id)) {
+      // Não dá pra remover a linha hardcoded — grava/atualiza uma linha oculta.
+      const existe = await this.repo.findOne({ where: { id } });
+      if (existe) {
+        await this.repo.update({ id }, { hidden: true });
+      } else {
+        const seed = this.seedProdutos.find((p) => p.id === id);
+        if (seed) await this.repo.insert(this.materializar(seed, true));
+      }
+      return;
+    }
     await this.repo.delete(id);
   }
 }
