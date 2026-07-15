@@ -36,7 +36,10 @@ describe('sugerirCategoria', () => {
     ['COPO DESC.KEROCOPO', 'Utilidades'],
     ['VELA ANIV.JUNCO Número', 'Utilidades'],
     ['ARROZ PRATO FINO T1', 'Graos'], // "PRATO" não pode roubar pra Utilidades
-    ['OVOS BRANCOS JUMBO P', 'Outros'], // sem match confiável
+    ['OVOS BRANCOS JUMBO P', 'Basicos'],
+    ['OVO CAIPIRA DZ', 'Basicos'],
+    ['OVOMALTINE 300G', 'Outros'], // "OVO" não pode vazar pra Básicos (guard do \b)
+    ['CALDEIRAO HOTEL', 'Outros'], // segue ambíguo (manual)
   ];
   it.each(casos)('classifica "%s" como %s', (nome, esperado) => {
     expect(sugerirCategoria(nome)).toBe(esperado);
