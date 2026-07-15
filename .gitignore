@@ -23,6 +23,11 @@ test-results/
 .env.local
 .env.*.local
 
+# Scripts/saídas temporárias locais (ex.: OAuth do Gmail) — contêm/geram segredos
+_tmp-*
+*.local.txt
+*.local.json
+
 # OSM data / tiles (grandes, gerados) — não versionar
 services/**/data/
 *.osm.pbf
