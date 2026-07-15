@@ -4,13 +4,14 @@ import type { Env } from '../../config/env.schema.js';
 import {
   BrevoEmailService,
   EMAIL_SERVICE,
+  GmailEmailService,
   NoopEmailService,
   SmtpEmailService,
   type EmailService,
   type EmailTransporter,
 } from './email.service.js';
 
-/** Separa "Nome <email>" em nome + email (o SMTP_FROM vira o remetente do Brevo). */
+/** Separa "Nome <email>" em nome + email (o SMTP_FROM vira o remetente). */
 function parseFrom(from: string): { nome: string; email: string } {
   const m = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(from);
   if (m) return { nome: m[1]?.trim() || 'Meu Mercado', email: m[2]!.trim() };
@@ -18,8 +19,9 @@ function parseFrom(from: string): { nome: string; email: string } {
 }
 
 /**
- * Provê o EmailService global (config-flip, sem tocar no código):
- *   BREVO_API_KEY → Brevo (HTTP, contorna o bloqueio de SMTP do Render free);
+ * Provê o EmailService global (config-flip, sem tocar no código), em ordem de preferência:
+ *   Gmail API (3 chaves GMAIL_*) → HTTP, DMARC alinhado, chega no iCloud;
+ *   senão BREVO_API_KEY → Brevo (HTTP);
  *   senão SMTP_HOST → SMTP (nodemailer); senão → NoopEmailService (só loga).
  */
 @Global()
@@ -30,9 +32,16 @@ function parseFrom(from: string): { nome: string; email: string } {
       inject: [ConfigService],
       useFactory: async (config: ConfigService<Env, true>): Promise<EmailService> => {
         const from = config.get('SMTP_FROM', { infer: true });
+        const { nome, email } = parseFrom(from);
+        const gmailId = config.get('GMAIL_CLIENT_ID', { infer: true });
+        const gmailSecret = config.get('GMAIL_CLIENT_SECRET', { infer: true });
+        const gmailRefresh = config.get('GMAIL_REFRESH_TOKEN', { infer: true });
+        if (gmailId && gmailSecret && gmailRefresh) {
+          new Logger('Email').log(`Gmail API ativa — remetente ${email}.`);
+          return new GmailEmailService(gmailId, gmailSecret, gmailRefresh, email, nome);
+        }
         const brevoKey = config.get('BREVO_API_KEY', { infer: true });
         if (brevoKey) {
-          const { nome, email } = parseFrom(from);
           new Logger('Email').log(`Brevo (HTTP) ativo — remetente ${email}.`);
           return new BrevoEmailService(brevoKey, email, nome);
         }

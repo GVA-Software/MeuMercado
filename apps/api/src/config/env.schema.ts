@@ -66,11 +66,21 @@ export const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().default('Meu Mercado <no-reply@meumercado.app>'),
   /**
-   * Brevo (e-mail por HTTP). Preferido no Render free (SMTP de saída é bloqueado).
-   * COM esta chave → envia pelo Brevo; o remetente vem do SMTP_FROM (verifique-o no
-   * Brevo). Sem ela, cai no SMTP (se configurado) ou fica desligado.
+   * Brevo (e-mail por HTTP). COM esta chave → envia pelo Brevo; o remetente vem do
+   * SMTP_FROM (verifique-o no Brevo). Obs.: remetente compartilhado do Brevo é recusado
+   * por DMARC em provedores rígidos (iCloud) — a Gmail API abaixo é mais confiável.
    */
   BREVO_API_KEY: z.string().optional(),
+
+  /**
+   * Gmail API (e-mail por HTTP, porta 443). PREFERIDO: envia pela própria conta Gmail,
+   * então DMARC alinha e chega em todo provedor (iCloud incluso). COM as 3 chaves →
+   * envia pela Gmail API; o remetente vem do SMTP_FROM (use o e-mail da própria conta).
+   * Gere o refresh token uma vez (OAuth, scope gmail.send).
+   */
+  GMAIL_CLIENT_ID: z.string().optional(),
+  GMAIL_CLIENT_SECRET: z.string().optional(),
+  GMAIL_REFRESH_TOKEN: z.string().optional(),
 
   /**
    * Postgres (TypeORM). Se definido → usa banco (dados persistem).
