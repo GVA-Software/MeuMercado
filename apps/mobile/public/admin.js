@@ -476,7 +476,8 @@
               '<div class="ed-preco-bot"><span class="ed-rs">R$</span>' +
               '<input type="number" step="0.01" min="0" class="ed-val" id="edval-' + esc(pr.id) + '" value="' + (pr.precoCents / 100).toFixed(2) + '"/>' +
               '<button class="ed-mini" data-ed="save-preco" data-pid="' + esc(pr.id) + '">Salvar</button>' +
-              '<button class="ed-mini ed-danger" data-ed="del-preco" data-pid="' + esc(pr.id) + '">🗑</button></div></div>';
+              '<button class="ed-mini ed-danger" data-ed="del-preco" data-pid="' + esc(pr.id) + '">🗑</button></div>' +
+              '<button class="ed-split-link" data-ed="split-preco" data-pid="' + esc(pr.id) + '">↗ Separar em produto novo (gramatura diferente)</button></div>';
           }).join('') : '<p class="fnote">Sem reportes de preço.</p>';
           el('ed-body').innerHTML =
             '<label>Nome</label><input class="mm-select" id="ed-nome" value="' + esc(dados.nome) + '"/>' +
@@ -525,6 +526,25 @@
             recarregar = true; toast('🗑 Reporte excluído'); await fetchDados();
           } catch (e) { toast('Erro: ' + ((e && e.message) || 'falha')); }
         }
+        function separarUI(pid) {
+          mmModal({
+            title: '↗ Separar em produto novo',
+            message: 'Este reporte vira um produto separado (use quando gramaturas diferentes ficaram juntas). Nome do novo produto:',
+            bodyHtml: '<input class="mm-select" data-mm-nome value="' + esc(dados.nome) + '"/>',
+            okText: 'Separar',
+            onOk: function (mov) {
+              var nome = ((mov.querySelector('[data-mm-nome]') || {}).value || '').trim();
+              if (!nome) { toast('Informe o nome'); return; }
+              doSepararPreco(pid, nome);
+            },
+          });
+        }
+        async function doSepararPreco(pid, nome) {
+          try {
+            await apiFetch('/admin/precos/' + encodeURIComponent(pid) + '/separar', { method: 'POST', body: JSON.stringify({ nome: nome }) });
+            recarregar = true; toast('↗ Separado em novo produto'); await fetchDados();
+          } catch (e) { toast('Erro: ' + ((e && e.message) || 'falha')); }
+        }
         ov.addEventListener('click', function (ev) {
           var t = ev.target;
           var acao = t.getAttribute && t.getAttribute('data-ed');
@@ -532,6 +552,7 @@
           if (acao === 'save-prod') salvarProduto();
           else if (acao === 'save-preco') salvarPreco(t.getAttribute('data-pid'));
           else if (acao === 'del-preco') armarExcluir(t);
+          else if (acao === 'split-preco') separarUI(t.getAttribute('data-pid'));
         });
         document.body.appendChild(ov);
         fetchDados();

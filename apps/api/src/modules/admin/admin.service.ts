@@ -7,7 +7,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { chaveProduto, type Assinatura, type Categoria, type Periodo } from '@meumercado/domain';
+import { randomUUID } from 'node:crypto';
+import {
+  chaveProduto,
+  Produto,
+  type Assinatura,
+  type Categoria,
+  type Periodo,
+} from '@meumercado/domain';
 import {
   PLANOS,
   type AdminCoberturaDTO,
@@ -373,6 +380,25 @@ export class AdminService {
   /** Exclui UM reporte de preço (report errado). */
   async excluirPreco(id: string): Promise<void> {
     await this.prices.deleteById(id);
+  }
+
+  /**
+   * Separa UM reporte num produto NOVO: cria o produto (nome informado, herdando
+   * categoria/unidade do original) e move a observação pra ele. Usado quando
+   * gramaturas diferentes ficaram juntas no mesmo produto.
+   */
+  async separarPreco(obsId: string, nome: string): Promise<void> {
+    const obs = (await this.prices.all()).find((o) => o.id === obsId);
+    if (!obs) throw new NotFoundException('Reporte de preço não encontrado.');
+    const original = await this.produtos.findById(obs.produtoId);
+    const novo = new Produto({
+      id: randomUUID(),
+      nome: nome.trim(),
+      categoria: original?.categoria ?? 'Outros',
+      unidade: original?.unidade ?? 'un',
+    });
+    await this.produtos.add(novo);
+    await this.prices.moverObservacao(obsId, novo.id);
   }
 
   /**

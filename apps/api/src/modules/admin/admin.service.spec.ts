@@ -88,11 +88,17 @@ function makeService(
   const mercadosApagados: string[] = [];
   const precosEditados: Array<[string, number]> = [];
   const produtosEditados: Array<[string, string, string]> = [];
+  const produtosCriados: Array<{ id: string; nome: string }> = [];
+  const obsMovidas: Array<[string, string]> = [];
   const reassignsMercado: Array<[string, string, string, string | null]> = [];
   const prices = {
     all: () => Promise.resolve(extra.observacoes ?? []),
     findByProduto: (pid: string) =>
       Promise.resolve((extra.observacoes ?? []).filter((o) => o.produtoId === pid)),
+    moverObservacao: (obsId: string, pid: string) => {
+      obsMovidas.push([obsId, pid]);
+      return Promise.resolve();
+    },
     deleteByProduto: (id: string) => {
       precosApagados.push(id);
       return Promise.resolve();
@@ -114,6 +120,10 @@ function makeService(
     findAll: () => Promise.resolve(extra.produtos ?? []),
     findById: (id: string) =>
       Promise.resolve((extra.produtos ?? []).find((p) => p.id === id) ?? null),
+    add: (p: { id: string; nome: string }) => {
+      produtosCriados.push({ id: p.id, nome: p.nome });
+      return Promise.resolve();
+    },
     atualizar: (id: string, campos: { nome: string; categoria: string }) => {
       produtosEditados.push([id, campos.nome, campos.categoria]);
       return Promise.resolve(extra.atualizarOk ?? true);
@@ -149,6 +159,8 @@ function makeService(
     mercadosApagados,
     precosEditados,
     produtosEditados,
+    produtosCriados,
+    obsMovidas,
     reassignsMercado,
   };
 }
@@ -331,6 +343,24 @@ describe('AdminService — editar produto e preço', () => {
   it('editarPreco rejeita reporte inexistente', async () => {
     const { service } = makeService([], { observacoes: [] });
     await expect(service.editarPreco('fantasma', 100)).rejects.toThrow(/não encontrado/i);
+  });
+
+  it('separarPreco cria produto novo e move o reporte pra ele', async () => {
+    const { service, produtosCriados, obsMovidas } = makeService([], {
+      produtos: [{ id: 'p1', nome: 'CR.DENTAL' }],
+      observacoes: [
+        { id: 'obs1', reporterId: 'u1', produtoId: 'p1', mercadoId: 'm1', observedAt: d },
+      ],
+    });
+    await service.separarPreco('obs1', '  CR.DENTAL 180g  ');
+    expect(produtosCriados.length).toBe(1);
+    expect(produtosCriados[0]!.nome).toBe('CR.DENTAL 180g'); // trimado
+    expect(obsMovidas).toEqual([['obs1', produtosCriados[0]!.id]]);
+  });
+
+  it('separarPreco rejeita reporte inexistente', async () => {
+    const { service } = makeService([], { observacoes: [] });
+    await expect(service.separarPreco('fantasma', 'X')).rejects.toThrow(/não encontrado/i);
   });
 });
 

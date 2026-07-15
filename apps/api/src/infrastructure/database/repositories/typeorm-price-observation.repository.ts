@@ -111,4 +111,9 @@ export class TypeOrmPriceObservationRepository implements PriceObservationReposi
     await this.repo.delete(id);
     this.invalidar();
   }
+
+  async moverObservacao(obsId: string, novoProdutoId: string): Promise<void> {
+    await this.repo.update({ id: obsId }, { produtoId: novoProdutoId });
+    this.invalidar();
+  }
 }

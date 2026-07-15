@@ -28,6 +28,8 @@ export interface PriceObservationRepository {
   updatePreco(id: string, priceCents: number): Promise<void>;
   /** Apaga UMA observação pelo id (reporte errado). */
   deleteById(id: string): Promise<void>;
+  /** Move UMA observação para outro produto (ao separar gramaturas que ficaram juntas). */
+  moverObservacao(obsId: string, novoProdutoId: string): Promise<void>;
 }
 
 export const PRICE_OBSERVATION_REPOSITORY = 'PRICE_OBSERVATION_REPOSITORY';
@@ -118,6 +120,27 @@ export class InMemoryPriceObservationRepository implements PriceObservationRepos
   deleteById(id: string): Promise<void> {
     const i = this.observations.findIndex((o) => o.id === id);
     if (i >= 0) this.observations.splice(i, 1);
+    return Promise.resolve();
+  }
+
+  moverObservacao(obsId: string, novoProdutoId: string): Promise<void> {
+    for (let i = 0; i < this.observations.length; i++) {
+      const o = this.observations[i]!;
+      if (o.id !== obsId) continue;
+      this.observations[i] = new PriceObservation({
+        id: o.id,
+        produtoId: novoProdutoId,
+        mercadoId: o.mercadoId,
+        price: o.price,
+        source: o.source,
+        reporterId: o.reporterId,
+        observedAt: o.observedAt,
+        ...(o.mercadoNome !== undefined ? { mercadoNome: o.mercadoNome } : {}),
+        ...(o.mercadoEndereco !== undefined ? { mercadoEndereco: o.mercadoEndereco } : {}),
+        ...(o.mercadoLat !== undefined ? { mercadoLat: o.mercadoLat } : {}),
+        ...(o.mercadoLng !== undefined ? { mercadoLng: o.mercadoLng } : {}),
+      });
+    }
     return Promise.resolve();
   }
 

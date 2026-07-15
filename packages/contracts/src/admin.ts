@@ -169,3 +169,9 @@ export const AdminEditarPrecoSchema = z.object({
   precoCents: z.number().int().positive().max(100_000_000),
 });
 export type AdminEditarPrecoInput = z.infer<typeof AdminEditarPrecoSchema>;
+
+/** Separar UM reporte num produto NOVO (gramaturas diferentes que ficaram juntas). */
+export const AdminSepararPrecoSchema = z.object({
+  nome: z.string().min(1).max(120),
+});
+export type AdminSepararPrecoInput = z.infer<typeof AdminSepararPrecoSchema>;

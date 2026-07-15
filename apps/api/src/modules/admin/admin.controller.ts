@@ -18,6 +18,7 @@ import {
   AdminGrantProSchema,
   AdminJuntarMercadosSchema,
   AdminJuntarSchema,
+  AdminSepararPrecoSchema,
   PageQuerySchema,
   ResponderFeedbackSchema,
   type AdminCoberturaDTO,
@@ -31,6 +32,7 @@ import {
   type AdminJuntarInput,
   type AdminJuntarMercadosInput,
   type AdminProdutoEdicaoDTO,
+  type AdminSepararPrecoInput,
   type AdminStatsDTO,
   type AdminUserDTO,
   type AdminUsersResponse,
@@ -145,6 +147,16 @@ export class AdminController {
   @HttpCode(204)
   excluirPreco(@Param('id') id: string): Promise<void> {
     return this.service.excluirPreco(id);
+  }
+
+  /** Separa um reporte num produto novo (gramaturas que ficaram juntas). */
+  @Post('precos/:id/separar')
+  @HttpCode(204)
+  separarPreco(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(AdminSepararPrecoSchema)) body: AdminSepararPrecoInput,
+  ): Promise<void> {
+    return this.service.separarPreco(id, body.nome);
   }
 
   @Get('qa-conversa')
