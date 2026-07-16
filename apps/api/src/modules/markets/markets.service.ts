@@ -168,10 +168,16 @@ export class MarketsService {
   ): Promise<MercadoDTO[]> {
     const from = new GeoPoint(lat, lng);
 
+    // Backfill de geocode e busca no OSM são independentes → em PARALELO (corta a 1ª busca).
+    const [mercadosNossos, elements] = await Promise.all([
+      this.mercadosComCoord(),
+      this.osmProximos(lat, lng, raioMetros),
+    ]);
+
     // 1) NOSSOS mercados (das NFs) com coordenada. NÃO filtramos por raio aqui: um
     // mercado nosso que geocodificou LONGE (ex.: no centro da cidade) ainda precisa
     // poder casar, por marca, com o pino do OSM da mesma loja que está perto do usuário.
-    const nossos: MercadoProximo[] = (await this.mercadosComCoord())
+    const nossos: MercadoProximo[] = mercadosNossos
       .filter((m) => m.lat !== null && m.lng !== null)
       .map((m) => {
         const loc = new GeoPoint(m.lat!, m.lng!);
@@ -186,8 +192,7 @@ export class MarketsService {
       });
 
     // 2) OpenStreetMap — tipos AMPLOS (mercadinho/feira), mantendo até os SEM nome.
-    // Cacheado por área + busca paralela nos endpoints (o Overpass público é lento/instável).
-    const elements = await this.osmProximos(lat, lng, raioMetros);
+    // (Cacheado por área + busca paralela nos endpoints; o Overpass público é lento/instável.)
     const osm: MercadoProximo[] = elements
       .map((el): MercadoProximo | null => {
         const c = el.type === 'node' ? { lat: el.lat, lon: el.lon } : el.center;
