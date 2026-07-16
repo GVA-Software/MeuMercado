@@ -38,6 +38,9 @@ const REGRAS: Array<[readonly string[], string]> = [
   [
     [
       'papel toalha',
+      'toalha pap',
+      'toalha de papel',
+      'toalha de cozinha',
       'papel aluminio',
       'papel alumin',
       'filme pvc',
@@ -302,6 +305,7 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['croissant'], '🥐'],
   [['rosquinha', 'donut', 'sonho'], '🍩'],
   [['bolo', 'mist bol', 'panetone', 'torta', ' cuca '], '🎂'],
+  [['wrap', 'tortilha', 'tortilla', 'rap 10', 'rap10', 'pao folha'], '🌯'],
   [['torrada'], '🍞'],
   [['pao', 'bisnaga'], '🍞'],
 
@@ -408,7 +412,22 @@ const REGRAS: Array<[readonly string[], string]> = [
 
   // ---------- Snacks ----------
   [['batata chips', 'batata palha', 'chips'], '🥔'],
-  [['salgadinho', 'salgadin', 'salg ', 'doritos', 'cheetos', 'fandangos'], '🍟'],
+  [
+    [
+      'salgadinho',
+      'salgadin',
+      'salg ',
+      'doritos',
+      'cheetos',
+      'fandangos',
+      'lays',
+      'ruffles',
+      'pringles',
+      'torcida',
+      'stiksy',
+    ],
+    '🍟',
+  ],
   [['pipoca'], '🍿'],
   [['castanha', 'noz ', 'nozes', 'amendoa', 'avela'], '🌰'],
   [['barra de cereal'], '🥣'],
@@ -457,17 +476,17 @@ const REGRAS: Array<[readonly string[], string]> = [
   [['melancia'], '🍉'],
   [['melao', 'mamao'], '🍈'],
   [['manga'], '🥭'],
-  [['abacaxi'], '🍍'],
+  [['abacaxi', 'abacx'], '🍍'],
   [['kiwi'], '🥝'],
   [['pessego', 'nectarina'], '🍑'],
-  [['abacate'], '🥑'],
+  [['abacate', 'avocad'], '🥑'],
   [['ameixa', 'figo', 'jabuticaba'], '🟣'],
   [['caqui'], '🟠'],
   [['goiaba'], '🟢'],
   [['maracuja'], '🟡'],
 
   // ---------- Hortifrúti: verduras ----------
-  [['couve flor', 'brocolis'], '🥦'],
+  [['couve flor', 'couv flor', 'cou flo', 'brocolis'], '🥦'],
   [
     [
       'alface',
@@ -509,15 +528,45 @@ const REGRAS: Array<[readonly string[], string]> = [
   [[' sal ', 'sal refinado', 'sal grosso', 'sal marinho'], '🧂'],
 ];
 
-export function emojiParaProduto(nome: string): string {
+/**
+ * Reserva por CATEGORIA: quando o nome (abreviado da NFC-e) não casa nenhuma regra,
+ * um produto JÁ categorizado ainda ganha um emoji da sua categoria — em vez do 📦.
+ * (Só 'Outros' fica no 📦, de propósito.)
+ */
+const CATEGORIA_EMOJI: Record<string, string> = {
+  Frutas: '🍎',
+  Legumes: '🥕',
+  Verduras: '🥬',
+  Carnes: '🥩',
+  Laticinios: '🧀',
+  Padaria: '🍞',
+  Bebidas: '🥤',
+  Doces: '🍬',
+  Higiene: '🧴',
+  Limpeza: '🧽',
+  Basicos: '🧂',
+  Massas: '🍝',
+  Oleos: '🫙',
+  Graos: '🌾',
+  Conservas: '🥫',
+  Utilidades: '🍽️',
+};
+
+export function emojiParaProduto(nome: string, categoria?: string): string {
   const n = ` ${normaliza(nome)} `;
   for (const [chaves, emoji] of REGRAS) {
     for (const c of chaves) if (n.includes(c)) return emoji;
   }
+  // Nome não reconhecido: usa a categoria (se houver e não for 'Outros'); senão 📦.
+  if (categoria && CATEGORIA_EMOJI[categoria]) return CATEGORIA_EMOJI[categoria];
   return '📦';
 }
 
-/** Emoji do produto: o próprio (catálogo) ou um inferido pelo nome. */
-export function emojiDe(p: { emoji?: string | null | undefined; nome: string }): string {
-  return p.emoji || emojiParaProduto(p.nome);
+/** Emoji do produto: o próprio (catálogo) ou um inferido pelo nome/categoria. */
+export function emojiDe(p: {
+  emoji?: string | null | undefined;
+  nome: string;
+  categoria?: string;
+}): string {
+  return p.emoji || emojiParaProduto(p.nome, p.categoria);
 }
