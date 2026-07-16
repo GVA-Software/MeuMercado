@@ -112,12 +112,7 @@
   </head>
   <body>
     <div class="wrap">
-      <button
-        class="back"
-        onclick="history.length > 1 ? history.back() : location.replace('/')"
-      >
-        ← Voltar
-      </button>
+      <button class="back" data-back>← Voltar</button>
       <div class="top">
         <div class="brand">🛒 Meu Mercado</div>
         <h1>Política de Privacidade</h1>
@@ -276,13 +271,9 @@
           <a href="mailto:gvasoftware7@gmail.com">gvasoftware7@gmail.com</a>. Veja também os
           <a href="/termos.html">Termos de Uso</a>.
         </p>
-        <button
-          class="back-cta"
-          onclick="history.length > 1 ? history.back() : location.replace('/')"
-        >
-          ← Voltar
-        </button>
+        <button class="back-cta" data-back>← Voltar</button>
       </div>
     </div>
+    <script src="/legal-back.js"></script>
   </body>
 </html>
