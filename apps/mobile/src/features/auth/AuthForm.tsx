@@ -133,6 +133,10 @@ export function AuthForm() {
           />
           <div style={{ position: 'relative' }}>
             <input
+              // `key` muda ao alternar visível/oculto: força o React a RECRIAR o input.
+              // Sem isso, no iOS a senha preenchida pelo Keychain não revela ao trocar
+              // type=password→text no mesmo elemento (trava de segurança do Safari).
+              key={verSenha ? 'senha-visivel' : 'senha-oculta'}
               placeholder={mode === 'register' ? 'Senha (mín. 8 caracteres)' : 'Senha'}
               type={verSenha ? 'text' : 'password'}
               autoComplete={mode === 'register' ? 'new-password' : 'current-password'}

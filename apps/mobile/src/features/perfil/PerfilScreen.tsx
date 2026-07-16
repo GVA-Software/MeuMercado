@@ -197,12 +197,14 @@ function ExcluirContaModal({
   }
 
   return createPortal(
+    // Fundo desfocado; NÃO fecha ao clicar fora — só por "Cancelar" ou pela confirmação.
     <div
-      onClick={onCancel}
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.55)',
+        background: 'rgba(0,0,0,0.45)',
+        backdropFilter: 'blur(5px)',
+        WebkitBackdropFilter: 'blur(5px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -211,7 +213,6 @@ function ExcluirContaModal({
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
           maxWidth: 380,
@@ -635,22 +636,9 @@ export function PerfilScreen() {
               Sair
             </Btn>
 
-            <button
-              onClick={() => setMostrarExcluir(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: T.muted,
-                fontSize: 13,
-                cursor: 'pointer',
-                padding: 8,
-                marginTop: 2,
-                textDecoration: 'underline',
-                alignSelf: 'center',
-              }}
-            >
+            <Btn variant="ghost" full onClick={() => setMostrarExcluir(true)}>
               Excluir minha conta
-            </button>
+            </Btn>
           </>
         )}
       </div>
