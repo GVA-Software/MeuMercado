@@ -65,17 +65,25 @@ export class ApiClient {
         ...init,
         // envia/recebe o cookie httpOnly de refresh
         credentials: 'include',
+        // Timeout: NENHUMA requisição pode ficar pendurada pra sempre (ex.: conexão
+        // meia-aberta ou service worker preso) — senão o botão trava em "Aguarde…"
+        // eternamente. 45s cobre o cold start do Render e ainda vira erro (retentável).
+        signal: init?.signal ?? AbortSignal.timeout(45_000),
         headers: {
           'content-type': 'application/json',
           ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
           ...(init?.headers ?? {}),
         },
       });
-    } catch {
-      // Falha de REDE (offline, ou o servidor frio derrubando a conexão durante o
-      // cold start): normaliza para ApiError status 0, para os chamadores poderem
-      // distinguir "sem servidor" de "erro de sessão" (401) ou "erro do servidor" (5xx).
-      throw new ApiError(0, 'Sem conexão com o servidor.');
+    } catch (e) {
+      // Falha de REDE (offline, cold start derrubando a conexão) ou TIMEOUT: normaliza
+      // para ApiError status 0, para os chamadores distinguirem "sem servidor" de "erro
+      // de sessão" (401) ou "erro do servidor" (5xx).
+      const timeout = e instanceof DOMException && e.name === 'TimeoutError';
+      throw new ApiError(
+        0,
+        timeout ? 'O servidor demorou a responder. Tente de novo.' : 'Sem conexão com o servidor.',
+      );
     }
     // Access token expirou? Renova pelo refresh cookie e tenta de novo (1x).
     if (res.status === 401 && retryOn401 && !path.startsWith('/auth/')) {
