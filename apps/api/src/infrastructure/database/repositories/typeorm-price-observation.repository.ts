@@ -83,6 +83,11 @@ export class TypeOrmPriceObservationRepository implements PriceObservationReposi
     return agruparMercadosComPreco(await this.all());
   }
 
+  async setMercadoCoords(mercadoId: string, lat: number, lng: number): Promise<void> {
+    await this.repo.update({ mercadoId }, { mercadoLat: lat, mercadoLng: lng });
+    this.invalidar();
+  }
+
   async reassignProduto(fromId: string, toId: string): Promise<void> {
     await this.repo.update({ produtoId: fromId }, { produtoId: toId });
     this.invalidar();

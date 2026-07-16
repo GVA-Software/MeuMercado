@@ -10,12 +10,24 @@ import type {
 const LAT = -23.5505;
 const LNG = -46.6333;
 
-function make(nossos: MercadoComPreco[], osmElements: unknown[]) {
+function make(
+  nossos: MercadoComPreco[],
+  osmElements: unknown[],
+  geo?: { geocode?: (e: string) => Promise<{ lat: number; lng: number } | null> },
+) {
   const seed = { mercados: [], observations: [] } as unknown as SeedData;
+  const salvos: Array<{ id: string; lat: number; lng: number }> = [];
   const repo = {
     mercadosComPreco: () => Promise.resolve(nossos),
+    setMercadoCoords: (id: string, lat: number, lng: number) => {
+      salvos.push({ id, lat, lng });
+      return Promise.resolve();
+    },
   } as unknown as PriceObservationRepository;
-  const fetchMock = vi.fn(() =>
+  const geocode = {
+    geocode: geo?.geocode ?? (() => Promise.resolve(null)),
+  } as unknown as import('../geocode/geocode.service.js').GeocodeService;
+  const fetchMock = vi.fn((_url: string, _opts?: { body?: string }) =>
     Promise.resolve({
       ok: true,
       status: 200,
@@ -23,7 +35,7 @@ function make(nossos: MercadoComPreco[], osmElements: unknown[]) {
     } as unknown as Response),
   );
   vi.stubGlobal('fetch', fetchMock);
-  return { svc: new MarketsService(seed, repo), fetchMock };
+  return { svc: new MarketsService(seed, repo, geocode), fetchMock, salvos };
 }
 
 const nosso = (over: Partial<MercadoComPreco>): MercadoComPreco => ({
@@ -92,6 +104,34 @@ describe('MarketsService.proximos', () => {
     const r = await svc.proximos(LAT, LNG, 2000, 20);
     expect(r.find((m) => m.id === 'nfce:longe')).toBeUndefined();
     expect(r.find((m) => m.id === 'nfce:sem-coord')).toBeUndefined();
+  });
+
+  it('backfill: mercado com endereço mas SEM coord é geocodificado, pina e é salvo', async () => {
+    const semCoord = nosso({
+      id: 'nfce:atacadao',
+      nome: 'Atacadão',
+      endereco: 'Av dos Autonomistas, 1542, Osasco, SP',
+      lat: null,
+      lng: null,
+      precos: 200,
+    });
+    const { svc, salvos } = make([semCoord], [], {
+      geocode: () => Promise.resolve({ lat: LAT + 0.0005, lng: LNG }),
+    });
+    const r = await svc.proximos(LAT, LNG, 2000, 20);
+    // Apareceu no mapa (com selo de preços) e a coordenada foi persistida.
+    expect(r.find((m) => m.id === 'nfce:atacadao')?.precos).toBe(200);
+    expect(salvos).toEqual([{ id: 'nfce:atacadao', lat: LAT + 0.0005, lng: LNG }]);
+  });
+
+  it('backfill não pina quem não tem endereço (nada a geocodificar)', async () => {
+    const { svc, salvos } = make(
+      [nosso({ id: 'nfce:sem-tudo', endereco: null, lat: null, lng: null })],
+      [],
+    );
+    const r = await svc.proximos(LAT, LNG, 2000, 20);
+    expect(r.find((m) => m.id === 'nfce:sem-tudo')).toBeUndefined();
+    expect(salvos).toEqual([]);
   });
 
   it('a query do Overpass busca tipos amplos (mercadinho/feira)', async () => {

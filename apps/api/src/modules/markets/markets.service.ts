@@ -3,8 +3,10 @@ import { GeoPoint } from '@meumercado/domain';
 import type { MercadoDTO } from '@meumercado/contracts';
 import { SEED_DATA } from '../../data/data.module.js';
 import type { SeedData } from '../../data/seed.js';
+import { GeocodeService } from '../geocode/geocode.service.js';
 import {
   PRICE_OBSERVATION_REPOSITORY,
+  type MercadoComPreco,
   type PriceObservationRepository,
 } from '../pricing/price-observation.repository.js';
 
@@ -43,7 +45,36 @@ export class MarketsService {
   constructor(
     @Inject(SEED_DATA) private readonly seed: SeedData,
     @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly obs: PriceObservationRepository,
+    private readonly geocode: GeocodeService,
   ) {}
+
+  // Backfill: no máx. quantos endereços geocodificar por request e orçamento de tempo
+  // total (o resto fica pro próximo acesso). É one-time — depois de geocodificado, salvo.
+  private static readonly MAX_GEOCODE = 15;
+  private static readonly GEOCODE_BUDGET_MS = 8000;
+
+  /**
+   * Mercados com preço, garantindo coordenada: os que têm endereço mas entraram sem
+   * lat/lng (geocode falhou/pulou na importação) são geocodificados AGORA e a coordenada
+   * é salva (backfill). Assim mercado da NF que não pinou passa a pinar — e só uma vez.
+   */
+  private async mercadosComCoord(): Promise<MercadoComPreco[]> {
+    const mercados = await this.obs.mercadosComPreco();
+    const semCoord = mercados.filter((m) => (m.lat === null || m.lng === null) && m.endereco);
+    const prazo = Date.now() + MarketsService.GEOCODE_BUDGET_MS;
+    let feitos = 0;
+    for (const m of semCoord) {
+      if (feitos >= MarketsService.MAX_GEOCODE || Date.now() > prazo) break;
+      feitos++;
+      const coord = await this.geocode.geocode(m.endereco!);
+      if (coord) {
+        m.lat = coord.lat;
+        m.lng = coord.lng;
+        await this.obs.setMercadoCoords(m.id, coord.lat, coord.lng);
+      }
+    }
+    return mercados;
+  }
 
   // Rótulo em PT quando o mercado no OSM não tem `name` (antes esses eram descartados).
   private static readonly ROTULO_TIPO: Record<string, string> = {
@@ -58,7 +89,7 @@ export class MarketsService {
   };
 
   async todos(): Promise<MercadoDTO[]> {
-    const nossos = (await this.obs.mercadosComPreco())
+    const nossos = (await this.mercadosComCoord())
       .filter((m) => m.lat !== null && m.lng !== null)
       .map((m): MercadoDTO => ({
         id: m.id,
@@ -81,7 +112,7 @@ export class MarketsService {
     const from = new GeoPoint(lat, lng);
 
     // 1) NOSSOS mercados (das NFs) que têm coordenada e estão no raio.
-    const nossos: MercadoProximo[] = (await this.obs.mercadosComPreco())
+    const nossos: MercadoProximo[] = (await this.mercadosComCoord())
       .filter((m) => m.lat !== null && m.lng !== null)
       .map((m) => {
         const loc = new GeoPoint(m.lat!, m.lng!);

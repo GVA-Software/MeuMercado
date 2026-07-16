@@ -66,6 +66,11 @@ export interface PriceObservationRepository {
    * por nota aparece no mapa automaticamente.
    */
   mercadosComPreco(): Promise<MercadoComPreco[]>;
+  /**
+   * Grava a coordenada (geocodificada do endereço) em TODAS as observações de um
+   * mercado — backfill para mercados que entraram sem lat/lng aparecerem no mapa.
+   */
+  setMercadoCoords(mercadoId: string, lat: number, lng: number): Promise<void>;
   /** Move as observações de um produto para outro (ao juntar duplicados). */
   reassignProduto(fromId: string, toId: string): Promise<void>;
   /** Move as observações de um mercado para outro, adotando nome/endereço do destino. */
@@ -113,6 +118,27 @@ export class InMemoryPriceObservationRepository implements PriceObservationRepos
 
   mercadosComPreco(): Promise<MercadoComPreco[]> {
     return Promise.resolve(agruparMercadosComPreco(this.observations));
+  }
+
+  setMercadoCoords(mercadoId: string, lat: number, lng: number): Promise<void> {
+    for (let i = 0; i < this.observations.length; i++) {
+      const o = this.observations[i]!;
+      if (o.mercadoId !== mercadoId) continue;
+      this.observations[i] = new PriceObservation({
+        id: o.id,
+        produtoId: o.produtoId,
+        mercadoId: o.mercadoId,
+        price: o.price,
+        source: o.source,
+        reporterId: o.reporterId,
+        observedAt: o.observedAt,
+        ...(o.mercadoNome !== undefined ? { mercadoNome: o.mercadoNome } : {}),
+        ...(o.mercadoEndereco !== undefined ? { mercadoEndereco: o.mercadoEndereco } : {}),
+        mercadoLat: lat,
+        mercadoLng: lng,
+      });
+    }
+    return Promise.resolve();
   }
 
   reassignMercado(

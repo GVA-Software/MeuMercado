@@ -27,6 +27,7 @@ function makeService(produtos: Produto[], offNome: string | null = null) {
     deleteById: () => Promise.resolve(),
     moverObservacao: () => Promise.resolve(),
     mercadosComPreco: () => Promise.resolve([]),
+    setMercadoCoords: () => Promise.resolve(),
   };
   const prodRepo: ProdutoRepository = {
     findAll: () => Promise.resolve(produtos),
