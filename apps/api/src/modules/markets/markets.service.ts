@@ -3,6 +3,10 @@ import { GeoPoint } from '@meumercado/domain';
 import type { MercadoDTO } from '@meumercado/contracts';
 import { SEED_DATA } from '../../data/data.module.js';
 import type { SeedData } from '../../data/seed.js';
+import {
+  PRICE_OBSERVATION_REPOSITORY,
+  type PriceObservationRepository,
+} from '../pricing/price-observation.repository.js';
 
 interface OverpassElement {
   type: string;
@@ -13,19 +17,59 @@ interface OverpassElement {
   tags?: Record<string, string>;
 }
 
+/** Mercado já resolvido (nosso ou do OSM) antes de virar DTO. */
+interface MercadoProximo {
+  id: string;
+  nome: string;
+  loc: GeoPoint;
+  dist: number;
+  rede?: string;
+  endereco?: string;
+  precos?: number;
+}
+
 /**
- * Mercados. "Próximos" busca supermercados REAIS no OpenStreetMap via **Overpass
- * API** (sem API paga) num raio da coordenada do usuário. O seed serve só de
- * fallback/demo para `todos()`.
+ * Mercados. "Próximos" combina DUAS fontes, sem API paga:
+ *  1) NOSSA base — mercados que entraram por NFC-e (o preço guarda nome/endereço/
+ *     coordenada); assim, mercado que teve nota importada aparece no mapa automaticamente.
+ *  2) OpenStreetMap (Overpass) — supermercados/mercadinhos mapeados na região.
+ * Os nossos têm prioridade (dado autoritativo + preços) e deduplicam os do OSM que
+ * caem no mesmo ponto. O seed serve de fallback/demo para `todos()`.
  */
 @Injectable()
 export class MarketsService {
   private readonly logger = new Logger(MarketsService.name);
 
-  constructor(@Inject(SEED_DATA) private readonly seed: SeedData) {}
+  constructor(
+    @Inject(SEED_DATA) private readonly seed: SeedData,
+    @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly obs: PriceObservationRepository,
+  ) {}
 
-  todos(): MercadoDTO[] {
-    return this.seed.mercados.map((m) => m.toJSON());
+  // Rótulo em PT quando o mercado no OSM não tem `name` (antes esses eram descartados).
+  private static readonly ROTULO_TIPO: Record<string, string> = {
+    supermarket: 'Supermercado',
+    hypermarket: 'Hipermercado',
+    wholesale: 'Atacado',
+    convenience: 'Mercado',
+    grocery: 'Mercearia',
+    greengrocer: 'Hortifruti',
+    general: 'Mercadinho',
+    marketplace: 'Mercado / Feira',
+  };
+
+  async todos(): Promise<MercadoDTO[]> {
+    const nossos = (await this.obs.mercadosComPreco())
+      .filter((m) => m.lat !== null && m.lng !== null)
+      .map((m): MercadoDTO => ({
+        id: m.id,
+        nome: m.nome ?? 'Mercado',
+        localizacao: new GeoPoint(m.lat!, m.lng!).toJSON(),
+        ...(m.endereco ? { endereco: m.endereco } : {}),
+        precos: m.precos,
+      }));
+    const ids = new Set(nossos.map((m) => m.id));
+    const seedDtos = this.seed.mercados.map((m) => m.toJSON()).filter((m) => !ids.has(m.id));
+    return [...nossos, ...seedDtos];
   }
 
   async proximos(
@@ -34,41 +78,72 @@ export class MarketsService {
     raioMetros: number,
     limit: number,
   ): Promise<MercadoDTO[]> {
-    // Busca TODOS os mercados do raio (sem cortar server-side) — assim os
-    // grandes (super/hiper/atacadão) não somem só por haver muita mercearia
-    // perto. A ordenação por distância e o corte para `limit` são feitos aqui.
+    const from = new GeoPoint(lat, lng);
+
+    // 1) NOSSOS mercados (das NFs) que têm coordenada e estão no raio.
+    const nossos: MercadoProximo[] = (await this.obs.mercadosComPreco())
+      .filter((m) => m.lat !== null && m.lng !== null)
+      .map((m) => {
+        const loc = new GeoPoint(m.lat!, m.lng!);
+        return {
+          id: m.id,
+          nome: m.nome ?? 'Mercado',
+          loc,
+          dist: loc.distanceTo(from),
+          precos: m.precos,
+          ...(m.endereco ? { endereco: m.endereco } : {}),
+        };
+      })
+      .filter((m) => m.dist <= raioMetros);
+
+    // 2) OpenStreetMap — tipos AMPLOS (inclui mercadinho/feira) e mantendo até os SEM
+    // nome (rótulo por tipo), pra não deixar mercado de fora. Ordenação/corte aqui.
     const query =
       `[out:json][timeout:25];` +
-      `(nwr["shop"~"^(supermarket|hypermarket|wholesale|convenience|grocery|greengrocer)$"](around:${raioMetros},${lat},${lng}););` +
+      `(nwr["shop"~"^(supermarket|hypermarket|wholesale|convenience|grocery|greengrocer|general)$"](around:${raioMetros},${lat},${lng});` +
+      `nwr["amenity"="marketplace"](around:${raioMetros},${lat},${lng}););` +
       `out center tags 600;`;
-
     const elements = await this.overpass(query);
-
-    const from = new GeoPoint(lat, lng);
-    return elements
-      .map((el) => {
+    const osm: MercadoProximo[] = elements
+      .map((el): MercadoProximo | null => {
         const c = el.type === 'node' ? { lat: el.lat, lon: el.lon } : el.center;
-        const nome = el.tags?.name;
-        if (!c || c.lat === undefined || c.lon === undefined || !nome) return null;
-        const loc = new GeoPoint(c.lat, c.lon);
-        return { el, nome, loc, dist: loc.distanceTo(from) };
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null)
-      .sort((a, b) => a.dist - b.dist)
-      .slice(0, limit)
-      .map(({ el, nome, loc, dist }): MercadoDTO => {
+        if (!c || c.lat === undefined || c.lon === undefined) return null;
         const t = el.tags ?? {};
+        const tipo = t.shop ?? (t.amenity === 'marketplace' ? 'marketplace' : '');
+        const nome =
+          t.name ?? t.brand ?? t.operator ?? MarketsService.ROTULO_TIPO[tipo] ?? 'Mercado';
+        const loc = new GeoPoint(c.lat, c.lon);
         const rede = t.brand ?? t.operator;
         const endereco = this.buildEndereco(t);
         return {
           id: `osm-${el.type}-${el.id}`,
           nome,
-          localizacao: loc.toJSON(),
-          distanciaMetros: Math.round(dist),
+          loc,
+          dist: loc.distanceTo(from),
           ...(rede ? { rede } : {}),
           ...(endereco ? { endereco } : {}),
         };
-      });
+      })
+      .filter((x): x is MercadoProximo => x !== null);
+
+    // 3) Dedupe: um mercado do OSM a menos de ~70m de um dos NOSSOS é o mesmo lugar —
+    // fica com o nosso (tem preços + endereço/CNPJ da nota).
+    const DEDUP_M = 70;
+    const osmSemDup = osm.filter((o) => !nossos.some((n) => n.loc.distanceTo(o.loc) < DEDUP_M));
+
+    // 4) Une, ordena por distância, corta para o limite.
+    return [...nossos, ...osmSemDup]
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, limit)
+      .map((m): MercadoDTO => ({
+        id: m.id,
+        nome: m.nome,
+        localizacao: m.loc.toJSON(),
+        distanciaMetros: Math.round(m.dist),
+        ...(m.rede ? { rede: m.rede } : {}),
+        ...(m.endereco ? { endereco: m.endereco } : {}),
+        ...(m.precos ? { precos: m.precos } : {}),
+      }));
   }
 
   // Endpoints públicos do Overpass (fallback: o principal costuma sobrecarregar).

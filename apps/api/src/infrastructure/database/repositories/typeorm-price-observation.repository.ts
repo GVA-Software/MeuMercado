@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Money, PriceObservation, type PriceSource } from '@meumercado/domain';
-import type { PriceObservationRepository } from '../../../modules/pricing/price-observation.repository.js';
+import {
+  agruparMercadosComPreco,
+  type MercadoComPreco,
+  type PriceObservationRepository,
+} from '../../../modules/pricing/price-observation.repository.js';
 import { PriceObservationEntity } from '../entities/price-observation.entity.js';
 
 /** Persistência das observações de preço no Postgres (dados duráveis). */
@@ -72,6 +76,11 @@ export class TypeOrmPriceObservationRepository implements PriceObservationReposi
     this.cache = rows.map((r) => this.toDomain(r));
     this.cacheAt = Date.now();
     return this.cache;
+  }
+
+  async mercadosComPreco(): Promise<MercadoComPreco[]> {
+    // Reaproveita o scan cacheado de `all()` e agrupa em memória (base pequena).
+    return agruparMercadosComPreco(await this.all());
   }
 
   async reassignProduto(fromId: string, toId: string): Promise<void> {

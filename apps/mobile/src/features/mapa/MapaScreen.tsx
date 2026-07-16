@@ -97,7 +97,10 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
 
     markersRef.current.forEach(({ marker }) => marker.remove());
     markersRef.current = mercados.map((merc) => {
-      const marker = new maplibregl.Marker({ color: T.primary })
+      // Mercado com preço reportado (veio das nossas NFs) = pin verde e em destaque;
+      // os demais (só OpenStreetMap) ficam no laranja padrão.
+      const temPreco = (merc.precos ?? 0) > 0;
+      const marker = new maplibregl.Marker({ color: temPreco ? T.green : T.primary })
         .setLngLat([merc.localizacao.lng, merc.localizacao.lat])
         .addTo(map);
       const el = marker.getElement();
@@ -111,7 +114,7 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
     });
 
     fitAll();
-  }, [ready, mercados, T.primary, fitAll]);
+  }, [ready, mercados, T.primary, T.green, fitAll]);
 
   // Destaca o pin do mercado selecionado (glow + escala) para não se perder entre
   // pins próximos.
@@ -320,6 +323,7 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
 
         {mercados.map((m) => {
           const dist = formatDist(m.distanciaMetros);
+          const temPreco = (m.precos ?? 0) > 0;
           return (
             <button
               key={m.id}
@@ -329,7 +333,7 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
                 alignItems: 'center',
                 gap: 12,
                 background: T.surface,
-                border: `1px solid ${T.border}`,
+                border: `1px solid ${temPreco ? T.green : T.border}`,
                 borderRadius: 14,
                 padding: '12px 14px',
                 cursor: 'pointer',
@@ -342,14 +346,14 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
                   width: 40,
                   height: 40,
                   borderRadius: 12,
-                  background: T.primaryBg,
+                  background: temPreco ? T.greenBg : T.primaryBg,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: 20,
                 }}
               >
-                🏬
+                {temPreco ? '🏷️' : '🏬'}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ color: T.text, fontSize: 14, fontWeight: 700, margin: 0 }}>{m.nome}</p>
@@ -357,6 +361,11 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
                   {m.rede ?? 'Mercado'}
                   {dist ? ` · ${dist}` : ''}
                 </p>
+                {temPreco && (
+                  <p style={{ color: T.green, fontSize: 12, fontWeight: 700, margin: '3px 0 0' }}>
+                    ✓ {m.precos} {m.precos === 1 ? 'produto' : 'produtos'} com preço aqui
+                  </p>
+                )}
               </div>
               <span style={{ color: T.primary, fontSize: 18 }}>→</span>
             </button>
@@ -371,7 +380,7 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
             formatDist(selMercado.distanciaMetros)
               ? ` · a ${formatDist(selMercado.distanciaMetros)}`
               : ''
-          }`}
+          }${(selMercado.precos ?? 0) > 0 ? ` · ✓ ${selMercado.precos} com preço` : ''}`}
           endereco={selMercado.endereco ?? 'Endereço não disponível'}
           nav={selMercado.localizacao}
           onClose={() => setSelMercado(null)}

@@ -35,12 +35,13 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('GmailEmailService', () => {
   it('troca refresh token por access token e envia (Authorization Bearer + raw MIME)', async () => {
-    const fetchMock = vi.fn((url: string) =>
-      Promise.resolve(
-        url === TOKEN_URL
-          ? resp(true, { access_token: 'ya29.abc', expires_in: 3600 })
-          : resp(true, { id: 'msg1' }),
-      ),
+    const fetchMock = vi.fn(
+      (url: string, opts?: { body?: unknown; headers?: Record<string, string> }) =>
+        Promise.resolve(
+          url === TOKEN_URL
+            ? resp(true, { access_token: 'ya29.abc', expires_in: 3600 })
+            : resp(true, { id: 'msg1' }),
+        ),
     );
     vi.stubGlobal('fetch', fetchMock);
 
@@ -73,12 +74,13 @@ describe('GmailEmailService', () => {
   });
 
   it('cacheia o access token: 2 envios = 1 troca de token', async () => {
-    const fetchMock = vi.fn((url: string) =>
-      Promise.resolve(
-        url === TOKEN_URL
-          ? resp(true, { access_token: 'ya29.abc', expires_in: 3600 })
-          : resp(true, { id: 'm' }),
-      ),
+    const fetchMock = vi.fn(
+      (url: string, opts?: { body?: unknown; headers?: Record<string, string> }) =>
+        Promise.resolve(
+          url === TOKEN_URL
+            ? resp(true, { access_token: 'ya29.abc', expires_in: 3600 })
+            : resp(true, { id: 'm' }),
+        ),
     );
     vi.stubGlobal('fetch', fetchMock);
 
@@ -91,12 +93,13 @@ describe('GmailEmailService', () => {
   });
 
   it('enviarTeste LANÇA quando o Gmail recusa (config errada)', async () => {
-    const fetchMock = vi.fn((url: string) =>
-      Promise.resolve(
-        url === TOKEN_URL
-          ? resp(true, { access_token: 't', expires_in: 3600 })
-          : resp(false, 'forbidden', 403),
-      ),
+    const fetchMock = vi.fn(
+      (url: string, opts?: { body?: unknown; headers?: Record<string, string> }) =>
+        Promise.resolve(
+          url === TOKEN_URL
+            ? resp(true, { access_token: 't', expires_in: 3600 })
+            : resp(false, 'forbidden', 403),
+        ),
     );
     vi.stubGlobal('fetch', fetchMock);
     await expect(make().enviarTeste('a@b.com')).rejects.toThrow(/Gmail 403/);
@@ -109,12 +112,13 @@ describe('GmailEmailService', () => {
   });
 
   it('com HTML: envia multipart/alternative (texto + HTML), ambos decodificam', async () => {
-    const fetchMock = vi.fn((url: string) =>
-      Promise.resolve(
-        url === TOKEN_URL
-          ? resp(true, { access_token: 't', expires_in: 3600 })
-          : resp(true, { id: 'm' }),
-      ),
+    const fetchMock = vi.fn(
+      (url: string, opts?: { body?: unknown; headers?: Record<string, string> }) =>
+        Promise.resolve(
+          url === TOKEN_URL
+            ? resp(true, { access_token: 't', expires_in: 3600 })
+            : resp(true, { id: 'm' }),
+        ),
     );
     vi.stubGlobal('fetch', fetchMock);
 

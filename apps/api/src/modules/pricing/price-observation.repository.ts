@@ -3,6 +3,55 @@ import { Money, PriceObservation } from '@meumercado/domain';
 import { SEED_DATA } from '../../data/data.module.js';
 import type { SeedData } from '../../data/seed.js';
 
+/** Um mercado distinto (com preço reportado) derivado das observações — para o mapa. */
+export interface MercadoComPreco {
+  id: string;
+  nome: string | null;
+  endereco: string | null;
+  lat: number | null;
+  lng: number | null;
+  /** Nº de produtos distintos com preço neste mercado. */
+  precos: number;
+}
+
+/**
+ * Agrupa observações por mercado (id), adotando o primeiro nome/endereço/coordenada
+ * não-nulo e contando produtos distintos. Compartilhado por InMemory e TypeORM.
+ */
+export function agruparMercadosComPreco(observations: PriceObservation[]): MercadoComPreco[] {
+  const porMercado = new Map<
+    string,
+    {
+      nome: string | null;
+      endereco: string | null;
+      lat: number | null;
+      lng: number | null;
+      produtos: Set<string>;
+    }
+  >();
+  for (const o of observations) {
+    let m = porMercado.get(o.mercadoId);
+    if (!m) {
+      m = { nome: null, endereco: null, lat: null, lng: null, produtos: new Set() };
+      porMercado.set(o.mercadoId, m);
+    }
+    m.produtos.add(o.produtoId);
+    // Adota o primeiro valor definido (o mercado costuma ser consistente entre notas).
+    if (m.nome === null && o.mercadoNome !== undefined) m.nome = o.mercadoNome;
+    if (m.endereco === null && o.mercadoEndereco !== undefined) m.endereco = o.mercadoEndereco;
+    if (m.lat === null && o.mercadoLat !== undefined) m.lat = o.mercadoLat;
+    if (m.lng === null && o.mercadoLng !== undefined) m.lng = o.mercadoLng;
+  }
+  return [...porMercado.entries()].map(([id, m]) => ({
+    id,
+    nome: m.nome,
+    endereco: m.endereco,
+    lat: m.lat,
+    lng: m.lng,
+    precos: m.produtos.size,
+  }));
+}
+
 /**
  * Porta de acesso às observações de preço (implementação trocável: memória →
  * Postgres). Assíncrona porque a implementação persistente (TypeORM) é async.
@@ -11,6 +60,12 @@ export interface PriceObservationRepository {
   add(obs: PriceObservation): Promise<void>;
   findByProduto(produtoId: string): Promise<PriceObservation[]>;
   all(): Promise<PriceObservation[]>;
+  /**
+   * Mercados distintos que têm preço reportado (agrupados por mercadoId), com a
+   * localização gravada na importação da NFC-e. Alimenta o mapa: mercado que entrou
+   * por nota aparece no mapa automaticamente.
+   */
+  mercadosComPreco(): Promise<MercadoComPreco[]>;
   /** Move as observações de um produto para outro (ao juntar duplicados). */
   reassignProduto(fromId: string, toId: string): Promise<void>;
   /** Move as observações de um mercado para outro, adotando nome/endereço do destino. */
@@ -54,6 +109,10 @@ export class InMemoryPriceObservationRepository implements PriceObservationRepos
 
   all(): Promise<PriceObservation[]> {
     return Promise.resolve(this.observations);
+  }
+
+  mercadosComPreco(): Promise<MercadoComPreco[]> {
+    return Promise.resolve(agruparMercadosComPreco(this.observations));
   }
 
   reassignMercado(

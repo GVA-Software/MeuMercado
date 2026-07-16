@@ -12,7 +12,7 @@ export class MarketsController {
   constructor(private readonly service: MarketsService) {}
 
   @Get()
-  todos(): MercadoDTO[] {
+  todos(): Promise<MercadoDTO[]> {
     return this.service.todos();
   }
 

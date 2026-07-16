@@ -9,6 +9,11 @@ export const MercadoSchema = z.object({
   localizacao: GeoPointSchema,
   /** Preenchido quando a busca é relativa a uma posição do usuário. */
   distanciaMetros: z.number().nonnegative().optional(),
+  /**
+   * Nº de produtos com preço reportado neste mercado (via NFC-e/manual). Quando > 0,
+   * é um mercado da NOSSA base (não só do OpenStreetMap) — a UI marca com selo.
+   */
+  precos: z.number().int().nonnegative().optional(),
 });
 export type MercadoDTO = z.infer<typeof MercadoSchema>;
 
