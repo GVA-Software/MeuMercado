@@ -30,6 +30,58 @@ interface MercadoProximo {
   precos?: number;
 }
 
+// Palavras genéricas (razão social/tipo) que NÃO identificam a marca — removidas antes
+// de casar nomes ("CARREFOUR COMERCIO E INDUSTRIA LTDA" ≡ OSM "Carrefour Express").
+const RUIDO_NOME = new Set([
+  'ltda',
+  'me',
+  'epp',
+  'eireli',
+  'sa',
+  'cia',
+  'comercio',
+  'comercial',
+  'industria',
+  'geral',
+  'variedades',
+  'supermercado',
+  'hipermercado',
+  'super',
+  'mercado',
+  'mercadinho',
+  'minimercado',
+  'atacadista',
+  'atacado',
+  'distribuidora',
+  'distribuidor',
+  'alimentos',
+  'filial',
+  'matriz',
+  'loja',
+  'express',
+  'mercearia',
+  'hortifruti',
+  'emporio',
+  'armazem',
+]);
+
+/** Tokens que identificam a marca (sem acento, minúsculo, ≥3 letras, sem ruído). */
+function tokensMercado(nome: string): Set<string> {
+  return new Set(
+    nome
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 3 && !RUIDO_NOME.has(t)),
+  );
+}
+
+function intersecta(a: Set<string>, b: Set<string>): boolean {
+  for (const t of a) if (b.has(t)) return true;
+  return false;
+}
+
 /**
  * Mercados. "Próximos" combina DUAS fontes, sem API paga:
  *  1) NOSSA base — mercados que entraram por NFC-e (o preço guarda nome/endereço/
@@ -157,13 +209,31 @@ export class MarketsService {
       })
       .filter((x): x is MercadoProximo => x !== null);
 
-    // 3) Dedupe: um mercado do OSM a menos de ~70m de um dos NOSSOS é o mesmo lugar —
-    // fica com o nosso (tem preços + endereço/CNPJ da nota).
-    const DEDUP_M = 70;
-    const osmSemDup = osm.filter((o) => !nossos.some((n) => n.loc.distanceTo(o.loc) < DEDUP_M));
+    // 3) Casa cada NOSSO com o pino REAL do OSM, pra mostrar VERDE no lugar certo mesmo
+    //    quando o geocode do endereço caiu longe (na rua/cidade, não na loja):
+    //      a) mesmo ponto (<70m): o geocode acertou o pino do OSM → usa o do OSM;
+    //      b) mesma marca (nome) e o pino do OSM está MAIS PERTO do usuário que o nosso:
+    //         a loja da marca está aqui do lado → pinta ela de verde (e some com o nosso,
+    //         que ficou mal posicionado). Se o NOSSO já está mais perto, mantemos o nosso.
+    const tok = new Map<MercadoProximo, Set<string>>();
+    for (const m of [...nossos, ...osm]) tok.set(m, tokensMercado(`${m.nome} ${m.rede ?? ''}`));
+    const consumidos = new Set<string>();
+    for (const n of nossos) {
+      const tokN = tok.get(n)!;
+      let alvo = osm.find((o) => n.loc.distanceTo(o.loc) < 70);
+      if (!alvo && tokN.size > 0) {
+        alvo = osm
+          .filter((o) => o.dist < n.dist && intersecta(tokN, tok.get(o)!))
+          .sort((a, b) => a.dist - b.dist)[0];
+      }
+      if (alvo) {
+        alvo.precos = Math.max(alvo.precos ?? 0, n.precos ?? 0);
+        consumidos.add(n.id);
+      }
+    }
 
-    // 4) Une, ordena por distância, corta para o limite.
-    return [...nossos, ...osmSemDup]
+    // 4) Une (OSM já com preços onde casou) + nossos não consumidos; ordena e corta.
+    return [...osm, ...nossos.filter((n) => !consumidos.has(n.id))]
       .sort((a, b) => a.dist - b.dist)
       .slice(0, limit)
       .map((m): MercadoDTO => ({

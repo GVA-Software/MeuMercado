@@ -21,6 +21,7 @@ const MapaScreen = lazy(() =>
 export function App() {
   const { T } = useTheme();
   const { user, loading, acordando, bootErro, tentarConectar } = useAuth();
+  const uid = user?.id;
   const [tab, setTab] = useState<Tab>('compra');
   const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
   const [precoReq, setPrecoReq] = useState<{ produtoId?: string } | null>(null);
@@ -42,6 +43,12 @@ export function App() {
   useEffect(() => {
     if (user && !onboardingVisto()) setOnboarding(true);
   }, [user]);
+
+  // Ao logar, começa sempre na Home (Compra). O App não desmonta no logout, então sem
+  // isto o `tab` persistia (ex.: 'perfil') e o próximo login caía na aba antiga.
+  useEffect(() => {
+    if (uid) setTab('compra');
+  }, [uid]);
 
   const telaCheia = {
     height: '100dvh',

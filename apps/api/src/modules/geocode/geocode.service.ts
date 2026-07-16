@@ -14,9 +14,10 @@ export class GeocodeService {
   private readonly fwdCache = new Map<string, { lat: number; lng: number } | null>();
 
   /**
-   * Geocoding direto (endereço → coordenada). `null` se não encontrar.
-   * Expande abreviações (AV→Avenida — o Nominatim não casa "AV") e, se falhar,
-   * tenta uma forma simplificada "rua, cidade, UF".
+   * Geocoding direto (endereço → coordenada). `null` se não encontrar. Limpa
+   * complementos que atrapalham (letra/loja/bloco…), corrige o tipo de logradouro
+   * ("Av Alameda" → "Alameda") e tenta em cascata do mais específico (com número) ao
+   * mais amplo (rua, cidade, UF).
    */
   async geocode(endereco: string): Promise<{ lat: number; lng: number } | null> {
     const key = endereco.trim().toLowerCase();
@@ -24,11 +25,15 @@ export class GeocodeService {
     const cached = this.fwdCache.get(key);
     if (cached !== undefined) return cached;
 
-    const expandido = expandirAbrev(endereco);
-    let coord = await this.nominatim(expandido);
-    if (!coord) {
-      const simples = ruaCidadeUf(expandido);
-      if (simples && simples !== expandido) coord = await this.nominatim(simples);
+    const base = expandirAbrev(limparEndereco(endereco));
+    // Da forma mais específica p/ a mais ampla; para na 1ª que casar. Sem repetidos.
+    const tentativas = [base, ruaBairroCidadeUf(base), ruaCidadeUf(base)].filter(
+      (v, i, a): v is string => !!v && a.indexOf(v) === i,
+    );
+    let coord: { lat: number; lng: number } | null = null;
+    for (const q of tentativas) {
+      coord = await this.nominatim(q);
+      if (coord) break;
     }
     this.fwdCache.set(key, coord);
     return coord;
@@ -81,8 +86,16 @@ export class GeocodeService {
   }
 }
 
+const TIPOS_EXT = 'Alameda|Avenida|Rua|Estrada|Rodovia|Travessa|Pra[çc]a|Largo|Viela|Via';
+
 /** Expande o tipo de logradouro (o Nominatim não casa "AV DOS..."). */
 function expandirAbrev(s: string): string {
+  // Prefixo abreviado + tipo por extenso ("Av Alameda Araguaia") → mantém só o extenso.
+  const contra = new RegExp(
+    `^\\s*(?:AV|AVE|R|AL|PC|P[çc]|ROD|TV|EST)\\.?\\s+(${TIPOS_EXT})\\b`,
+    'i',
+  );
+  if (contra.test(s)) return s.replace(contra, '$1');
   return s
     .replace(/^\s*AV\.?\s+/i, 'Avenida ')
     .replace(/^\s*R\.?\s+/i, 'Rua ')
@@ -91,6 +104,30 @@ function expandirAbrev(s: string): string {
     .replace(/^\s*ROD\.?\s+/i, 'Rodovia ')
     .replace(/^\s*TV\.?\s+/i, 'Travessa ')
     .replace(/^\s*EST\.?\s+/i, 'Estrada ');
+}
+
+/** Remove complementos que o Nominatim não casa (letra, loja, bloco, andar…). */
+function limparEndereco(s: string): string {
+  return s
+    .replace(/,?\s*letra\s+[a-z0-9]+/gi, '') // "196, letra A" → "196"
+    .replace(
+      /,?\s*(?:loja|sala|bloco|bl|andar|apto?|ap|conj(?:unto)?|quadra|qd|lote|lt|galp[ãa]o)\.?\s*[a-z0-9-]+/gi,
+      '',
+    )
+    .replace(/\bn[º°o.]?\s*(\d)/gi, '$1') // "nº 41" → "41"
+    .replace(/\s*,(?:\s*,)+/g, ', ') // vírgulas duplicadas viram uma
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/** "rua, número, bairro, cidade, UF" → "rua, bairro, cidade, UF" (tira só o número). */
+function ruaBairroCidadeUf(s: string): string | null {
+  const parts = s
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length < 4) return null;
+  return `${parts[0]}, ${parts.slice(-3).join(', ')}`;
 }
 
 /** "rua, número, bairro, cidade, UF" → "rua, cidade, UF" (mais fácil de casar). */

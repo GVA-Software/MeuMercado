@@ -81,16 +81,51 @@ describe('MarketsService.proximos', () => {
     expect(r.find((m) => m.id === 'osm-node-2')?.nome).toBe('Feira do Bairro');
   });
 
-  it('deduplica: OSM no mesmo ponto de um NOSSO é descartado (fica o nosso)', async () => {
+  it('mesmo ponto (<70m): o pino do OSM adota os preços do nosso (e o nosso some)', async () => {
     const { svc } = make(
       [nosso({})],
       [osmNode(9, { shop: 'supermarket', name: 'Mesmo Lugar' }, LAT + 0.00013, LNG)], // ~mesmo ponto
     );
     const r = await svc.proximos(LAT, LNG, 2000, 20);
-    expect(r.find((m) => m.id === 'osm-node-9')).toBeUndefined();
-    expect(r.filter((m) => m.distanciaMetros !== undefined && m.distanciaMetros < 30).length).toBe(
-      1,
+    expect(r.find((m) => m.id === 'nfce:mercado-do-ze')).toBeUndefined();
+    expect(r.find((m) => m.id === 'osm-node-9')?.precos).toBe(5);
+  });
+
+  it('#4 marca igual: OSM MAIS PERTO do usuário fica verde; nosso geocodificado longe some', async () => {
+    // Nosso "Atacadão" geocodificou longe (~2km); o OSM Atacadão está a ~15m do usuário.
+    const longe = nosso({
+      id: 'nfce:atacadao',
+      nome: 'Atacadão',
+      lat: LAT + 0.018,
+      lng: LNG,
+      precos: 186,
+    });
+    const { svc } = make(
+      [longe],
+      [osmNode(1, { shop: 'supermarket', name: 'Atacadão' }, LAT + 0.00013, LNG)],
     );
+    const r = await svc.proximos(LAT, LNG, 5000, 20);
+    expect(r.find((m) => m.id === 'nfce:atacadao')).toBeUndefined(); // some o pino mal posicionado
+    const osmAtac = r.find((m) => m.id === 'osm-node-1')!;
+    expect(osmAtac.precos).toBe(186); // o Atacadão perto ficou verde
+    expect(osmAtac.distanciaMetros).toBeLessThan(30);
+  });
+
+  it('#4 se o NOSSO já está mais perto que o OSM da marca, mantém o nosso pino', async () => {
+    const perto = nosso({
+      id: 'nfce:atacadao',
+      nome: 'Atacadão',
+      lat: LAT + 0.00013,
+      lng: LNG,
+      precos: 10,
+    });
+    const { svc } = make(
+      [perto],
+      [osmNode(1, { shop: 'supermarket', name: 'Atacadão' }, LAT + 0.02, LNG)], // OSM longe
+    );
+    const r = await svc.proximos(LAT, LNG, 5000, 20);
+    expect(r.find((m) => m.id === 'nfce:atacadao')?.precos).toBe(10); // mantém o nosso
+    expect(r.find((m) => m.id === 'osm-node-1')?.precos).toBeUndefined(); // OSM longe fica laranja
   });
 
   it('não inclui NOSSO mercado fora do raio nem sem coordenada', async () => {
