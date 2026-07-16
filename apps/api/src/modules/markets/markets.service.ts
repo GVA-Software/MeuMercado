@@ -108,7 +108,8 @@ export class MarketsService {
   // Cache dos resultados do Overpass por área: o serviço público é lento/instável, então
   // repetir a busca fica instantâneo e, se ele falhar, servimos o último resultado bom.
   private readonly osmCache = new Map<string, { elements: OverpassElement[]; at: number }>();
-  private static readonly OSM_TTL_MS = 10 * 60 * 1000;
+  private readonly osmRefreshing = new Set<string>();
+  private static readonly OSM_TTL_MS = 30 * 60 * 1000;
 
   /**
    * Mercados com preço, garantindo coordenada: os que têm endereço mas entraram sem
@@ -261,7 +262,20 @@ export class MarketsService {
     'https://overpass.private.coffee/api/interpreter',
   ];
 
-  /** Busca os mercados do OSM na área, com cache (10min) + servir o último bom se falhar. */
+  private montarQueryOsm(lat: number, lng: number, raioMetros: number): string {
+    return (
+      `[out:json][timeout:15];` +
+      `(nwr["shop"~"^(supermarket|hypermarket|wholesale|convenience|grocery|greengrocer|general)$"](around:${raioMetros},${lat},${lng});` +
+      `nwr["amenity"="marketplace"](around:${raioMetros},${lat},${lng}););` +
+      `out center tags 600;`
+    );
+  }
+
+  /**
+   * Mercados do OSM na área, com **stale-while-revalidate**: se já tem cache, serve na
+   * HORA (mesmo vencido) e atualiza em 2º plano; só bloqueia na 1ª busca da área. Assim,
+   * depois do primeiro carregamento o mapa abre instantâneo mesmo com o Overpass lento.
+   */
   private async osmProximos(
     lat: number,
     lng: number,
@@ -270,20 +284,35 @@ export class MarketsService {
     // Chave por área (~1km): abrir o mapa do mesmo lugar reaproveita o resultado.
     const chave = `${lat.toFixed(2)},${lng.toFixed(2)},${raioMetros}`;
     const cache = this.osmCache.get(chave);
-    if (cache && Date.now() - cache.at < MarketsService.OSM_TTL_MS) return cache.elements;
-
-    const query =
-      `[out:json][timeout:12];` +
-      `(nwr["shop"~"^(supermarket|hypermarket|wholesale|convenience|grocery|greengrocer|general)$"](around:${raioMetros},${lat},${lng});` +
-      `nwr["amenity"="marketplace"](around:${raioMetros},${lat},${lng}););` +
-      `out center tags 600;`;
-    const elements = await this.overpass(query);
-    if (elements.length > 0) {
-      this.osmCache.set(chave, { elements, at: Date.now() });
-      return elements;
+    if (cache) {
+      const vencido = Date.now() - cache.at >= MarketsService.OSM_TTL_MS;
+      if (vencido && !this.osmRefreshing.has(chave)) {
+        void this.buscarECachearOsm(chave, lat, lng, raioMetros, true); // atualiza em 2º plano
+      }
+      return cache.elements;
     }
-    // Overpass falhou/veio vazio: serve o último resultado bom da área (mesmo vencido).
-    return cache?.elements ?? [];
+    return this.buscarECachearOsm(chave, lat, lng, raioMetros, false); // 1ª vez: bloqueia
+  }
+
+  private async buscarECachearOsm(
+    chave: string,
+    lat: number,
+    lng: number,
+    raioMetros: number,
+    background: boolean,
+  ): Promise<OverpassElement[]> {
+    if (background) this.osmRefreshing.add(chave);
+    try {
+      const elements = await this.overpass(this.montarQueryOsm(lat, lng, raioMetros));
+      if (elements.length > 0) {
+        this.osmCache.set(chave, { elements, at: Date.now() });
+        return elements;
+      }
+      // Overpass falhou/veio vazio: mantém o último resultado bom (não sobrescreve).
+      return this.osmCache.get(chave)?.elements ?? [];
+    } finally {
+      if (background) this.osmRefreshing.delete(chave);
+    }
   }
 
   /**
@@ -301,7 +330,7 @@ export class MarketsService {
           'User-Agent': 'MeuMercado/1.0 (app de compras)',
         },
         body,
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(15000),
       }).then(async (res) => {
         if (!res.ok) throw new Error(`${ep} HTTP ${res.status}`);
         const data = JSON.parse(await res.text()) as { elements?: OverpassElement[] };

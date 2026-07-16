@@ -24,6 +24,7 @@ export function PushToggle() {
 
   const [ativo, setAtivo] = useState(false);
   const [pronto, setPronto] = useState(false);
+  const [animar, setAnimar] = useState(false);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -38,6 +39,14 @@ export function PushToggle() {
       .catch(() => {})
       .finally(() => setPronto(true));
   }, [suportado]);
+
+  // Só anima o botão DEPOIS que o estado real (ligado/desligado) já foi definido — senão
+  // ao abrir o Perfil o botão desliza de "off" para "on" e parece que ligou sozinho.
+  useEffect(() => {
+    if (!pronto) return;
+    const id = setTimeout(() => setAnimar(true), 60);
+    return () => clearTimeout(id);
+  }, [pronto]);
 
   async function ativar() {
     setBusy(true);
@@ -105,7 +114,7 @@ export function PushToggle() {
               cursor: busy || !pronto ? 'wait' : 'pointer',
               background: ativo ? T.primary : T.border,
               position: 'relative',
-              transition: 'background 0.2s',
+              transition: animar ? 'background 0.2s' : 'none',
               opacity: busy || !pronto ? 0.6 : 1,
             }}
           >
@@ -118,7 +127,8 @@ export function PushToggle() {
                 height: 22,
                 borderRadius: 99,
                 background: '#FFF',
-                transition: 'left 0.2s',
+                // Sem transição até o estado real ser conhecido (não "liga sozinho").
+                transition: animar ? 'left 0.2s' : 'none',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
               }}
             />
