@@ -56,6 +56,10 @@ function makeService(
       deleted.push(id);
       return Promise.resolve();
     },
+    marcarExcluido: (id) => {
+      deleted.push(id);
+      return Promise.resolve();
+    },
   };
   const assinatura = Assinatura.free('x');
   const proAtivo = { isProAtivo: () => true } as unknown as Assinatura;

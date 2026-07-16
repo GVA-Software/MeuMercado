@@ -9,6 +9,8 @@ export const AdminUserSchema = z.object({
   nome: z.string(),
   email: z.string().email(),
   criadoEm: z.string().datetime(),
+  /** Soft-delete: quando a conta foi excluída (null = ativa). */
+  excluidoEm: z.string().datetime().nullable(),
   isAdmin: z.boolean(),
   plano: PlanoSchema,
   periodo: PeriodoSchema.nullable(),

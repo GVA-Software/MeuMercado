@@ -67,13 +67,31 @@ export class AuthService {
     if (!(await this.hasher.verify(user.passwordHash, input.senha))) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
+    if (user.excluidoEm) {
+      throw new UnauthorizedException('Esta conta foi excluída.');
+    }
     return this.issue(user);
   }
 
   async me(userId: string): Promise<UserDTO> {
     const user = await this.users.findById(userId);
-    if (!user) throw new UnauthorizedException();
+    if (!user || user.excluidoEm) throw new UnauthorizedException();
     return this.toDTO(user);
+  }
+
+  /**
+   * Exclui a PRÓPRIA conta (soft-delete): confirma a senha, marca como excluída e
+   * derruba todas as sessões. Os preços que o usuário cadastrou FICAM na base comunitária.
+   */
+  async excluirConta(userId: string, senha: string): Promise<void> {
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException();
+    if (user.excluidoEm) return; // idempotente
+    if (!(await this.hasher.verify(user.passwordHash, senha))) {
+      throw new UnauthorizedException('Senha incorreta.');
+    }
+    await this.users.marcarExcluido(user.id, new Date());
+    await this.sessions.revogarTodasDoUsuario(user.id);
   }
 
   /** Atualiza o nome do próprio usuário e guarda a alteração na trilha de auditoria. */

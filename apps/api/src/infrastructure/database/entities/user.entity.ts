@@ -16,4 +16,8 @@ export class UserEntity {
 
   @Column({ name: 'criado_em', type: 'timestamptz' })
   criadoEm!: Date;
+
+  /** Soft-delete: conta excluída (bloqueia login; os preços dela ficam na base). */
+  @Column({ name: 'excluido_em', type: 'timestamptz', nullable: true })
+  excluidoEm!: Date | null;
 }

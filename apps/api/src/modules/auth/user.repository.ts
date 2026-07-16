@@ -6,6 +6,8 @@ export interface StoredUser {
   nome: string;
   passwordHash: string;
   criadoEm: Date;
+  /** Soft-delete: conta excluída (bloqueia login), mas os preços dela ficam na base. */
+  excluidoEm?: Date | null;
 }
 
 /** Porta de acesso a usuários. Assíncrona (suporta memória e banco). */
@@ -21,6 +23,8 @@ export interface UserRepository {
   findAll(): Promise<StoredUser[]>;
   count(): Promise<number>;
   delete(id: string): Promise<void>;
+  /** Soft-delete: marca a conta como excluída (mantém a linha e os preços dela). */
+  marcarExcluido(id: string, quando: Date): Promise<void>;
 }
 
 export const USER_REPOSITORY = 'USER_REPOSITORY';
@@ -71,6 +75,11 @@ export class InMemoryUserRepository implements UserRepository {
       this.byId.delete(id);
       this.byEmail.delete(u.email);
     }
+    return Promise.resolve();
+  }
+  marcarExcluido(id: string, quando: Date): Promise<void> {
+    const u = this.byId.get(id);
+    if (u) u.excluidoEm = quando;
     return Promise.resolve();
   }
 }

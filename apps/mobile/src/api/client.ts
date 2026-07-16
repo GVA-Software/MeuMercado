@@ -295,6 +295,13 @@ export class ApiClient {
   me(): Promise<UserDTO> {
     return this.request('/auth/me');
   }
+  /** Exclui a PRÓPRIA conta (confirma com a senha). Os preços cadastrados permanecem. */
+  excluirConta(senha: string): Promise<void> {
+    return this.request('/auth/excluir-conta', {
+      method: 'POST',
+      body: JSON.stringify({ senha }),
+    });
+  }
   /** Atualiza o próprio nome (persistido; e-mail não muda). */
   atualizarNome(nome: string): Promise<UserDTO> {
     return this.request('/auth/me', { method: 'PATCH', body: JSON.stringify({ nome }) });

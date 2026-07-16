@@ -491,6 +491,7 @@ export class AdminService {
       nome: user.nome,
       email: user.email,
       criadoEm: user.criadoEm.toISOString(),
+      excluidoEm: user.excluidoEm ? user.excluidoEm.toISOString() : null,
       isAdmin: isAdminEmail(user.email, this.adminCsv),
       plano: dto.plano,
       periodo: dto.periodo,
@@ -557,7 +558,9 @@ export class AdminService {
     if (isAdminEmail(target.email, this.adminCsv)) {
       throw new ForbiddenException('Não é possível excluir outro administrador.');
     }
-    await this.users.delete(targetId);
+    // Soft-delete: mantém a linha (aparece como "excluído" no painel) e PRESERVA os
+    // preços que o usuário cadastrou — a base é comunitária.
+    if (!target.excluidoEm) await this.users.marcarExcluido(targetId, new Date());
   }
 
   async concederTrial(targetId: string): Promise<AdminUserDTO> {

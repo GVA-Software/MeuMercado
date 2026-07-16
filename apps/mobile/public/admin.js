@@ -1,7 +1,7 @@
       'use strict';
       var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
       var token = null;
-      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', covProdPag: 1, covProdSize: 20, covMercPag: 1, covMercSize: 20, covSel: {}, covMercSel: {}, covProdBusca: '', covMercBusca: '', covProdCat: '', users: [], busca: '', aberto: null, agindo: null, erro: '' };
+      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', covProdPag: 1, covProdSize: 20, covMercPag: 1, covMercSize: 20, covSel: {}, covMercSel: {}, covProdBusca: '', covMercBusca: '', covProdCat: '', users: [], busca: '', userView: 'ativos', aberto: null, agindo: null, erro: '' };
       var FB_TIPO = { bug: '🐛 Bug', sugestao: '💡 Sugestão', elogio: '❤️ Elogio', outro: '💬 Outro' };
 
       function esc(s) {
@@ -154,6 +154,10 @@
       }
       function dataLabel(iso) {
         try { return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' }); }
+        catch (e) { return ''; }
+      }
+      function dataHora(iso) {
+        try { return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
         catch (e) { return ''; }
       }
 
@@ -807,10 +811,18 @@
 
       function usersFiltrados() {
         var t = state.busca.trim().toLowerCase();
-        if (!t) return state.users;
+        var verExcluidos = state.userView === 'excluidos';
         return state.users.filter(function (u) {
+          if (verExcluidos !== !!u.excluidoEm) return false; // aba Ativos vs Excluídos
+          if (!t) return true;
           return u.nome.toLowerCase().indexOf(t) >= 0 || u.email.toLowerCase().indexOf(t) >= 0;
         });
+      }
+      function uviewBtn(id, label) {
+        var on = (state.userView || 'ativos') === id;
+        return '<button data-uview="' + id + '" style="flex:1;padding:9px;border-radius:8px;border:1px solid ' +
+          (on ? '#ff6b2b' : '#2a2f3a') + ';background:' + (on ? '#ff6b2b' : 'transparent') + ';color:' +
+          (on ? '#fff' : '#8a93a3') + ';font-weight:700;font-size:13px;cursor:pointer">' + label + '</button>';
       }
 
       function userHtml(u) {
@@ -824,15 +836,21 @@
             btn(u.id, 'mensal', 'Pro mensal', agindo) +
             btn(u.id, 'anual', 'Pro anual', agindo) +
             (u.isPro ? btn(u.id, 'revoke', 'Revogar', agindo) : '') +
-            (u.isAdmin ? '' : btn(u.id, 'excluir', '🗑️ Excluir', agindo, true)) +
+            (u.isAdmin || u.excluidoEm ? '' : btn(u.id, 'excluir', '🗑️ Excluir', agindo, true)) +
             '</div>';
         }
-        return '<div class="user">' +
+        var tagExcl = u.excluidoEm
+          ? ' <span style="background:#7f1d1d;color:#fecaca;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px">EXCLUÍDO</span>'
+          : '';
+        var linhaExcl = u.excluidoEm
+          ? '<p style="color:#f87171;font-size:11px;margin:2px 0 0">🗑️ excluído em ' + esc(dataHora(u.excluidoEm)) + '</p>'
+          : '';
+        return '<div class="user"' + (u.excluidoEm ? ' style="opacity:.75"' : '') + '>' +
           '<button class="user-head" data-toggle="' + u.id + '">' +
           '<div class="avatar">' + inicial + '</div>' +
           '<div class="user-info"><p class="user-name">' + esc(u.nome) +
-          (u.isAdmin ? ' <span class="tag-admin">ADMIN</span>' : '') + '</p>' +
-          '<p class="user-email">' + esc(u.email) + '</p></div>' +
+          (u.isAdmin ? ' <span class="tag-admin">ADMIN</span>' : '') + tagExcl + '</p>' +
+          '<p class="user-email">' + esc(u.email) + '</p>' + linhaExcl + '</div>' +
           '<div class="right">' + chipHtml(u) + '<span class="date">' + dataLabel(u.criadoEm) + '</span></div>' +
           '</button>' + acts + '</div>';
       }
@@ -869,6 +887,10 @@
                 mini(s.cadastros30d, '30 dias') + mini(s.admins, 'admins') + '</div>'
             ) : '') +
             (state.funil ? funnelHtml(state.funil) : '') +
+            '<div style="display:flex;gap:6px;margin:2px 0 10px">' +
+              uviewBtn('ativos', 'Ativos') +
+              uviewBtn('excluidos', 'Excluídos (' + state.users.filter(function (u) { return u.excluidoEm; }).length + ')') +
+            '</div>' +
             '<input class="search" id="busca" placeholder="Buscar por nome ou e-mail…" value="' + esc(state.busca) + '"/>' +
             '<div id="lista"></div>';
         }
@@ -895,6 +917,10 @@
         if (tab === 'app') {
           var busca = el('busca');
           busca.oninput = function () { state.busca = busca.value; renderLista(); };
+          var uv = document.querySelectorAll('[data-uview]');
+          for (var k = 0; k < uv.length; k++) {
+            uv[k].onclick = function () { state.userView = this.getAttribute('data-uview'); renderDashboard(); };
+          }
           renderLista();
         } else if (tab === 'projeto') {
           var qaBtn = el('qa-run');

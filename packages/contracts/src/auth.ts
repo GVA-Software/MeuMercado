@@ -30,6 +30,12 @@ export const RedefinirSenhaSchema = z.object({
 });
 export type RedefinirSenhaInput = z.infer<typeof RedefinirSenhaSchema>;
 
+/** Excluir a própria conta — exige a senha atual como confirmação. */
+export const ExcluirContaSchema = z.object({
+  senha: z.string().min(1, 'Informe sua senha').max(200),
+});
+export type ExcluirContaInput = z.infer<typeof ExcluirContaSchema>;
+
 export const UserSchema = z.object({
   id: IdSchema,
   email: z.string().email(),

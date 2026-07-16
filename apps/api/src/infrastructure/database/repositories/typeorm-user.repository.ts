@@ -39,4 +39,8 @@ export class TypeOrmUserRepository implements UserRepository {
   async delete(id: string): Promise<void> {
     await this.repo.delete(id);
   }
+
+  async marcarExcluido(id: string, quando: Date): Promise<void> {
+    await this.repo.update(id, { excluidoEm: quando });
+  }
 }

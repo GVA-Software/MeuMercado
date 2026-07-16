@@ -15,12 +15,14 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import {
   EsqueciSenhaSchema,
+  ExcluirContaSchema,
   LoginSchema,
   RedefinirSenhaSchema,
   RegisterSchema,
   UpdateNameSchema,
   type AuthResponse,
   type EsqueciSenhaInput,
+  type ExcluirContaInput,
   type LoginInput,
   type RedefinirSenhaInput,
   type RegisterInput,
@@ -141,6 +143,23 @@ export class AuthController {
     @Body(new ZodValidationPipe(UpdateNameSchema)) body: UpdateNameInput,
   ): Promise<UserDTO> {
     return this.service.updateNome(user.id, body.nome);
+  }
+
+  /**
+   * Exclui a PRÓPRIA conta (soft-delete). Exige a senha atual como confirmação. Os
+   * preços cadastrados pelo usuário permanecem na base comunitária. Limpa o cookie.
+   */
+  @Post('excluir-conta')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(204)
+  async excluirConta(
+    @CurrentUser() user: AuthedUser,
+    @Body(new ZodValidationPipe(ExcluirContaSchema)) body: ExcluirContaInput,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    await this.service.excluirConta(user.id, body.senha);
+    res.clearCookie(REFRESH_COOKIE, { path: REFRESH_PATH });
   }
 
   /** Seta o refresh token em cookie httpOnly (não acessível ao JS do front). */

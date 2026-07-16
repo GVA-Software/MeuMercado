@@ -87,3 +87,34 @@ describe('AuthService — sessão de refresh (rotação + detecção de reuso)',
     await expect(service.refresh('user-x', undefined)).rejects.toThrow();
   });
 });
+
+describe('AuthService — exclusão de conta (soft-delete)', () => {
+  it('excluirConta confirma a senha, marca a conta e derruba as sessões', async () => {
+    const { service, tokens, sessions } = make();
+    const reg = await registrar(service);
+    const userId = reg.response.user.id;
+    const { jti } = tokens.verifyRefresh(reg.refreshToken);
+
+    // senha errada → não exclui
+    await expect(service.excluirConta(userId, 'senha-errada')).rejects.toThrow();
+    // senha certa → exclui
+    await service.excluirConta(userId, 'senha-de-teste');
+    expect((await sessions.buscar(jti!))?.revoked).toBe(true);
+  });
+
+  it('conta excluída não loga mais', async () => {
+    const { service } = make();
+    const reg = await registrar(service);
+    await service.excluirConta(reg.response.user.id, 'senha-de-teste');
+    await expect(service.login({ email: 'a@b.com', senha: 'senha-de-teste' })).rejects.toThrow(
+      /exclu/i,
+    );
+  });
+
+  it('me() rejeita usuário excluído', async () => {
+    const { service } = make();
+    const reg = await registrar(service);
+    await service.excluirConta(reg.response.user.id, 'senha-de-teste');
+    await expect(service.me(reg.response.user.id)).rejects.toThrow();
+  });
+});

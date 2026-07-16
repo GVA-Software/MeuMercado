@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { useTheme } from '../../theme/theme';
 import { AppLogo, AvisoDialog, Btn, Card, ConfirmDialog, Pill, ThemeToggle } from '../../ui/kit';
-import { mensagemDeErro } from '../../api/client';
+import { api, mensagemDeErro } from '../../api/client';
 import { AuthForm } from '../auth/AuthForm';
 import { PushToggle } from './PushToggle';
 import { FeedbackCard } from './FeedbackCard';
@@ -164,6 +164,129 @@ function CropModal({
   );
 }
 
+/**
+ * Confirmação de exclusão de conta: exige a senha (ação destrutiva) e deixa claro que
+ * os preços cadastrados FICAM na base comunitária. Ao excluir, desloga.
+ */
+function ExcluirContaModal({
+  onExcluido,
+  onCancel,
+}: {
+  onExcluido: () => void;
+  onCancel: () => void;
+}) {
+  const { T } = useTheme();
+  const [senha, setSenha] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function confirmar() {
+    if (!senha) {
+      setErro('Digite sua senha para confirmar.');
+      return;
+    }
+    setBusy(true);
+    setErro(null);
+    try {
+      await api.excluirConta(senha);
+      onExcluido();
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+      setBusy(false);
+    }
+  }
+
+  return createPortal(
+    <div
+      onClick={onCancel}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.55)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+        zIndex: 100000,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: 380,
+          background: T.surface,
+          border: `1px solid ${T.border}`,
+          borderRadius: 16,
+          padding: 20,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
+        <p style={{ color: T.danger, fontWeight: 800, fontSize: 17, margin: 0 }}>
+          ⚠️ Excluir minha conta
+        </p>
+        <p style={{ color: T.sub, fontSize: 14, lineHeight: 1.5, margin: 0 }}>
+          Esta ação é <b>permanente</b>: você perde o acesso à sua conta e não dá pra desfazer. Os
+          preços que você já cadastrou <b>continuam na base</b>, ajudando a comunidade. Para
+          confirmar, digite sua senha.
+        </p>
+        <input
+          type="password"
+          placeholder="Sua senha"
+          autoComplete="current-password"
+          value={senha}
+          onChange={(e) => setSenha(e.target.value)}
+          style={{
+            border: `1.5px solid ${T.border}`,
+            borderRadius: 12,
+            padding: '13px 14px',
+            background: T.card,
+            color: T.text,
+            fontSize: 15,
+            width: '100%',
+          }}
+        />
+        {erro && <p style={{ color: T.danger, fontSize: 13, margin: 0 }}>{erro}</p>}
+        <button
+          onClick={() => void confirmar()}
+          disabled={busy || !senha}
+          style={{
+            width: '100%',
+            padding: '13px 16px',
+            borderRadius: 12,
+            border: 'none',
+            background: T.danger,
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: 15,
+            cursor: busy || !senha ? 'not-allowed' : 'pointer',
+            opacity: busy || !senha ? 0.6 : 1,
+          }}
+        >
+          {busy ? 'Excluindo…' : 'Excluir minha conta'}
+        </button>
+        <button
+          onClick={onCancel}
+          disabled={busy}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: T.muted,
+            fontSize: 14,
+            cursor: 'pointer',
+            padding: 4,
+          }}
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export function PerfilScreen() {
   const { T } = useTheme();
   const { user, subscription, loading, atualizarNome, logout, cancelar } = useAuth();
@@ -178,6 +301,7 @@ export function PerfilScreen() {
   const [confirmarCancel, setConfirmarCancel] = useState(false);
   const [cancelando, setCancelando] = useState(false);
   const [cancelOk, setCancelOk] = useState(false);
+  const [mostrarExcluir, setMostrarExcluir] = useState(false);
 
   async function fazerCancelamento() {
     setCancelando(true);
@@ -510,9 +634,33 @@ export function PerfilScreen() {
             <Btn variant="ghost" full onClick={() => void logout()}>
               Sair
             </Btn>
+
+            <button
+              onClick={() => setMostrarExcluir(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: T.muted,
+                fontSize: 13,
+                cursor: 'pointer',
+                padding: 8,
+                marginTop: 2,
+                textDecoration: 'underline',
+                alignSelf: 'center',
+              }}
+            >
+              Excluir minha conta
+            </button>
           </>
         )}
       </div>
+
+      {mostrarExcluir && (
+        <ExcluirContaModal
+          onExcluido={() => void logout()}
+          onCancel={() => setMostrarExcluir(false)}
+        />
+      )}
 
       {cropFile && (
         <CropModal file={cropFile} onSave={salvarFoto} onCancel={() => setCropFile(null)} />
