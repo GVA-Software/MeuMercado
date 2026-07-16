@@ -492,6 +492,7 @@ export class AdminService {
       email: user.email,
       criadoEm: user.criadoEm.toISOString(),
       excluidoEm: user.excluidoEm ? user.excluidoEm.toISOString() : null,
+      politicaVersao: user.politicaVersao ?? null,
       isAdmin: isAdminEmail(user.email, this.adminCsv),
       plano: dto.plano,
       periodo: dto.periodo,

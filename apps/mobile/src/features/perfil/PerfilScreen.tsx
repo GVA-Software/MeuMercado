@@ -641,16 +641,11 @@ export function PerfilScreen() {
             </Btn>
 
             <p style={{ textAlign: 'center', margin: '4px 0 0', fontSize: 12, color: T.muted }}>
-              <a
-                href="/privacidade.html"
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: T.muted }}
-              >
+              <a href="/privacidade.html" style={{ color: T.muted }}>
                 Política de Privacidade
               </a>{' '}
               ·{' '}
-              <a href="/termos.html" target="_blank" rel="noreferrer" style={{ color: T.muted }}>
+              <a href="/termos.html" style={{ color: T.muted }}>
                 Termos de Uso
               </a>
             </p>

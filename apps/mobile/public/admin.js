@@ -831,7 +831,10 @@
         var agindo = state.agindo === u.id;
         var acts = '';
         if (aberto) {
-          acts = '<div class="actions">' +
+          var consent = u.politicaVersao
+            ? '<p style="color:#9aa3b2;font-size:11.5px;margin:0 0 8px">✓ Aceitou a Política/Termos <b>v' + esc(u.politicaVersao) + '</b> em ' + esc(dataHora(u.criadoEm)) + ' (no cadastro)</p>'
+            : '<p style="color:#9aa3b2;font-size:11.5px;margin:0 0 8px">Consentimento não registrado (cadastro anterior à política).</p>';
+          acts = consent + '<div class="actions">' +
             btn(u.id, 'trial', '🎁 Teste Nina (7d)', agindo) +
             btn(u.id, 'mensal', 'Pro mensal', agindo) +
             btn(u.id, 'anual', 'Pro anual', agindo) +

@@ -11,6 +11,8 @@ export const AdminUserSchema = z.object({
   criadoEm: z.string().datetime(),
   /** Soft-delete: quando a conta foi excluída (null = ativa). */
   excluidoEm: z.string().datetime().nullable(),
+  /** Versão da Política/Termos aceita no cadastro (auditoria de consentimento LGPD). */
+  politicaVersao: z.string().nullable(),
   isAdmin: z.boolean(),
   plano: PlanoSchema,
   periodo: PeriodoSchema.nullable(),

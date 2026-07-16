@@ -86,10 +86,38 @@
         border-top: 1px solid var(--border);
         padding-top: 16px;
       }
+      .back {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--primary);
+        border-radius: 10px;
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        margin-bottom: 8px;
+      }
+      .back-cta {
+        background: var(--primary);
+        border: none;
+        color: #fff;
+        border-radius: 10px;
+        padding: 12px 22px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        margin-top: 12px;
+      }
     </style>
   </head>
   <body>
     <div class="wrap">
+      <button
+        class="back"
+        onclick="history.length > 1 ? history.back() : location.replace('/')"
+      >
+        ← Voltar
+      </button>
       <div class="top">
         <div class="brand">🛒 Meu Mercado</div>
         <h1>Política de Privacidade</h1>
@@ -248,6 +276,12 @@
           <a href="mailto:gvasoftware7@gmail.com">gvasoftware7@gmail.com</a>. Veja também os
           <a href="/termos.html">Termos de Uso</a>.
         </p>
+        <button
+          class="back-cta"
+          onclick="history.length > 1 ? history.back() : location.replace('/')"
+        >
+          ← Voltar
+        </button>
       </div>
     </div>
   </body>

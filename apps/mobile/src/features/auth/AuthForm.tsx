@@ -187,21 +187,11 @@ export function AuthForm() {
               />
               <span>
                 Li e aceito a{' '}
-                <a
-                  href="/privacidade.html"
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: T.primary }}
-                >
+                <a href="/privacidade.html" style={{ color: T.primary }}>
                   Política de Privacidade
                 </a>{' '}
                 e os{' '}
-                <a
-                  href="/termos.html"
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: T.primary }}
-                >
+                <a href="/termos.html" style={{ color: T.primary }}>
                   Termos de Uso
                 </a>
                 .
@@ -231,11 +221,11 @@ export function AuthForm() {
       )}
 
       <p style={{ textAlign: 'center', margin: '4px 0 0', fontSize: 11.5, color: T.muted }}>
-        <a href="/privacidade.html" target="_blank" rel="noreferrer" style={{ color: T.muted }}>
+        <a href="/privacidade.html" style={{ color: T.muted }}>
           Privacidade
         </a>{' '}
         ·{' '}
-        <a href="/termos.html" target="_blank" rel="noreferrer" style={{ color: T.muted }}>
+        <a href="/termos.html" style={{ color: T.muted }}>
           Termos
         </a>
       </p>
