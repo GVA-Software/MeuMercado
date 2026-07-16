@@ -40,6 +40,24 @@ describe('sugerirCategoria', () => {
     ['OVO CAIPIRA DZ', 'Basicos'],
     ['OVOMALTINE 300G', 'Outros'], // "OVO" não pode vazar pra Básicos (guard do \b)
     ['CALDEIRAO HOTEL', 'Outros'], // segue ambíguo (manual)
+    // Abreviações REAIS de NFC-e (nomes truncados) — o que antes caía tudo em "Outros".
+    ['QJ MUSS FAT PRES150G', 'Laticinios'],
+    ['MOIDA HOMOG PATIN KG', 'Carnes'],
+    ['MUSCULO BOV RESF PED', 'Carnes'],
+    ['BIST SUIN CG SD 800G', 'Carnes'],
+    ['FILEZINHO SADIA 1KG', 'Carnes'],
+    ['COU FLO RIC DAU300G', 'Verduras'],
+    ['ASPARGOS VERDE DAUCY', 'Legumes'],
+    ['EDAMAME SV DAUCY300G', 'Legumes'],
+    ['ABACX PEROLA UNIDADE', 'Frutas'],
+    ['AVOCADA GNEL KG', 'Frutas'],
+    ['LAYS RUSTI S MA 108G', 'Doces'],
+    ['FINISH PO 1KG', 'Limpeza'],
+    ['TOALHA PAP SNOB C/2', 'Limpeza'],
+    ['LIC AJAX FRESH 1L', 'Limpeza'],
+    ['ENX PLAX 250ML', 'Higiene'],
+    ['WRAP RAP 10 INTEG', 'Padaria'],
+    ['ALECRIN KITANO 6G', 'Basicos'],
   ];
   it.each(casos)('classifica "%s" como %s', (nome, esperado) => {
     expect(sugerirCategoria(nome)).toBe(esperado);

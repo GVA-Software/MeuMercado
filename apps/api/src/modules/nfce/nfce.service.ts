@@ -8,7 +8,14 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Money, PriceObservation, Produto, chaveProduto, type Unidade } from '@meumercado/domain';
+import {
+  Money,
+  PriceObservation,
+  Produto,
+  chaveProduto,
+  sugerirCategoria,
+  type Unidade,
+} from '@meumercado/domain';
 import type {
   CompraItemDTO,
   NfceDraftDTO,
@@ -16,6 +23,7 @@ import type {
   NfceImportResult,
 } from '@meumercado/contracts';
 import { GeocodeService } from '../geocode/geocode.service.js';
+import { melhorNomeMercado } from './mercado-nome.js';
 import { ComprasService } from '../compras/compras.service.js';
 import { PRODUTO_REPOSITORY, type ProdutoRepository } from '../catalog/produtos.repository.js';
 import {
@@ -97,7 +105,10 @@ function chaveSintetica(req: NfceImportRequest, reporterId: string, observedAt: 
 export class NfceService {
   private readonly logger = new Logger(NfceService.name);
   private readonly parsers: Record<string, SpNfceParser> = { SP: new SpNfceParser() };
-  private readonly fantasiaCache = new Map<string, string | null>();
+  private readonly fantasiaCache = new Map<
+    string,
+    { fantasia: string | null; razao: string | null }
+  >();
 
   constructor(
     @Inject(PRODUTO_REPOSITORY) private readonly produtos: ProdutoRepository,
@@ -136,8 +147,10 @@ export class NfceService {
     // Enriquece o mercado: nome fantasia (CNPJ) e coordenada (geocode do endereço).
     // Best-effort e em paralelo — se falhar, seguimos com o que temos.
     const chave = extrairChave(url);
-    const [fantasia, coord, jaImportada] = await Promise.all([
-      parsed.mercadoCnpj ? this.nomeFantasia(parsed.mercadoCnpj) : Promise.resolve(null),
+    const [cnpj, coord, jaImportada] = await Promise.all([
+      parsed.mercadoCnpj
+        ? this.dadosCnpj(parsed.mercadoCnpj)
+        : Promise.resolve({ fantasia: null, razao: null }),
       parsed.mercadoEndereco ? this.geocode.geocode(parsed.mercadoEndereco) : Promise.resolve(null),
       chave ? this.imports.jaImportada(chave) : Promise.resolve(false),
     ]);
@@ -146,7 +159,7 @@ export class NfceService {
       uf,
       ...(chave ? { chave } : {}),
       ...(jaImportada ? { jaImportada: true } : {}),
-      mercadoNome: fantasia || parsed.mercadoNome,
+      mercadoNome: melhorNomeMercado(cnpj.fantasia, cnpj.razao, parsed.mercadoNome ?? null),
       ...(parsed.mercadoCnpj ? { mercadoCnpj: parsed.mercadoCnpj } : {}),
       ...(parsed.mercadoEndereco ? { mercadoEndereco: parsed.mercadoEndereco } : {}),
       ...(coord ? { mercadoLat: coord.lat, mercadoLng: coord.lng } : {}),
@@ -227,7 +240,9 @@ export class NfceService {
         produto = new Produto({
           id: randomUUID(),
           nome: item.nome.trim(),
-          categoria: 'Outros',
+          // Auto-categoriza pelo nome (a NFC-e não traz categoria); cai em 'Outros' só
+          // quando o nome abreviado não dá pra reconhecer. Antes era 'Outros' fixo.
+          categoria: sugerirCategoria(item.nome.trim()),
           unidade,
           ...(codigoExterno ? { codigoExterno } : {}),
         });
@@ -275,10 +290,13 @@ export class NfceService {
     return { importados: itens.length, produtosCriados };
   }
 
-  /** Nome fantasia do estabelecimento via BrasilAPI (grátis). Best-effort + cache. */
-  private async nomeFantasia(cnpj: string): Promise<string | null> {
+  /** Fantasia + razão social do estabelecimento via BrasilAPI (grátis). Best-effort + cache. */
+  private async dadosCnpj(
+    cnpj: string,
+  ): Promise<{ fantasia: string | null; razao: string | null }> {
+    const vazio = { fantasia: null, razao: null };
     const digits = cnpj.replace(/\D/g, '');
-    if (digits.length !== 14) return null;
+    if (digits.length !== 14) return vazio;
     const cached = this.fantasiaCache.get(digits);
     if (cached !== undefined) return cached;
     try {
@@ -287,16 +305,19 @@ export class NfceService {
         signal: AbortSignal.timeout(6000),
       });
       if (!res.ok) {
-        this.fantasiaCache.set(digits, null);
-        return null;
+        this.fantasiaCache.set(digits, vazio);
+        return vazio;
       }
-      const data = (await res.json()) as { nome_fantasia?: string };
-      const fantasia = (data.nome_fantasia ?? '').trim() || null;
-      this.fantasiaCache.set(digits, fantasia);
-      return fantasia;
+      const data = (await res.json()) as { nome_fantasia?: string; razao_social?: string };
+      const info = {
+        fantasia: (data.nome_fantasia ?? '').trim() || null,
+        razao: (data.razao_social ?? '').trim() || null,
+      };
+      this.fantasiaCache.set(digits, info);
+      return info;
     } catch (e) {
-      this.logger.warn(`CNPJ fantasia falhou: ${String(e)}`);
-      return null;
+      this.logger.warn(`CNPJ dados falhou: ${String(e)}`);
+      return vazio;
     }
   }
 
