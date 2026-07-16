@@ -103,7 +103,12 @@ export class MarketsService {
   // Backfill: no máx. quantos endereços geocodificar por request e orçamento de tempo
   // total (o resto fica pro próximo acesso). É one-time — depois de geocodificado, salvo.
   private static readonly MAX_GEOCODE = 15;
-  private static readonly GEOCODE_BUDGET_MS = 8000;
+  private static readonly GEOCODE_BUDGET_MS = 6000;
+
+  // Cache dos resultados do Overpass por área: o serviço público é lento/instável, então
+  // repetir a busca fica instantâneo e, se ele falhar, servimos o último resultado bom.
+  private readonly osmCache = new Map<string, { elements: OverpassElement[]; at: number }>();
+  private static readonly OSM_TTL_MS = 10 * 60 * 1000;
 
   /**
    * Mercados com preço, garantindo coordenada: os que têm endereço mas entraram sem
@@ -180,14 +185,9 @@ export class MarketsService {
         };
       });
 
-    // 2) OpenStreetMap — tipos AMPLOS (inclui mercadinho/feira) e mantendo até os SEM
-    // nome (rótulo por tipo), pra não deixar mercado de fora. Ordenação/corte aqui.
-    const query =
-      `[out:json][timeout:25];` +
-      `(nwr["shop"~"^(supermarket|hypermarket|wholesale|convenience|grocery|greengrocer|general)$"](around:${raioMetros},${lat},${lng});` +
-      `nwr["amenity"="marketplace"](around:${raioMetros},${lat},${lng}););` +
-      `out center tags 600;`;
-    const elements = await this.overpass(query);
+    // 2) OpenStreetMap — tipos AMPLOS (mercadinho/feira), mantendo até os SEM nome.
+    // Cacheado por área + busca paralela nos endpoints (o Overpass público é lento/instável).
+    const elements = await this.osmProximos(lat, lng, raioMetros);
     const osm: MercadoProximo[] = elements
       .map((el): MercadoProximo | null => {
         const c = el.type === 'node' ? { lat: el.lat, lon: el.lon } : el.center;
@@ -256,34 +256,62 @@ export class MarketsService {
     'https://overpass.private.coffee/api/interpreter',
   ];
 
-  private async overpass(query: string): Promise<OverpassElement[]> {
-    for (const ep of MarketsService.OVERPASS_ENDPOINTS) {
-      try {
-        const res = await fetch(ep, {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/x-www-form-urlencoded',
-            'User-Agent': 'MeuMercado/1.0 (app de compras)',
-          },
-          body: `data=${encodeURIComponent(query)}`,
-          signal: AbortSignal.timeout(25000),
-        });
-        if (!res.ok) {
-          this.logger.warn(`Overpass ${ep} HTTP ${res.status}`);
-          continue;
-        }
-        const text = await res.text();
-        try {
-          const data = JSON.parse(text) as { elements?: OverpassElement[] };
-          return data.elements ?? [];
-        } catch {
-          continue; // resposta não-JSON (página de erro) → tenta o próximo
-        }
-      } catch (e) {
-        this.logger.warn(`Overpass ${ep} falhou: ${String(e)}`);
-      }
+  /** Busca os mercados do OSM na área, com cache (10min) + servir o último bom se falhar. */
+  private async osmProximos(
+    lat: number,
+    lng: number,
+    raioMetros: number,
+  ): Promise<OverpassElement[]> {
+    // Chave por área (~1km): abrir o mapa do mesmo lugar reaproveita o resultado.
+    const chave = `${lat.toFixed(2)},${lng.toFixed(2)},${raioMetros}`;
+    const cache = this.osmCache.get(chave);
+    if (cache && Date.now() - cache.at < MarketsService.OSM_TTL_MS) return cache.elements;
+
+    const query =
+      `[out:json][timeout:12];` +
+      `(nwr["shop"~"^(supermarket|hypermarket|wholesale|convenience|grocery|greengrocer|general)$"](around:${raioMetros},${lat},${lng});` +
+      `nwr["amenity"="marketplace"](around:${raioMetros},${lat},${lng}););` +
+      `out center tags 600;`;
+    const elements = await this.overpass(query);
+    if (elements.length > 0) {
+      this.osmCache.set(chave, { elements, at: Date.now() });
+      return elements;
     }
-    return [];
+    // Overpass falhou/veio vazio: serve o último resultado bom da área (mesmo vencido).
+    return cache?.elements ?? [];
+  }
+
+  /**
+   * Consulta os endpoints do Overpass EM PARALELO e fica com a resposta MAIS COMPLETA
+   * (o público é lento e às vezes devolve dados parciais). Antes era em sequência (até
+   * 25s cada) — o que fazia o mapa levar "uma eternidade" e às vezes vir quase vazio.
+   */
+  private async overpass(query: string): Promise<OverpassElement[]> {
+    const body = `data=${encodeURIComponent(query)}`;
+    const tentar = (ep: string): Promise<OverpassElement[]> =>
+      fetch(ep, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'MeuMercado/1.0 (app de compras)',
+        },
+        body,
+        signal: AbortSignal.timeout(10000),
+      }).then(async (res) => {
+        if (!res.ok) throw new Error(`${ep} HTTP ${res.status}`);
+        const data = JSON.parse(await res.text()) as { elements?: OverpassElement[] };
+        return data.elements ?? [];
+      });
+
+    const resultados = await Promise.allSettled(MarketsService.OVERPASS_ENDPOINTS.map(tentar));
+    let melhor: OverpassElement[] = [];
+    for (const r of resultados) {
+      if (r.status === 'fulfilled' && r.value.length > melhor.length) melhor = r.value;
+    }
+    if (melhor.length === 0) {
+      this.logger.warn('Overpass: nenhum endpoint retornou dados');
+    }
+    return melhor;
   }
 
   private buildEndereco(t: Record<string, string>): string | undefined {

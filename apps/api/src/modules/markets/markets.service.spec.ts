@@ -177,4 +177,42 @@ describe('MarketsService.proximos', () => {
     expect(body).toContain('general');
     expect(body).toContain('marketplace');
   });
+
+  it('Overpass em paralelo: fica com a resposta MAIS COMPLETA dos endpoints', async () => {
+    const { svc } = make([], []);
+    const respostas = [
+      [osmNode(1, { shop: 'supermarket', name: 'A' }, LAT, LNG)],
+      [
+        osmNode(1, { shop: 'supermarket', name: 'A' }, LAT, LNG),
+        osmNode(2, { shop: 'supermarket', name: 'B' }, LAT + 0.001, LNG),
+        osmNode(3, { shop: 'supermarket', name: 'C' }, LAT + 0.002, LNG),
+      ],
+      [],
+    ];
+    let call = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => {
+        const els = respostas[call++] ?? [];
+        return Promise.resolve({
+          ok: true,
+          text: () => Promise.resolve(JSON.stringify({ elements: els })),
+        } as unknown as Response);
+      }),
+    );
+    const r = await svc.proximos(LAT, LNG, 3000, 20);
+    expect(r.length).toBe(3); // pegou a resposta com 3, não a com 1 nem a vazia
+  });
+
+  it('cacheia por área: a 2ª busca no mesmo lugar não refaz o Overpass', async () => {
+    const { svc, fetchMock } = make(
+      [],
+      [osmNode(1, { shop: 'supermarket', name: 'X' }, LAT + 0.00013, LNG)],
+    );
+    await svc.proximos(LAT, LNG, 2000, 20);
+    const apos1 = fetchMock.mock.calls.length;
+    await svc.proximos(LAT, LNG, 2000, 20);
+    expect(apos1).toBe(3); // 3 endpoints em paralelo na 1ª busca
+    expect(fetchMock.mock.calls.length).toBe(apos1); // 2ª veio do cache (sem novo fetch)
+  });
 });
