@@ -163,7 +163,9 @@ export class MarketsService {
   ): Promise<MercadoDTO[]> {
     const from = new GeoPoint(lat, lng);
 
-    // 1) NOSSOS mercados (das NFs) que têm coordenada e estão no raio.
+    // 1) NOSSOS mercados (das NFs) com coordenada. NÃO filtramos por raio aqui: um
+    // mercado nosso que geocodificou LONGE (ex.: no centro da cidade) ainda precisa
+    // poder casar, por marca, com o pino do OSM da mesma loja que está perto do usuário.
     const nossos: MercadoProximo[] = (await this.mercadosComCoord())
       .filter((m) => m.lat !== null && m.lng !== null)
       .map((m) => {
@@ -176,8 +178,7 @@ export class MarketsService {
           precos: m.precos,
           ...(m.endereco ? { endereco: m.endereco } : {}),
         };
-      })
-      .filter((m) => m.dist <= raioMetros);
+      });
 
     // 2) OpenStreetMap — tipos AMPLOS (inclui mercadinho/feira) e mantendo até os SEM
     // nome (rótulo por tipo), pra não deixar mercado de fora. Ordenação/corte aqui.
@@ -232,8 +233,9 @@ export class MarketsService {
       }
     }
 
-    // 4) Une (OSM já com preços onde casou) + nossos não consumidos; ordena e corta.
-    return [...osm, ...nossos.filter((n) => !consumidos.has(n.id))]
+    // 4) Une o OSM (já com preços onde casou) + nossos pinos PRÓPRIOS (dentro do raio e
+    //    que não foram representados por um pino do OSM); ordena por distância e corta.
+    return [...osm, ...nossos.filter((n) => n.dist <= raioMetros && !consumidos.has(n.id))]
       .sort((a, b) => a.dist - b.dist)
       .slice(0, limit)
       .map((m): MercadoDTO => ({

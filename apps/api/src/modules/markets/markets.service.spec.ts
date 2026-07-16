@@ -91,12 +91,13 @@ describe('MarketsService.proximos', () => {
     expect(r.find((m) => m.id === 'osm-node-9')?.precos).toBe(5);
   });
 
-  it('#4 marca igual: OSM MAIS PERTO do usuário fica verde; nosso geocodificado longe some', async () => {
-    // Nosso "Atacadão" geocodificou longe (~2km); o OSM Atacadão está a ~15m do usuário.
+  it('#4 marca igual: nosso mercado FORA do raio ainda pinta de verde o OSM da marca perto', async () => {
+    // Nosso "Atacadão" geocodificou LONGE (~6,6km, fora do raio de 5km); o OSM Atacadão
+    // está a ~15m do usuário. Mesmo fora do raio, ele deve casar e pintar o de perto.
     const longe = nosso({
       id: 'nfce:atacadao',
       nome: 'Atacadão',
-      lat: LAT + 0.018,
+      lat: LAT + 0.06,
       lng: LNG,
       precos: 186,
     });
@@ -105,7 +106,7 @@ describe('MarketsService.proximos', () => {
       [osmNode(1, { shop: 'supermarket', name: 'Atacadão' }, LAT + 0.00013, LNG)],
     );
     const r = await svc.proximos(LAT, LNG, 5000, 20);
-    expect(r.find((m) => m.id === 'nfce:atacadao')).toBeUndefined(); // some o pino mal posicionado
+    expect(r.find((m) => m.id === 'nfce:atacadao')).toBeUndefined(); // pino próprio fora do raio: não aparece
     const osmAtac = r.find((m) => m.id === 'osm-node-1')!;
     expect(osmAtac.precos).toBe(186); // o Atacadão perto ficou verde
     expect(osmAtac.distanciaMetros).toBeLessThan(30);
