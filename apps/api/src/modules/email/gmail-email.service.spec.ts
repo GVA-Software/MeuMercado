@@ -107,4 +107,28 @@ describe('GmailEmailService', () => {
     vi.stubGlobal('fetch', fetchMock);
     await expect(make().enviar('a@b.com', 'x', 'y')).resolves.toBeUndefined();
   });
+
+  it('com HTML: envia multipart/alternative (texto + HTML), ambos decodificam', async () => {
+    const fetchMock = vi.fn((url: string) =>
+      Promise.resolve(
+        url === TOKEN_URL
+          ? resp(true, { access_token: 't', expires_in: 3600 })
+          : resp(true, { id: 'm' }),
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await make().enviar('a@b.com', 'Assunto', 'texto puro', '<b>olá</b>');
+
+    const raw = rawEnviado(fetchMock);
+    expect(raw).toContain('Content-Type: multipart/alternative; boundary="----=_MeuMercado_alt"');
+    expect(raw).toContain('Content-Type: text/plain; charset="UTF-8"');
+    expect(raw).toContain('Content-Type: text/html; charset="UTF-8"');
+    // As duas partes (base64) decodificam no conteúdo original.
+    const partes = raw.split('------=_MeuMercado_alt');
+    const decodifica = (p: string) =>
+      Buffer.from(p.split('\r\n\r\n')[1]!.replace(/\r\n/g, ''), 'base64').toString('utf8');
+    expect(decodifica(partes[1]!)).toBe('texto puro');
+    expect(decodifica(partes[2]!)).toBe('<b>olá</b>');
+  });
 });

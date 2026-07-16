@@ -12,6 +12,7 @@ import {
   type PasswordResetRepository,
 } from './password-reset.repository.js';
 import { EMAIL_SERVICE, type EmailService } from '../email/email.service.js';
+import { emailRedefinicaoSenha } from '../email/templates.js';
 
 const VALIDADE_MS = 60 * 60 * 1000; // 1 hora
 
@@ -53,11 +54,8 @@ export class PasswordResetService {
     });
     const link = `${baseUrl}/?reset=${token}`;
     const nome = user.nome.trim().split(/\s+/)[0] ?? user.nome;
-    await this.email.enviar(
-      user.email,
-      'Redefinição de senha — Meu Mercado',
-      `Oi, ${nome}!\n\nRecebemos um pedido para redefinir sua senha no Meu Mercado. Abra o link abaixo (vale por 1 hora):\n\n${link}\n\nSe não foi você, pode ignorar este e-mail — sua senha continua a mesma.\n\n— Meu Mercado 🧡`,
-    );
+    const { assunto, texto, html } = emailRedefinicaoSenha(nome, link);
+    await this.email.enviar(user.email, assunto, texto, html);
   }
 
   /** Redefine a senha a partir do token do e-mail. Lança se inválido/expirado/usado. */

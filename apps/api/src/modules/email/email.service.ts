@@ -2,8 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 
 /** Envio de e-mail — plugável. Sem SMTP configurado, vira no-op (só loga). */
 export interface EmailService {
-  /** Best-effort: nunca lança (o push já avisou). */
-  enviar(para: string, assunto: string, corpo: string): Promise<void>;
+  /**
+   * Best-effort: nunca lança (o push já avisou). `corpo` é o texto puro (fallback);
+   * `html` é opcional (quando presente, vai como multipart/alternative).
+   */
+  enviar(para: string, assunto: string, corpo: string, html?: string): Promise<void>;
   /** Há SMTP configurado? (senão os e-mails são no-op) */
   estaLigado(): boolean;
   /** Envia um e-mail de teste e LANÇA se falhar — usado pelo ADM para validar a config. */
@@ -14,7 +17,13 @@ export const EMAIL_SERVICE = 'EMAIL_SERVICE';
 
 /** Transporte mínimo (o do nodemailer encaixa estruturalmente). */
 export interface EmailTransporter {
-  sendMail(opts: { from: string; to: string; subject: string; text: string }): Promise<unknown>;
+  sendMail(opts: {
+    from: string;
+    to: string;
+    subject: string;
+    text: string;
+    html?: string;
+  }): Promise<unknown>;
 }
 
 @Injectable()
@@ -46,7 +55,7 @@ export class BrevoEmailService implements EmailService {
     private readonly fromName: string,
   ) {}
 
-  private async send(para: string, assunto: string, corpo: string): Promise<void> {
+  private async send(para: string, assunto: string, corpo: string, html?: string): Promise<void> {
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -59,6 +68,7 @@ export class BrevoEmailService implements EmailService {
         to: [{ email: para }],
         subject: assunto,
         textContent: corpo,
+        ...(html ? { htmlContent: html } : {}),
       }),
       signal: AbortSignal.timeout(12_000),
     });
@@ -68,9 +78,9 @@ export class BrevoEmailService implements EmailService {
     }
   }
 
-  async enviar(para: string, assunto: string, corpo: string): Promise<void> {
+  async enviar(para: string, assunto: string, corpo: string, html?: string): Promise<void> {
     try {
-      await this.send(para, assunto, corpo);
+      await this.send(para, assunto, corpo, html);
     } catch (e) {
       // Best-effort (o push já avisou); não derruba a operação.
       this.logger.warn(`Falha ao enviar e-mail p/ ${para}: ${String(e)}`);
@@ -142,29 +152,58 @@ export class GmailEmailService implements EmailService {
       : s;
   }
 
-  /** Monta a mensagem RFC 822 (texto UTF-8) e devolve em base64url (campo `raw`). */
-  private buildRaw(para: string, assunto: string, corpo: string): string {
-    const corpoB64 = Buffer.from(corpo, 'utf8')
+  /** Codifica em base64 quebrando em linhas de 76 (RFC 2045). */
+  private b64(s: string): string {
+    return Buffer.from(s, 'utf8')
       .toString('base64')
       .replace(/(.{76})/g, '$1\r\n');
+  }
+
+  /**
+   * Monta a mensagem RFC 822 e devolve em base64url (campo `raw`). Com `html`, envia
+   * multipart/alternative (texto puro + HTML) — o cliente escolhe o que renderiza.
+   */
+  private buildRaw(para: string, assunto: string, corpo: string, html?: string): string {
     const headers = [
       `From: ${this.encodeWord(this.fromName)} <${this.fromEmail}>`,
       `To: ${para}`,
       `Subject: ${this.encodeWord(assunto)}`,
       'MIME-Version: 1.0',
-      'Content-Type: text/plain; charset="UTF-8"',
-      'Content-Transfer-Encoding: base64',
     ];
-    const raw = `${headers.join('\r\n')}\r\n\r\n${corpoB64}`;
+    let mime: string;
+    if (html) {
+      const b = '----=_MeuMercado_alt';
+      headers.push(`Content-Type: multipart/alternative; boundary="${b}"`);
+      mime = [
+        `--${b}`,
+        'Content-Type: text/plain; charset="UTF-8"',
+        'Content-Transfer-Encoding: base64',
+        '',
+        this.b64(corpo),
+        `--${b}`,
+        'Content-Type: text/html; charset="UTF-8"',
+        'Content-Transfer-Encoding: base64',
+        '',
+        this.b64(html),
+        `--${b}--`,
+      ].join('\r\n');
+    } else {
+      headers.push(
+        'Content-Type: text/plain; charset="UTF-8"',
+        'Content-Transfer-Encoding: base64',
+      );
+      mime = this.b64(corpo);
+    }
+    const raw = `${headers.join('\r\n')}\r\n\r\n${mime}`;
     return Buffer.from(raw, 'utf8').toString('base64url');
   }
 
-  private async send(para: string, assunto: string, corpo: string): Promise<void> {
+  private async send(para: string, assunto: string, corpo: string, html?: string): Promise<void> {
     const token = await this.getAccessToken();
     const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
       method: 'POST',
       headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ raw: this.buildRaw(para, assunto, corpo) }),
+      body: JSON.stringify({ raw: this.buildRaw(para, assunto, corpo, html) }),
       signal: AbortSignal.timeout(12_000),
     });
     if (!res.ok) {
@@ -173,9 +212,9 @@ export class GmailEmailService implements EmailService {
     }
   }
 
-  async enviar(para: string, assunto: string, corpo: string): Promise<void> {
+  async enviar(para: string, assunto: string, corpo: string, html?: string): Promise<void> {
     try {
-      await this.send(para, assunto, corpo);
+      await this.send(para, assunto, corpo, html);
     } catch (e) {
       // Best-effort (o push já avisou); não derruba a operação.
       this.logger.warn(`Falha ao enviar e-mail p/ ${para}: ${String(e)}`);
@@ -203,9 +242,15 @@ export class SmtpEmailService implements EmailService {
     private readonly from: string,
   ) {}
 
-  async enviar(para: string, assunto: string, corpo: string): Promise<void> {
+  async enviar(para: string, assunto: string, corpo: string, html?: string): Promise<void> {
     try {
-      await this.transporter.sendMail({ from: this.from, to: para, subject: assunto, text: corpo });
+      await this.transporter.sendMail({
+        from: this.from,
+        to: para,
+        subject: assunto,
+        text: corpo,
+        ...(html ? { html } : {}),
+      });
     } catch (e) {
       // E-mail é best-effort (o push já avisou); não derruba a operação.
       this.logger.warn(`Falha ao enviar e-mail p/ ${para}: ${String(e)}`);
