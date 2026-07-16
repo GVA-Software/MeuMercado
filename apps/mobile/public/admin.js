@@ -317,6 +317,7 @@
               return '<div class="cov-r cov-r-m">' +
                 '<input type="checkbox" class="cov-mchk" data-id="' + esc(m.id) + '"' + (state.covMercSel[m.id] ? ' checked' : '') + '/>' +
                 '<span class="cov-cell">' + esc(m.nome) +
+                ' <button class="ed-open" data-medit="' + esc(m.id) + '" title="Editar nome/endereço">✏️</button>' +
                 (m.endereco ? '<i class="cov-end">📍 ' + esc(m.endereco) + '</i>' : '<i class="cov-end cov-noend">sem endereço</i>') + '</span>' +
                 '<span>' + m.produtos + '</span><span>' + m.precos + '</span></div>';
             }).join('') + '</div>'
@@ -558,6 +559,35 @@
         } catch (e) {
           toast('Erro: ' + ((e && e.message) || 'falha ao excluir'));
         }
+      }
+      // Editar nome/endereço de um mercado (mudar o endereço recoloca no mapa).
+      function editarMercadoUI(id) {
+        var c = state.cobertura;
+        var m = c && c.mercados.filter(function (x) { return x.id === id; })[0];
+        if (!m) { toast('Mercado não encontrado — recarregue a lista'); return; }
+        mmModal({
+          title: '✏️ Editar mercado',
+          message: 'Corrija o nome e/ou o endereço. Mudar o endereço recoloca o mercado no mapa (recalcula a localização).',
+          bodyHtml:
+            '<label>Nome</label><input class="mm-select" data-mm-nome value="' + esc(m.nome) + '"/>' +
+            '<label>Endereço</label><input class="mm-select" data-mm-end value="' + esc(m.endereco || '') + '" placeholder="Rua, número, bairro, cidade, UF"/>',
+          okText: 'Salvar',
+          onOk: function (mov) {
+            var nome = ((mov.querySelector('[data-mm-nome]') || {}).value || '').trim();
+            var endereco = ((mov.querySelector('[data-mm-end]') || {}).value || '').trim();
+            if (!nome) { toast('Informe o nome'); return; }
+            doEditarMercado(id, nome, endereco || null);
+          },
+        });
+      }
+      async function doEditarMercado(id, nome, endereco) {
+        try {
+          await apiFetch('/admin/mercados/editar', {
+            method: 'POST',
+            body: JSON.stringify({ mercadoId: id, nome: nome, endereco: endereco }),
+          });
+          toast('✓ Mercado salvo'); carregarCobertura(false);
+        } catch (e) { toast('Erro: ' + ((e && e.message) || 'falha')); }
       }
       // Editor de produto (nome/categoria) + seus reportes de preço (corrigir/excluir).
       function abrirEditorProduto(id) {
@@ -923,6 +953,8 @@
       document.addEventListener('click', function (ev) {
         var edBtn = ev.target.closest ? ev.target.closest('[data-edit]') : null;
         if (edBtn) { abrirEditorProduto(edBtn.getAttribute('data-edit')); return; }
+        var medBtn = ev.target.closest ? ev.target.closest('[data-medit]') : null;
+        if (medBtn) { editarMercadoUI(medBtn.getAttribute('data-medit')); return; }
         var head = ev.target.closest ? ev.target.closest('[data-toggle]') : null;
         if (head) {
           var id = head.getAttribute('data-toggle');

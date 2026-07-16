@@ -14,6 +14,7 @@ import {
   AdminClassificarSchema,
   AdminEditarPrecoSchema,
   AdminEditarProdutoSchema,
+  AdminEditarMercadoSchema,
   AdminExcluirMercadosSchema,
   AdminExcluirProdutosSchema,
   AdminGrantProSchema,
@@ -27,6 +28,7 @@ import {
   type AdminDuplicadosDTO,
   type AdminEditarPrecoInput,
   type AdminEditarProdutoInput,
+  type AdminEditarMercadoInput,
   type AdminExcluirMercadosInput,
   type AdminExcluirProdutosInput,
   type AdminFunnelDTO,
@@ -130,6 +132,15 @@ export class AdminController {
     @Body(new ZodValidationPipe(AdminExcluirMercadosSchema)) body: AdminExcluirMercadosInput,
   ): Promise<{ mercados: number; precos: number }> {
     return this.service.excluirMercados(body.ids);
+  }
+
+  /** Edita nome/endereço de um mercado (limpa a coord → mapa re-geocodifica). */
+  @Post('mercados/editar')
+  @HttpCode(204)
+  editarMercado(
+    @Body(new ZodValidationPipe(AdminEditarMercadoSchema)) body: AdminEditarMercadoInput,
+  ): Promise<void> {
+    return this.service.editarMercado(body.mercadoId, body.nome, body.endereco);
   }
 
   /** Dados de um produto + seus reportes de preço (para o editor). */

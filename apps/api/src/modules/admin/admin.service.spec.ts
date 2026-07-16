@@ -92,6 +92,7 @@ function makeService(
   const produtosCriados: Array<{ id: string; nome: string }> = [];
   const obsMovidas: Array<[string, string]> = [];
   const reassignsMercado: Array<[string, string, string, string | null]> = [];
+  const mercadosEditados: Array<[string, string, string | null]> = [];
   const prices = {
     all: () => Promise.resolve(extra.observacoes ?? []),
     findByProduto: (pid: string) =>
@@ -110,6 +111,10 @@ function makeService(
     },
     reassignMercado: (from: string, to: string, nome: string, endereco: string | null) => {
       reassignsMercado.push([from, to, nome, endereco]);
+      return Promise.resolve();
+    },
+    atualizarMercado: (id: string, nome: string, endereco: string | null) => {
+      mercadosEditados.push([id, nome, endereco]);
       return Promise.resolve();
     },
     updatePreco: (id: string, cents: number) => {
@@ -163,8 +168,24 @@ function makeService(
     produtosCriados,
     obsMovidas,
     reassignsMercado,
+    mercadosEditados,
   };
 }
+
+describe('AdminService — editar mercado', () => {
+  it('atualiza nome/endereço (trim) quando o mercado existe', async () => {
+    const { service, mercadosEditados } = makeService([], {
+      observacoes: [{ reporterId: 'u1', mercadoId: 'nfce:ze', produtoId: 'p1' }],
+    });
+    await service.editarMercado('nfce:ze', '  Mercado do Zé  ', '  Rua A, 1  ');
+    expect(mercadosEditados).toEqual([['nfce:ze', 'Mercado do Zé', 'Rua A, 1']]);
+  });
+
+  it('lança se o mercado não existe mais', async () => {
+    const { service } = makeService([], { observacoes: [] });
+    await expect(service.editarMercado('nfce:nao', 'X', null)).rejects.toThrow();
+  });
+});
 
 describe('AdminService — testar e-mail', () => {
   it('e-mail desligado → rejeita com instrução de configurar SMTP', async () => {

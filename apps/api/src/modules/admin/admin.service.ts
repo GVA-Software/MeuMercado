@@ -325,6 +325,18 @@ export class AdminService {
   }
 
   /**
+   * Edita nome/endereço de um mercado (todas as suas observações). Limpa a coordenada
+   * pra o mapa re-geocodificar o novo endereço.
+   */
+  async editarMercado(mercadoId: string, nome: string, endereco: string | null): Promise<void> {
+    const existe = (await this.prices.all()).some((o) => o.mercadoId === mercadoId);
+    if (!existe) {
+      throw new BadRequestException('Mercado não existe mais — recarregue a lista.');
+    }
+    await this.prices.atualizarMercado(mercadoId, nome.trim(), endereco?.trim() || null);
+  }
+
+  /**
    * Exclui mercados: apaga TODOS os preços dos mercados (some da comparação nos apps).
    * Os produtos ficam no catálogo — só perdem a cobertura daquele mercado.
    */

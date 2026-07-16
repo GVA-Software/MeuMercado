@@ -136,6 +136,14 @@ export const AdminExcluirMercadosSchema = z.object({
 });
 export type AdminExcluirMercadosInput = z.infer<typeof AdminExcluirMercadosSchema>;
 
+/** Editar nome/endereço de UM mercado. Mudar o endereço faz o mapa re-geocodificar. */
+export const AdminEditarMercadoSchema = z.object({
+  mercadoId: z.string().min(1),
+  nome: z.string().min(1).max(160),
+  endereco: z.string().max(240).nullable(),
+});
+export type AdminEditarMercadoInput = z.infer<typeof AdminEditarMercadoSchema>;
+
 /** Um reporte de preço na edição do ADM (para corrigir valor errado / excluir). */
 export const AdminPrecoSchema = z.object({
   id: z.string(),

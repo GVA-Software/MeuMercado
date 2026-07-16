@@ -43,6 +43,7 @@ function makeService(observations: PriceObservation[], produtos: Produto[]): Pri
     moverObservacao: () => Promise.resolve(),
     mercadosComPreco: () => Promise.resolve([]),
     setMercadoCoords: () => Promise.resolve(),
+    atualizarMercado: () => Promise.resolve(),
   };
   const prodRepo: ProdutoRepository = {
     findAll: () => Promise.resolve(produtos),

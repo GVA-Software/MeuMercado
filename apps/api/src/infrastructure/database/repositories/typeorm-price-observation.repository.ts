@@ -106,6 +106,15 @@ export class TypeOrmPriceObservationRepository implements PriceObservationReposi
     this.invalidar();
   }
 
+  async atualizarMercado(mercadoId: string, nome: string, endereco: string | null): Promise<void> {
+    // Limpa lat/lng: o mapa re-geocodifica o novo endereço no próximo acesso (backfill).
+    await this.repo.update(
+      { mercadoId },
+      { mercadoNome: nome, mercadoEndereco: endereco, mercadoLat: null, mercadoLng: null },
+    );
+    this.invalidar();
+  }
+
   async deleteByProduto(produtoId: string): Promise<void> {
     await this.repo.delete({ produtoId });
     this.invalidar();

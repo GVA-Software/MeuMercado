@@ -35,6 +35,7 @@ function make(produtos: Produto[], observations: PriceObservation[]): InsightsSe
     moverObservacao: () => Promise.resolve(),
     mercadosComPreco: () => Promise.resolve([]),
     setMercadoCoords: () => Promise.resolve(),
+    atualizarMercado: () => Promise.resolve(),
   };
   const prodRepo: ProdutoRepository = {
     findAll: () => Promise.resolve(produtos),

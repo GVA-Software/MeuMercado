@@ -80,6 +80,11 @@ export interface PriceObservationRepository {
     nome: string,
     endereco: string | null,
   ): Promise<void>;
+  /**
+   * Edita nome/endereço de um mercado (todas as suas observações) e LIMPA a coordenada,
+   * pra o mapa re-geocodificar o novo endereço (backfill).
+   */
+  atualizarMercado(mercadoId: string, nome: string, endereco: string | null): Promise<void>;
   /** Apaga todas as observações de um produto (ao excluir o produto). */
   deleteByProduto(produtoId: string): Promise<void>;
   /** Apaga todas as observações de um mercado (ao excluir o mercado). */
@@ -162,6 +167,26 @@ export class InMemoryPriceObservationRepository implements PriceObservationRepos
         ...(endereco !== null ? { mercadoEndereco: endereco } : {}),
         ...(o.mercadoLat !== undefined ? { mercadoLat: o.mercadoLat } : {}),
         ...(o.mercadoLng !== undefined ? { mercadoLng: o.mercadoLng } : {}),
+      });
+    }
+    return Promise.resolve();
+  }
+
+  atualizarMercado(mercadoId: string, nome: string, endereco: string | null): Promise<void> {
+    for (let i = 0; i < this.observations.length; i++) {
+      const o = this.observations[i]!;
+      if (o.mercadoId !== mercadoId) continue;
+      this.observations[i] = new PriceObservation({
+        id: o.id,
+        produtoId: o.produtoId,
+        mercadoId: o.mercadoId,
+        price: o.price,
+        source: o.source,
+        reporterId: o.reporterId,
+        observedAt: o.observedAt,
+        mercadoNome: nome,
+        ...(endereco !== null ? { mercadoEndereco: endereco } : {}),
+        // lat/lng omitidos de propósito: limpa a coordenada → o mapa re-geocodifica.
       });
     }
     return Promise.resolve();
