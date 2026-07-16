@@ -18,6 +18,7 @@ export function AuthForm() {
   const [erro, setErro] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [enviado, setEnviado] = useState(false);
+  const [aceito, setAceito] = useState(false); // consentimento LGPD (obrigatório no cadastro)
 
   async function submit() {
     setBusy(true);
@@ -42,6 +43,7 @@ export function AuthForm() {
     setMode(m);
     setErro(null);
     setEnviado(false);
+    setAceito(false);
   }
 
   const input = {
@@ -165,9 +167,55 @@ export function AuthForm() {
             </button>
           </div>
 
+          {mode === 'register' && (
+            <label
+              style={{
+                display: 'flex',
+                gap: 8,
+                alignItems: 'flex-start',
+                color: T.muted,
+                fontSize: 12.5,
+                lineHeight: 1.45,
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={aceito}
+                onChange={(e) => setAceito(e.target.checked)}
+                style={{ marginTop: 2, flexShrink: 0 }}
+              />
+              <span>
+                Li e aceito a{' '}
+                <a
+                  href="/privacidade.html"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: T.primary }}
+                >
+                  Política de Privacidade
+                </a>{' '}
+                e os{' '}
+                <a
+                  href="/termos.html"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: T.primary }}
+                >
+                  Termos de Uso
+                </a>
+                .
+              </span>
+            </label>
+          )}
+
           {erro && <p style={{ color: T.danger, fontSize: 13, margin: 0 }}>{erro}</p>}
 
-          <Btn full disabled={busy || !email || !senha} onClick={() => void submit()}>
+          <Btn
+            full
+            disabled={busy || !email || !senha || (mode === 'register' && !aceito)}
+            onClick={() => void submit()}
+          >
             {busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}
           </Btn>
 
@@ -181,6 +229,16 @@ export function AuthForm() {
           </button>
         </>
       )}
+
+      <p style={{ textAlign: 'center', margin: '4px 0 0', fontSize: 11.5, color: T.muted }}>
+        <a href="/privacidade.html" target="_blank" rel="noreferrer" style={{ color: T.muted }}>
+          Privacidade
+        </a>{' '}
+        ·{' '}
+        <a href="/termos.html" target="_blank" rel="noreferrer" style={{ color: T.muted }}>
+          Termos
+        </a>
+      </p>
     </Card>
   );
 }

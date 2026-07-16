@@ -107,7 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (email: string, nome: string, senha: string) => {
-      const r = await api.register({ email, nome, senha });
+      // O consentimento é obrigatório na tela de cadastro (checkbox trava o botão).
+      const r = await api.register({ email, nome, senha, aceitouTermos: true });
       applyAuth(r.accessToken, r.user);
     },
     [applyAuth],

@@ -30,9 +30,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,woff2}'],
-        // O painel de ADM (/admin.html) é uma página separada, fora do SPA:
-        // impede o service worker de reescrever a navegação para o index do app.
-        navigateFallbackDenylist: [/^\/admin/],
+        // Páginas fora do SPA (ADM + jurídicas): impede o service worker de reescrever
+        // a navegação para o index do app.
+        navigateFallbackDenylist: [/^\/admin/, /^\/privacidade/, /^\/termos/],
         // Handlers de Web Push (push + notificationclick) importados no SW gerado.
         importScripts: ['push-sw.js'],
       },

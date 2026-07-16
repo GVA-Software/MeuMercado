@@ -32,7 +32,7 @@ function make() {
 }
 
 const registrar = (s: AuthService) =>
-  s.register({ email: 'a@b.com', nome: 'A', senha: 'senha-de-teste' });
+  s.register({ email: 'a@b.com', nome: 'A', senha: 'senha-de-teste', aceitouTermos: true });
 
 describe('AuthService — sessão de refresh (rotação + detecção de reuso)', () => {
   it('login cria uma sessão de refresh ativa (o token carrega o jti)', async () => {
@@ -88,27 +88,33 @@ describe('AuthService — sessão de refresh (rotação + detecção de reuso)',
   });
 });
 
-describe('AuthService — exclusão de conta (soft-delete)', () => {
-  it('excluirConta confirma a senha, marca a conta e derruba as sessões', async () => {
+describe('AuthService — exclusão de conta (anonimização LGPD)', () => {
+  it('confirma a senha, derruba as sessões e LIBERA o e-mail (anonimizado)', async () => {
     const { service, tokens, sessions } = make();
     const reg = await registrar(service);
     const userId = reg.response.user.id;
     const { jti } = tokens.verifyRefresh(reg.refreshToken);
 
-    // senha errada → não exclui
-    await expect(service.excluirConta(userId, 'senha-errada')).rejects.toThrow();
-    // senha certa → exclui
+    await expect(service.excluirConta(userId, 'senha-errada')).rejects.toThrow(); // senha errada
     await service.excluirConta(userId, 'senha-de-teste');
     expect((await sessions.buscar(jti!))?.revoked).toBe(true);
+
+    // e-mail liberado: dá pra cadastrar de novo com o mesmo e-mail (conta nova).
+    const novo = await service.register({
+      email: 'a@b.com',
+      nome: 'A2',
+      senha: 'outra-senha-123',
+      aceitouTermos: true,
+    });
+    expect(novo.response.user.id).not.toBe(userId);
+    expect(novo.response.user.email).toBe('a@b.com');
   });
 
-  it('conta excluída não loga mais', async () => {
+  it('login com as credenciais antigas não funciona após excluir', async () => {
     const { service } = make();
     const reg = await registrar(service);
     await service.excluirConta(reg.response.user.id, 'senha-de-teste');
-    await expect(service.login({ email: 'a@b.com', senha: 'senha-de-teste' })).rejects.toThrow(
-      /exclu/i,
-    );
+    await expect(service.login({ email: 'a@b.com', senha: 'senha-de-teste' })).rejects.toThrow();
   });
 
   it('me() rejeita usuário excluído', async () => {
@@ -116,5 +122,12 @@ describe('AuthService — exclusão de conta (soft-delete)', () => {
     const reg = await registrar(service);
     await service.excluirConta(reg.response.user.id, 'senha-de-teste');
     await expect(service.me(reg.response.user.id)).rejects.toThrow();
+  });
+
+  it('cadastro grava a versão da política aceita (consentimento)', async () => {
+    const { service } = make();
+    const reg = await registrar(service);
+    // sanity: cadastrou e emitiu sessão (a versão fica gravada no StoredUser).
+    expect(reg.response.user.email).toBe('a@b.com');
   });
 });

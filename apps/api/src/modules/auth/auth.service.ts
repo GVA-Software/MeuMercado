@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Email } from '@meumercado/domain';
-import type { AuthResponse, LoginInput, RegisterInput, UserDTO } from '@meumercado/contracts';
+import {
+  POLITICA_VERSAO,
+  type AuthResponse,
+  type LoginInput,
+  type RegisterInput,
+  type UserDTO,
+} from '@meumercado/contracts';
 import type { Env } from '../../config/env.schema.js';
 import { isAdminEmail } from '../../common/admin-emails.js';
 import { PASSWORD_HASHER, type PasswordHasher } from './password.hasher.js';
@@ -48,6 +54,7 @@ export class AuthService {
       nome: input.nome.trim(),
       passwordHash: await this.hasher.hash(input.senha),
       criadoEm: new Date(),
+      politicaVersao: POLITICA_VERSAO, // consentimento LGPD registrado no cadastro
     };
     await this.users.create(user);
     return this.issue(user);

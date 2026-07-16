@@ -20,4 +20,8 @@ export class UserEntity {
   /** Soft-delete: conta excluída (bloqueia login; os preços dela ficam na base). */
   @Column({ name: 'excluido_em', type: 'timestamptz', nullable: true })
   excluidoEm!: Date | null;
+
+  /** Versão da Política/Termos aceita no cadastro (consentimento LGPD). */
+  @Column({ name: 'politica_versao', type: 'varchar', nullable: true })
+  politicaVersao!: string | null;
 }

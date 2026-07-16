@@ -8,6 +8,8 @@ export interface StoredUser {
   criadoEm: Date;
   /** Soft-delete: conta excluída (bloqueia login), mas os preços dela ficam na base. */
   excluidoEm?: Date | null;
+  /** Versão da Política/Termos aceita no cadastro (trilha de consentimento LGPD). */
+  politicaVersao?: string | null;
 }
 
 /** Porta de acesso a usuários. Assíncrona (suporta memória e banco). */
@@ -23,11 +25,22 @@ export interface UserRepository {
   findAll(): Promise<StoredUser[]>;
   count(): Promise<number>;
   delete(id: string): Promise<void>;
-  /** Soft-delete: marca a conta como excluída (mantém a linha e os preços dela). */
+  /**
+   * Exclusão LGPD: marca como excluída, ANONIMIZA os dados pessoais (nome/e-mail viram
+   * placeholder — libera o e-mail original pra novo cadastro) e mantém a linha + os
+   * preços que a pessoa cadastrou (base comunitária, já sem PII vinculada).
+   */
   marcarExcluido(id: string, quando: Date): Promise<void>;
 }
 
 export const USER_REPOSITORY = 'USER_REPOSITORY';
+
+/** Anonimização LGPD: nome/e-mail placeholder de conta excluída (sem PII). */
+export const NOME_EXCLUIDO = 'Usuário excluído';
+/** E-mail placeholder único (usa o id, não-reversível) — libera o e-mail original. */
+export function emailAnonimo(id: string): string {
+  return `excluido+${id}@removido.invalid`;
+}
 
 @Injectable()
 export class InMemoryUserRepository implements UserRepository {
@@ -79,7 +92,14 @@ export class InMemoryUserRepository implements UserRepository {
   }
   marcarExcluido(id: string, quando: Date): Promise<void> {
     const u = this.byId.get(id);
-    if (u) u.excluidoEm = quando;
+    if (u) {
+      this.byEmail.delete(u.email); // libera o e-mail original
+      u.excluidoEm = quando;
+      u.nome = NOME_EXCLUIDO;
+      u.email = emailAnonimo(id);
+      u.passwordHash = '';
+      this.byEmail.set(u.email, u);
+    }
     return Promise.resolve();
   }
 }

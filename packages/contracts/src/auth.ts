@@ -1,10 +1,21 @@
 import { z } from 'zod';
 import { IdSchema } from './common.js';
 
+/**
+ * Versão vigente da Política de Privacidade / Termos de Uso. Gravada no cadastro
+ * (trilha de consentimento LGPD). Ao publicar uma versão nova, atualize aqui E nas
+ * páginas /privacidade.html e /termos.html.
+ */
+export const POLITICA_VERSAO = '2026-07-16';
+
 export const RegisterSchema = z.object({
   email: z.string().email().max(254),
   nome: z.string().min(1).max(120),
   senha: z.string().min(8, 'Senha deve ter ao menos 8 caracteres').max(200),
+  /** Consentimento explícito com a Política de Privacidade e os Termos (LGPD). */
+  aceitouTermos: z.literal(true, {
+    errorMap: () => ({ message: 'É preciso aceitar a Política de Privacidade e os Termos.' }),
+  }),
   /** Token do Cloudflare Turnstile (validado no servidor). */
   turnstileToken: z.string().optional(),
 });

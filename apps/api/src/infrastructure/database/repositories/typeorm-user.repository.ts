@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import type { StoredUser, UserRepository } from '../../../modules/auth/user.repository.js';
+import {
+  NOME_EXCLUIDO,
+  emailAnonimo,
+  type StoredUser,
+  type UserRepository,
+} from '../../../modules/auth/user.repository.js';
 import { UserEntity } from '../entities/user.entity.js';
 
 @Injectable()
@@ -41,6 +46,12 @@ export class TypeOrmUserRepository implements UserRepository {
   }
 
   async marcarExcluido(id: string, quando: Date): Promise<void> {
-    await this.repo.update(id, { excluidoEm: quando });
+    // Anonimiza (LGPD) e libera o e-mail original; os preços com este reporterId ficam.
+    await this.repo.update(id, {
+      excluidoEm: quando,
+      nome: NOME_EXCLUIDO,
+      email: emailAnonimo(id),
+      passwordHash: '',
+    });
   }
 }
