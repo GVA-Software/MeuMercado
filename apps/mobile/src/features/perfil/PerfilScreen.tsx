@@ -345,6 +345,31 @@ export function PerfilScreen() {
   const [cancelOk, setCancelOk] = useState(false);
   const [mostrarExcluir, setMostrarExcluir] = useState(false);
 
+  // Portabilidade LGPD: baixa os próprios dados em JSON.
+  const [baixando, setBaixando] = useState(false);
+  const [erroBaixar, setErroBaixar] = useState<string | null>(null);
+
+  async function baixarMeusDados() {
+    setBaixando(true);
+    setErroBaixar(null);
+    try {
+      const dados = await api.baixarMeusDados();
+      const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'meus-dados-meu-mercado.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setErroBaixar(mensagemDeErro(e));
+    } finally {
+      setBaixando(false);
+    }
+  }
+
   async function fazerCancelamento() {
     setCancelando(true);
     try {
@@ -676,6 +701,15 @@ export function PerfilScreen() {
             <Btn variant="ghost" full onClick={() => void logout()}>
               Sair
             </Btn>
+
+            <Btn variant="ghost" full disabled={baixando} onClick={() => void baixarMeusDados()}>
+              {baixando ? 'Preparando…' : '⬇️ Baixar meus dados'}
+            </Btn>
+            {erroBaixar && (
+              <p style={{ color: T.danger, fontSize: 12, textAlign: 'center', margin: 0 }}>
+                {erroBaixar}
+              </p>
+            )}
 
             <Btn variant="ghost" full onClick={() => setMostrarExcluir(true)}>
               Excluir minha conta

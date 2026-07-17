@@ -314,6 +314,10 @@ export class ApiClient {
   atualizarNome(nome: string): Promise<UserDTO> {
     return this.request('/auth/me', { method: 'PATCH', body: JSON.stringify({ nome }) });
   }
+  /** Portabilidade LGPD: baixa TODOS os dados do titular em JSON. */
+  baixarMeusDados(): Promise<Record<string, unknown>> {
+    return this.request('/privacidade/meus-dados');
+  }
 
   // ---- Feedback ----
   enviarFeedback(tipo: FeedbackTipo, mensagem: string): Promise<void> {
