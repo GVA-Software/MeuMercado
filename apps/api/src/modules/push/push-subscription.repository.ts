@@ -17,6 +17,9 @@ export interface PushSubscriptionRepository {
   /** Remove por endpoint. Com `userId`, só remove se pertencer ao usuário (evita
    *  IDOR no unsubscribe); sem `userId` é limpeza de sistema (endpoint morto). */
   removerPorEndpoint(endpoint: string, userId?: string): Promise<void>;
+  /** Remove TODAS as inscrições do usuário — usado ao excluir a conta (não faz
+   *  sentido continuar notificando quem saiu). */
+  removerTodasDoUsuario(userId: string): Promise<void>;
 }
 
 export const PUSH_SUBSCRIPTION_REPOSITORY = 'PUSH_SUBSCRIPTION_REPOSITORY';
@@ -36,6 +39,12 @@ export class InMemoryPushSubscriptionRepository implements PushSubscriptionRepos
     const atual = this.porEndpoint.get(endpoint);
     if (atual && (userId === undefined || atual.userId === userId)) {
       this.porEndpoint.delete(endpoint);
+    }
+    return Promise.resolve();
+  }
+  removerTodasDoUsuario(userId: string): Promise<void> {
+    for (const [endpoint, sub] of this.porEndpoint) {
+      if (sub.userId === userId) this.porEndpoint.delete(endpoint);
     }
     return Promise.resolve();
   }

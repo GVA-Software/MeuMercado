@@ -6,6 +6,8 @@ import { ScryptPasswordHasher } from './password.hasher.js';
 import { InMemoryUserRepository } from './user.repository.js';
 import { InMemoryNameChangeRepository } from './name-change.repository.js';
 import { InMemoryRefreshSessionRepository } from './refresh-session.repository.js';
+import { InMemoryCompraRepository } from '../compras/compra.repository.js';
+import { InMemoryPushSubscriptionRepository } from '../push/push-subscription.repository.js';
 import type { Env } from '../../config/env.schema.js';
 
 const env: Record<string, unknown> = {
@@ -19,6 +21,8 @@ const config = { get: (k: string) => env[k] } as unknown as ConfigService<Env, t
 
 function make() {
   const sessions = new InMemoryRefreshSessionRepository();
+  const compras = new InMemoryCompraRepository();
+  const push = new InMemoryPushSubscriptionRepository();
   const tokens = new TokenService(config);
   const service = new AuthService(
     new InMemoryUserRepository(),
@@ -27,8 +31,10 @@ function make() {
     tokens,
     config,
     sessions,
+    compras,
+    push,
   );
-  return { service, tokens, sessions };
+  return { service, tokens, sessions, compras, push };
 }
 
 const registrar = (s: AuthService) =>
@@ -108,6 +114,40 @@ describe('AuthService — exclusão de conta (anonimização LGPD)', () => {
     });
     expect(novo.response.user.id).not.toBe(userId);
     expect(novo.response.user.email).toBe('a@b.com');
+  });
+
+  it('apaga o histórico PRIVADO de compras e as inscrições de push (mas não os preços)', async () => {
+    const { service, compras, push } = make();
+    const reg = await registrar(service);
+    const userId = reg.response.user.id;
+
+    await compras.salvar(userId, {
+      id: 'c1',
+      mercadoId: null,
+      mercadoNome: null,
+      mercadoEndereco: null,
+      totalCents: 1234,
+      economiaCents: 0,
+      itens: [],
+      criadaEm: new Date().toISOString(),
+    });
+    await push.salvar({
+      id: 'p1',
+      userId,
+      endpoint: 'https://push.example/abc',
+      p256dh: 'k',
+      auth: 'a',
+      criadoEm: new Date(),
+    });
+    expect(await compras.listarPorUsuario(userId)).toHaveLength(1);
+    expect(await push.listarPorUsuario(userId)).toHaveLength(1);
+
+    await service.excluirConta(userId, 'senha-de-teste');
+
+    // dado pessoal do titular some…
+    expect(await compras.listarPorUsuario(userId)).toHaveLength(0);
+    expect(await push.listarPorUsuario(userId)).toHaveLength(0);
+    // (os preços vivem em outro repositório — a comunidade não perde nada.)
   });
 
   it('login com as credenciais antigas não funciona após excluir', async () => {

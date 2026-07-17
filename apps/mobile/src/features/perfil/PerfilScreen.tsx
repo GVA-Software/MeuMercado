@@ -177,12 +177,18 @@ function ExcluirContaModal({
 }) {
   const { T } = useTheme();
   const [senha, setSenha] = useState('');
+  const [ciente, setCiente] = useState(false);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const podeExcluir = !!senha && ciente;
 
   async function confirmar() {
     if (!senha) {
       setErro('Digite sua senha para confirmar.');
+      return;
+    }
+    if (!ciente) {
+      setErro('Marque a caixa de ciência para confirmar.');
       return;
     }
     setBusy(true);
@@ -229,10 +235,45 @@ function ExcluirContaModal({
           ⚠️ Excluir minha conta
         </p>
         <p style={{ color: T.sub, fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-          Esta ação é <b>permanente</b>: você perde o acesso à sua conta e não dá pra desfazer. Os
-          preços que você já cadastrou <b>continuam na base</b>, ajudando a comunidade. Para
-          confirmar, digite sua senha.
+          Esta ação é <b>permanente</b> e não dá pra desfazer. Vamos <b>apagar</b> a sua conta e os
+          seus dados pessoais (nome, e-mail, histórico de compras e notificações).
         </p>
+        <div
+          style={{
+            background: T.card,
+            border: `1px solid ${T.border}`,
+            borderRadius: 12,
+            padding: '10px 12px',
+          }}
+        >
+          <p style={{ color: T.sub, fontSize: 13, lineHeight: 1.5, margin: 0 }}>
+            🛒 Os <b>preços</b> que você cadastrou <b>permanecem na base comunitária</b>, mas de
+            forma <b>anônima</b> — sem qualquer vínculo com você. Preço é uma informação coletiva
+            que ajuda todo mundo a economizar.
+          </p>
+        </div>
+        <label
+          style={{
+            display: 'flex',
+            gap: 10,
+            alignItems: 'flex-start',
+            cursor: 'pointer',
+            color: T.text,
+            fontSize: 13.5,
+            lineHeight: 1.45,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={ciente}
+            onChange={(e) => setCiente(e.target.checked)}
+            style={{ marginTop: 2, width: 18, height: 18, accentColor: T.primary, flexShrink: 0 }}
+          />
+          <span>
+            Estou ciente de que os preços que cadastrei <b>continuarão na base comunitária</b>, de
+            forma anônima, e não serão apagados.
+          </span>
+        </label>
         <input
           type="password"
           placeholder="Sua senha"
@@ -252,7 +293,7 @@ function ExcluirContaModal({
         {erro && <p style={{ color: T.danger, fontSize: 13, margin: 0 }}>{erro}</p>}
         <button
           onClick={() => void confirmar()}
-          disabled={busy || !senha}
+          disabled={busy || !podeExcluir}
           style={{
             width: '100%',
             padding: '13px 16px',
@@ -262,8 +303,8 @@ function ExcluirContaModal({
             color: '#fff',
             fontWeight: 700,
             fontSize: 15,
-            cursor: busy || !senha ? 'not-allowed' : 'pointer',
-            opacity: busy || !senha ? 0.6 : 1,
+            cursor: busy || !podeExcluir ? 'not-allowed' : 'pointer',
+            opacity: busy || !podeExcluir ? 0.6 : 1,
           }}
         >
           {busy ? 'Excluindo…' : 'Excluir minha conta'}

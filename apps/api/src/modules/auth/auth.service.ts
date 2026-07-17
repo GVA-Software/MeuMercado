@@ -18,6 +18,11 @@ import {
   REFRESH_SESSION_REPOSITORY,
   type RefreshSessionRepository,
 } from './refresh-session.repository.js';
+import { COMPRA_REPOSITORY, type CompraRepository } from '../compras/compra.repository.js';
+import {
+  PUSH_SUBSCRIPTION_REPOSITORY,
+  type PushSubscriptionRepository,
+} from '../push/push-subscription.repository.js';
 import { TokenService } from './token.service.js';
 
 export interface AuthResult {
@@ -34,6 +39,8 @@ export class AuthService {
     private readonly tokens: TokenService,
     private readonly config: ConfigService<Env, true>,
     @Inject(REFRESH_SESSION_REPOSITORY) private readonly sessions: RefreshSessionRepository,
+    @Inject(COMPRA_REPOSITORY) private readonly compras: CompraRepository,
+    @Inject(PUSH_SUBSCRIPTION_REPOSITORY) private readonly push: PushSubscriptionRepository,
   ) {}
 
   /**
@@ -87,8 +94,15 @@ export class AuthService {
   }
 
   /**
-   * Exclui a PRÓPRIA conta (soft-delete): confirma a senha, marca como excluída e
-   * derruba todas as sessões. Os preços que o usuário cadastrou FICAM na base comunitária.
+   * Exclui a PRÓPRIA conta: confirma a senha e faz a limpeza LGPD.
+   *
+   * FICA (base comunitária, anonimizado): os PREÇOS que o usuário cadastrou —
+   * preço é fato, não é dado pessoal; ao anonimizar a conta o vínculo com a
+   * identidade some, e a LGPD (art. 16) permite manter o dado nesse caso.
+   *
+   * SAI (dado pessoal do titular): a conta é anonimizada (nome/e-mail/hash), as
+   * sessões são derrubadas, o histórico PRIVADO de compras é apagado e as
+   * inscrições de notificação (push) são removidas — para não notificar quem saiu.
    */
   async excluirConta(userId: string, senha: string): Promise<void> {
     const user = await this.users.findById(userId);
@@ -99,6 +113,8 @@ export class AuthService {
     }
     await this.users.marcarExcluido(user.id, new Date());
     await this.sessions.revogarTodasDoUsuario(user.id);
+    await this.compras.excluirTodas(user.id); // histórico pessoal de gastos (privado)
+    await this.push.removerTodasDoUsuario(user.id); // não notificar mais
   }
 
   /** Atualiza o nome do próprio usuário e guarda a alteração na trilha de auditoria. */
