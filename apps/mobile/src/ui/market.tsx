@@ -1,34 +1,46 @@
+import { useTheme } from '../theme/theme';
+
 /**
  * Marca do mercado a partir do nome que vem da nota (razão social) ou do OSM.
  * A NFC-e traz a razão social ("WMS SUPERMERCADOS DO BRASIL LTDA"), então
  * reconhecemos as grandes redes por padrão e, no fallback, limpamos a razão.
+ *
+ * IMPORTANTE (jurídico): usamos só o NOME da rede (uso nominativo, lícito) —
+ * NÃO reproduzimos as cores/identidade visual oficiais de cada bandeira, pra
+ * não sugerir vínculo/patrocínio inexistente (trade dress). Os chips usam a
+ * paleta neutra do próprio app. Ver [[MARCAS_DISCLAIMER]].
  */
-const REDES: Array<{ re: RegExp; nome: string; cor: string }> = [
-  { re: /atacad[aã]o/i, nome: 'Atacadão', cor: '#E6371F' },
-  { re: /assa[ií]/i, nome: 'Assaí', cor: '#F5A800' },
-  { re: /carrefour/i, nome: 'Carrefour', cor: '#164193' },
-  {
-    re: /p[aã]o de a[çc]ucar|companhia brasileira de distrib/i,
-    nome: 'Pão de Açúcar',
-    cor: '#00A651',
-  },
-  { re: /\bextra\b/i, nome: 'Extra', cor: '#E2001A' },
-  { re: /supermercado dia|\bdia\b/i, nome: 'Dia', cor: '#E2001A' },
-  { re: /\btenda\b/i, nome: 'Tenda', cor: '#E2001A' },
-  { re: /makro/i, nome: 'Makro', cor: '#003DA5' },
-  { re: /sam.?s club/i, nome: "Sam's Club", cor: '#0067A0' },
-  { re: /\bbig\b|bompre[çc]o/i, nome: 'BIG', cor: '#004B93' },
-  { re: /nagumo/i, nome: 'Nagumo', cor: '#E4002B' },
-  { re: /st\.? marche/i, nome: 'St Marche', cor: '#6E5A46' },
-  { re: /oxxo/i, nome: 'Oxxo', cor: '#E4002B' },
-  { re: /ampm|am\/pm/i, nome: 'AmPm', cor: '#00539F' },
-  { re: /minimercado extra|mercado extra/i, nome: 'Extra Mercado', cor: '#E2001A' },
+const REDES: Array<{ re: RegExp; nome: string }> = [
+  { re: /atacad[aã]o/i, nome: 'Atacadão' },
+  { re: /assa[ií]/i, nome: 'Assaí' },
+  { re: /carrefour/i, nome: 'Carrefour' },
+  { re: /p[aã]o de a[çc]ucar|companhia brasileira de distrib/i, nome: 'Pão de Açúcar' },
+  { re: /\bextra\b/i, nome: 'Extra' },
+  { re: /supermercado dia|\bdia\b/i, nome: 'Dia' },
+  { re: /\btenda\b/i, nome: 'Tenda' },
+  { re: /makro/i, nome: 'Makro' },
+  { re: /sam.?s club/i, nome: "Sam's Club" },
+  { re: /\bbig\b|bompre[çc]o/i, nome: 'BIG' },
+  { re: /nagumo/i, nome: 'Nagumo' },
+  { re: /st\.? marche/i, nome: 'St Marche' },
+  { re: /oxxo/i, nome: 'Oxxo' },
+  { re: /ampm|am\/pm/i, nome: 'AmPm' },
+  { re: /minimercado extra|mercado extra/i, nome: 'Extra Mercado' },
 ];
 
-export function marcaMercado(nome: string): { label: string; cor: string } {
-  for (const r of REDES) if (r.re.test(nome)) return { label: r.nome, cor: r.cor };
-  // Razão social sem marca reconhecível: limpa e mostra em cinza neutro (não
-  // "confirmamos" uma bandeira). O nome fantasia real vem da consulta do CNPJ.
+/**
+ * Aviso padrão de não-afiliação — os nomes das redes aparecem só para você
+ * identificar onde o preço foi visto; o app não tem vínculo com elas.
+ */
+export const MARCAS_DISCLAIMER =
+  'Os nomes de mercados servem só para identificar onde um preço foi informado. ' +
+  'O Meu Mercado não é afiliado, patrocinado ou associado a nenhuma dessas redes; ' +
+  'as marcas pertencem aos seus respectivos titulares.';
+
+export function marcaMercado(nome: string): { label: string } {
+  for (const r of REDES) if (r.re.test(nome)) return { label: r.nome };
+  // Razão social sem marca reconhecível: limpa e mostra o texto. O nome fantasia
+  // real vem da consulta do CNPJ.
   const limpo = nome
     .replace(
       /\b(supermercados?|hipermercado|com[eé]rcio|ltda|s\.?\s?a\.?|epp|-?\s?me|do brasil|eireli|distribui[çc][aã]o|de alimentos)\b/gi,
@@ -46,12 +58,13 @@ export function marcaMercado(nome: string): { label: string; cor: string } {
         : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
     )
     .join(' ');
-  return { label: titled.length > 22 ? `${titled.slice(0, 22)}…` : titled, cor: '#8A94A6' };
+  return { label: titled.length > 22 ? `${titled.slice(0, 22)}…` : titled };
 }
 
-/** Chip colorido com a marca do mercado. */
+/** Chip NEUTRO com o nome do mercado (sem a cor da marca — ver nota acima). */
 export function MarketTag({ nome, size = 'sm' }: { nome: string; size?: 'sm' | 'md' }) {
-  const { label, cor } = marcaMercado(nome);
+  const { T } = useTheme();
+  const { label } = marcaMercado(nome);
   const pad = size === 'md' ? '4px 10px' : '2px 8px';
   const fs = size === 'md' ? 12 : 11;
   return (
@@ -60,9 +73,9 @@ export function MarketTag({ nome, size = 'sm' }: { nome: string; size?: 'sm' | '
         display: 'inline-flex',
         alignItems: 'center',
         gap: 5,
-        background: `${cor}22`,
-        color: cor,
-        border: `1px solid ${cor}55`,
+        background: T.card,
+        color: T.sub,
+        border: `1px solid ${T.border}`,
         borderRadius: 99,
         padding: pad,
         fontSize: fs,
@@ -73,7 +86,9 @@ export function MarketTag({ nome, size = 'sm' }: { nome: string; size?: 'sm' | '
         whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ width: 7, height: 7, borderRadius: 99, background: cor, flexShrink: 0 }} />
+      <span style={{ fontSize: fs, flexShrink: 0 }} aria-hidden>
+        🏬
+      </span>
       {label}
     </span>
   );

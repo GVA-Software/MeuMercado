@@ -13,6 +13,10 @@ function formatDistancia(m: number | null): string | null {
   return m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`;
 }
 
+function fmtDataCurta(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
 /** Uma mensagem do bate-papo (Nina ou usuário). */
 type Msg =
   | { id: number; from: 'nina' | 'user'; kind: 'text'; text: string }
@@ -254,8 +258,8 @@ export function NinaChat({ T }: { T: Theme }) {
           kind: 'text',
           text:
             raioMetros !== null
-              ? `Dentro de ${formatDistancia(raioMetros)}, o melhor pra ${produto.nome} é o ${barato.mercadoNome}, ${formatBRL(barato.priceCents)}:`
-              : `${produto.nome}: mais barato no ${barato.mercadoNome}, ${formatBRL(barato.priceCents)}. Veja as opções:`,
+              ? `Dentro de ${formatDistancia(raioMetros)}, pelos preços que a comunidade informou, o mais em conta pra ${produto.nome} é o ${barato.mercadoNome}, ${formatBRL(barato.priceCents)}:`
+              : `${produto.nome}: pelos preços da comunidade, o mais em conta é o ${barato.mercadoNome}, ${formatBRL(barato.priceCents)}. Veja as opções:`,
         });
         empurrar({ from: 'nina', kind: 'mercados', resp: { ...resp, mercados: dentro } });
       } else {
@@ -566,6 +570,9 @@ function Mercados({ T, resp }: { T: Theme; resp: OndeComprarResponse }) {
             <p style={{ color: T.muted, fontSize: 11, margin: 0 }}>
               {dist ? `📍 ${dist}` : '📍 distância indisponível'}
               {m.endereco ? ` · ${m.endereco}` : ''}
+            </p>
+            <p style={{ color: T.muted, fontSize: 10, margin: '3px 0 0', lineHeight: 1.4 }}>
+              informado pela comunidade · {fmtDataCurta(m.atualizadoEm)} · confira na loja
             </p>
             {m.lat !== null && m.lng !== null && (
               <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>

@@ -22,7 +22,7 @@ import {
   EmptyState,
   SLabel,
 } from '../../ui/kit';
-import { MarketTag, marcaMercado } from '../../ui/market';
+import { MARCAS_DISCLAIMER, MarketTag, marcaMercado } from '../../ui/market';
 import { emojiDe } from '../../ui/emoji';
 import { useNav } from '../../app/nav';
 import { getRecentMarkets, pushRecentMarket } from './recentMarkets';
@@ -33,6 +33,12 @@ import { BarcodeScanner } from '../scan/BarcodeScanner';
 function fmtData(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
+
+/**
+ * Só afirmamos tendência (subiu/caiu) com amostra mínima — evita "estampar" uma
+ * variação de 1-2 reportes como fato (risco de publicidade enganosa).
+ */
+const MIN_AMOSTRAS_TREND = 3;
 
 function slug(s: string): string {
   return s
@@ -173,7 +179,7 @@ export function PrecosScreen({
         <AppLogo size={16} />
         <p style={{ color: T.text, fontSize: 20, fontWeight: 800, margin: '12px 0 2px' }}>Preços</p>
         <p style={{ color: T.muted, fontSize: 13, margin: 0 }}>
-          Preços colaborativos e histórico dos mercados
+          Preços informados pela comunidade — podem estar desatualizados. Confira na loja.
         </p>
       </div>
 
@@ -302,6 +308,17 @@ export function PrecosScreen({
                 Mostrar mais {Math.min(20, filtradas.length - visiveis)} de {filtradas.length}
               </Btn>
             )}
+            <p
+              style={{
+                color: T.muted,
+                fontSize: 11,
+                lineHeight: 1.45,
+                margin: '8px 4px 0',
+                textAlign: 'center',
+              }}
+            >
+              {MARCAS_DISCLAIMER}
+            </p>
           </>
         )}
       </div>
@@ -528,6 +545,7 @@ function TabelaRow({ row, onClick }: { row: PriceTableRowDTO; onClick: () => voi
         </p>
         <p style={{ color: T.muted, fontSize: 12, margin: '2px 0 5px' }}>
           {row.amostras} {row.amostras === 1 ? 'preço' : 'preços'}
+          {row.atualizadoEm ? ` · ${fmtData(row.atualizadoEm)}` : ''}
           {row.menorPrecoMercado ? ' · menor em' : ''}
         </p>
         {row.menorPrecoMercado && <MarketTag nome={row.menorPrecoMercado} />}
@@ -542,7 +560,9 @@ function TabelaRow({ row, onClick }: { row: PriceTableRowDTO; onClick: () => voi
           )}
         </p>
         <div style={{ marginTop: 3 }}>
-          <TrendBadge trend={row.trend} pct={row.trendPct} />
+          {row.amostras >= MIN_AMOSTRAS_TREND && (
+            <TrendBadge trend={row.trend} pct={row.trendPct} />
+          )}
         </div>
       </div>
     </button>
@@ -774,14 +794,20 @@ function DetailSheet({
             {row.amostras} {row.amostras === 1 ? 'preço reportado' : 'preços reportados'}
           </p>
         </div>
-        <TrendBadge trend={row.trend} pct={row.trendPct} />
+        {row.amostras >= MIN_AMOSTRAS_TREND && (
+          <TrendBadge trend={row.trend} pct={row.trendPct} />
+        )}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
         <StatChip label="MENOR" valorCents={row.minCents} />
         <StatChip label="MÉDIA" valorCents={row.mediaCents} />
         <StatChip label="MAIOR" valorCents={row.maxCents} />
       </div>
+      <p style={{ color: T.muted, fontSize: 11.5, lineHeight: 1.45, margin: '0 0 14px' }}>
+        Valores informados pela comunidade — podem ter mudado e não são o preço oficial da loja.
+        Confira no mercado antes de comprar.
+      </p>
 
       <SLabel>Evolução do preço</SLabel>
       {hist === null ? (

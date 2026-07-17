@@ -195,13 +195,17 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
                 }}
               >
                 <p style={{ color: T.green, fontSize: 11, fontWeight: 700, margin: '0 0 4px' }}>
-                  ECONOMIA
+                  ABAIXO DA MÉDIA
                 </p>
                 <p style={{ color: T.green, fontSize: 18, fontWeight: 800, margin: 0 }}>
                   {formatBRL(resumo.totalEconomia)}
                 </p>
               </div>
             </div>
+            <p style={{ color: T.muted, fontSize: 11, lineHeight: 1.45, margin: '0 0 16px' }}>
+              Estimativa: quanto você pagou abaixo da média de preços da comunidade — não é uma
+              economia garantida.
+            </p>
 
             {/* Gasto por mês */}
             {resumo.meses.length > 0 && (
@@ -347,7 +351,7 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
                           {dataLabel(c.criadaEm)} · {c.itens.length}{' '}
                           {c.itens.length === 1 ? 'item' : 'itens'}
                           {c.economiaCents > 0
-                            ? ` · 💰 economizou ${formatBRL(c.economiaCents)}`
+                            ? ` · 💰 ${formatBRL(c.economiaCents)} abaixo da média`
                             : ''}
                         </p>
                       </div>
