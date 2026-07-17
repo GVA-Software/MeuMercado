@@ -40,6 +40,7 @@ import {
   type AnalyticsRepository,
 } from '../analytics/analytics.repository.js';
 import { SINONIMO_REPOSITORY, type SinonimoRepository } from '../insights/sinonimo.repository.js';
+import { RECEITA_REPOSITORY, type ReceitaRepository } from '../insights/receita.repository.js';
 import {
   PRICE_OBSERVATION_REPOSITORY,
   type PriceObservationRepository,
@@ -66,6 +67,7 @@ export class AdminService {
     @Inject(PRODUTO_REPOSITORY) private readonly produtos: ProdutoRepository,
     @Inject(EMAIL_SERVICE) private readonly email: EmailService,
     @Inject(SINONIMO_REPOSITORY) private readonly sinonimos: SinonimoRepository,
+    @Inject(RECEITA_REPOSITORY) private readonly receitas: ReceitaRepository,
   ) {}
 
   /**
@@ -101,7 +103,26 @@ export class AdminService {
       canonico: s.canonico,
       criadoEm: s.criadoEm.toISOString(),
     }));
-    return { semResposta, sinonimos };
+    const receitas = (await this.receitas.listar()).map((r) => ({
+      nome: r.nome,
+      gatilhos: r.gatilhos,
+      itens: r.itens,
+      criadoEm: r.criadoEm.toISOString(),
+    }));
+    return { semResposta, sinonimos, receitas };
+  }
+
+  /** Ensina uma receita/evento: gatilhos → itens da lista. A Nina usa na hora. */
+  async ensinarReceita(nome: string, gatilhos: string[], itens: string[]): Promise<void> {
+    const limpos = gatilhos.map((g) => g.trim()).filter(Boolean);
+    const its = itens.map((i) => i.trim()).filter(Boolean);
+    if (!limpos.length || !its.length) throw new BadRequestException('Gatilhos e itens obrigatórios.');
+    await this.receitas.salvar({ nome: nome.trim(), gatilhos: limpos, itens: its, criadoEm: new Date() });
+  }
+
+  /** Remove uma receita ensinada. */
+  async esquecerReceita(nome: string): Promise<void> {
+    await this.receitas.remover(nome.trim());
   }
 
   /** Ensina um sinônimo (o alias é normalizado). A Nina usa na próxima busca. */

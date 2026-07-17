@@ -54,9 +54,14 @@ import {
   InMemorySinonimoRepository,
   SINONIMO_REPOSITORY,
 } from '../../modules/insights/sinonimo.repository.js';
+import {
+  InMemoryReceitaRepository,
+  RECEITA_REPOSITORY,
+} from '../../modules/insights/receita.repository.js';
 import { AnalyticsEventEntity } from './entities/analytics-event.entity.js';
 import { AccessLogEntity } from './entities/access-log.entity.js';
 import { NinaSinonimoEntity } from './entities/nina-sinonimo.entity.js';
+import { NinaReceitaEntity } from './entities/nina-receita.entity.js';
 import { FeedbackEntity } from './entities/feedback.entity.js';
 import { CartEntity, CartItemEntity } from './entities/cart.entity.js';
 import { CompraEntity } from './entities/compra.entity.js';
@@ -84,6 +89,7 @@ import { TypeOrmAnalyticsRepository } from './repositories/typeorm-analytics.rep
 import { TypeOrmFeedbackRepository } from './repositories/typeorm-feedback.repository.js';
 import { TypeOrmAccessLogRepository } from './repositories/typeorm-access-log.repository.js';
 import { TypeOrmSinonimoRepository } from './repositories/typeorm-sinonimo.repository.js';
+import { TypeOrmReceitaRepository } from './repositories/typeorm-receita.repository.js';
 
 const ENTITIES = [
   UserEntity,
@@ -102,6 +108,7 @@ const ENTITIES = [
   FeedbackEntity,
   AccessLogEntity,
   NinaSinonimoEntity,
+  NinaReceitaEntity,
 ];
 const TOKENS = [
   USER_REPOSITORY,
@@ -119,6 +126,7 @@ const TOKENS = [
   FEEDBACK_REPOSITORY,
   ACCESS_LOG_REPOSITORY,
   SINONIMO_REPOSITORY,
+  RECEITA_REPOSITORY,
 ];
 
 /**
@@ -152,6 +160,7 @@ export class PersistenceModule {
           { provide: FEEDBACK_REPOSITORY, useClass: InMemoryFeedbackRepository },
           { provide: ACCESS_LOG_REPOSITORY, useClass: InMemoryAccessLogRepository },
           { provide: SINONIMO_REPOSITORY, useClass: InMemorySinonimoRepository },
+          { provide: RECEITA_REPOSITORY, useClass: InMemoryReceitaRepository },
         ],
         exports: TOKENS,
       };
@@ -195,6 +204,7 @@ export class PersistenceModule {
         { provide: FEEDBACK_REPOSITORY, useClass: TypeOrmFeedbackRepository },
         { provide: ACCESS_LOG_REPOSITORY, useClass: TypeOrmAccessLogRepository },
         { provide: SINONIMO_REPOSITORY, useClass: TypeOrmSinonimoRepository },
+        { provide: RECEITA_REPOSITORY, useClass: TypeOrmReceitaRepository },
       ],
       exports: TOKENS,
     };

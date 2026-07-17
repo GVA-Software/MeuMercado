@@ -4,7 +4,7 @@
  * da conversa: distingue saudação, agradecimento, ajuda, refinamento por
  * distância e busca de produto (tirando o "enfeite" da frase).
  */
-import { montarLista } from './receitas.js';
+import { montarLista, type ReceitaDef } from './receitas.js';
 
 export type Intencao =
   | { tipo: 'saudacao' }
@@ -229,7 +229,10 @@ function interpretarBase(n: string): Intencao | null {
   return null;
 }
 
-export function interpretar(texto: string): Intencao {
+export function interpretar(
+  texto: string,
+  receitas: ReadonlyArray<ReceitaDef> = [],
+): Intencao {
   const n = norm(texto);
   if (!n) return { tipo: 'buscar', termo: '', raioMetros: null };
   const palavras = n.split(/\s+/);
@@ -257,8 +260,9 @@ export function interpretar(texto: string): Intencao {
   const base = interpretarBase(n);
   if (base) return base;
   // Receita/evento → lista de compras ("vou fazer um churrasco", "receita de bolo").
+  // Inclui as receitas DINÂMICAS ensinadas pelo ADM (passadas pelo front).
   if (CUE_LISTA.test(n)) {
-    const lista = montarLista(n);
+    const lista = montarLista(n, receitas);
     if (lista) return { tipo: 'montar-lista', evento: lista.nome, itens: lista.itens };
   }
   // "Liste os produtos" (que NÃO são as minhas compras) → aponta pra aba Preços.

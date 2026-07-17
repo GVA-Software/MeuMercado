@@ -20,6 +20,7 @@ import {
   AdminGrantProSchema,
   AdminJuntarMercadosSchema,
   AdminJuntarSchema,
+  AdminReceitaSchema,
   AdminSepararPrecoSchema,
   AdminSinonimoSchema,
   PageQuerySchema,
@@ -37,6 +38,7 @@ import {
   type AdminJuntarInput,
   type AdminJuntarMercadosInput,
   type AdminProdutoEdicaoDTO,
+  type AdminReceitaInput,
   type AdminSepararPrecoInput,
   type AdminSinonimoInput,
   type AdminStatsDTO,
@@ -214,6 +216,22 @@ export class AdminController {
   @HttpCode(204)
   esquecerSinonimo(@Param('alias') alias: string): Promise<void> {
     return this.service.esquecerSinonimo(alias);
+  }
+
+  /** Ensina uma receita/evento (gatilhos → itens) — a Nina usa no "montar lista". */
+  @Post('nina/receitas')
+  @HttpCode(204)
+  ensinarReceita(
+    @Body(new ZodValidationPipe(AdminReceitaSchema)) body: AdminReceitaInput,
+  ): Promise<void> {
+    return this.service.ensinarReceita(body.nome, body.gatilhos, body.itens);
+  }
+
+  /** Remove uma receita ensinada. */
+  @Delete('nina/receitas/:nome')
+  @HttpCode(204)
+  esquecerReceita(@Param('nome') nome: string): Promise<void> {
+    return this.service.esquecerReceita(nome);
   }
 
   @Get('duplicados')

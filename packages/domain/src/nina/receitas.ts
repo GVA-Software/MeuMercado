@@ -4,8 +4,17 @@
  * batem no texto JÁ normalizado (sem acento, minúsculo). Cresce editando aqui (Fase 4:
  * virar arquivo/dataset).
  */
+import { semAcento } from '../text/busca.js';
+
 export interface Receita {
   nome: string;
+  itens: string[];
+}
+
+/** Receita DINÂMICA (ensinada pelo ADM): nome + gatilhos (palavras) + itens. */
+export interface ReceitaDef {
+  nome: string;
+  gatilhos: string[];
   itens: string[];
 }
 
@@ -88,8 +97,16 @@ const RECEITAS: Array<{ re: RegExp; nome: string; itens: string[] }> = [
   },
 ];
 
-/** Resolve a receita/evento mencionado no texto (normalizado). Null se nenhuma. */
-export function montarLista(n: string): Receita | null {
+/**
+ * Resolve a receita/evento mencionado no texto (normalizado). `extras` são as
+ * receitas DINÂMICAS ensinadas pelo ADM (têm prioridade). Null se nenhuma casar.
+ */
+export function montarLista(n: string, extras: ReadonlyArray<ReceitaDef> = []): Receita | null {
+  for (const r of extras) {
+    if (r.itens.length && r.gatilhos.some((g) => g && n.includes(semAcento(g)) && semAcento(g).length >= 3)) {
+      return { nome: r.nome, itens: r.itens };
+    }
+  }
   for (const r of RECEITAS) if (r.re.test(n)) return { nome: r.nome, itens: r.itens };
   return null;
 }

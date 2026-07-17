@@ -214,12 +214,30 @@ export const NinaSinonimoSchema = z.object({
 });
 export type NinaSinonimoDTO = z.infer<typeof NinaSinonimoSchema>;
 
-/** Painel de treino: perguntas sem resposta + sinônimos já ensinados. */
+/** Uma receita/evento dinâmica ensinada pelo ADM (gatilhos → itens da lista). */
+export const NinaReceitaSchema = z.object({
+  nome: z.string(),
+  gatilhos: z.array(z.string()),
+  itens: z.array(z.string()),
+  criadoEm: z.string().datetime(),
+});
+export type NinaReceitaDTO = z.infer<typeof NinaReceitaSchema>;
+
+/** Painel de treino: perguntas sem resposta + sinônimos + receitas ensinadas. */
 export const NinaTreinoResponseSchema = z.object({
   semResposta: z.array(NinaSemRespostaSchema),
   sinonimos: z.array(NinaSinonimoSchema),
+  receitas: z.array(NinaReceitaSchema),
 });
 export type NinaTreinoResponse = z.infer<typeof NinaTreinoResponseSchema>;
+
+/** Ensinar uma receita: gatilhos ("churrasco","churras") → itens da lista. */
+export const AdminReceitaSchema = z.object({
+  nome: z.string().min(2, 'Nome muito curto').max(60),
+  gatilhos: z.array(z.string().min(2).max(40)).min(1, 'Ao menos 1 gatilho').max(20),
+  itens: z.array(z.string().min(1).max(80)).min(1, 'Ao menos 1 item').max(40),
+});
+export type AdminReceitaInput = z.infer<typeof AdminReceitaSchema>;
 
 /** Ensinar um sinônimo: quando o usuário disser `alias`, a Nina busca `canonico`. */
 export const AdminSinonimoSchema = z.object({

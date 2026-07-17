@@ -5,7 +5,7 @@ import type {
   OndeComprarResponse,
   ProdutoDTO,
 } from '@meumercado/contracts';
-import { combinaBusca, interpretar } from '@meumercado/domain';
+import { combinaBusca, interpretar, type ReceitaDef } from '@meumercado/domain';
 import { api, formatBRL } from '../../api/client';
 import { useNav } from '../../app/nav';
 import type { Theme } from '../../theme/theme';
@@ -141,6 +141,8 @@ export function NinaChat({ T }: { T: Theme }) {
   const [ultimoProduto, setUltimoProduto] = useState<ProdutoDTO | null>(null);
   const idRef = useRef(1);
   const listaRef = useRef<HTMLDivElement>(null);
+  // Receitas DINÂMICAS (ensinadas pelo ADM) — baixadas 1x e passadas ao interpretar.
+  const receitasRef = useRef<ReceitaDef[]>([]);
 
   const empurrar = (m: SemId<Msg>) =>
     setMsgs((atual) => [...atual, { ...m, id: idRef.current++ } as Msg]);
@@ -149,6 +151,15 @@ export function NinaChat({ T }: { T: Theme }) {
     const el = listaRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [msgs, ocupada]);
+
+  useEffect(() => {
+    api
+      .ninaReceitas()
+      .then((r) => {
+        receitasRef.current = r.receitas;
+      })
+      .catch(() => {});
+  }, []);
 
   function posicao(): Promise<{ lat?: number; lng?: number }> {
     return new Promise((resolve) => {
@@ -168,7 +179,7 @@ export function NinaChat({ T }: { T: Theme }) {
     if (!t || ocupada) return;
     empurrar({ from: 'user', kind: 'text', text: t });
     setTexto('');
-    const intent = interpretar(t);
+    const intent = interpretar(t, receitasRef.current);
     if (intent.tipo === 'agradecimento') {
       empurrar({
         from: 'nina',

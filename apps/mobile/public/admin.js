@@ -887,11 +887,27 @@
             '<span><b>' + esc(s.alias) + '</b> → ' + esc(s.canonico) + '</span>' +
             '<button class="nina-esquecer" data-alias="' + esc(s.alias) + '" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px">✕</button></div>';
         }).join('') : '<p class="fnote">Nenhum sinônimo ensinado ainda.</p>';
+        var recs = d.receitas || [];
+        var listaRec = recs.length ? recs.map(function (r) {
+          return '<div style="' + rowStyle + '">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">' +
+              '<span><b>' + esc(r.nome) + '</b> <i style="color:#8a93a3;font-style:normal">— gatilhos: ' + esc((r.gatilhos || []).join(', ')) + '</i></span>' +
+              '<button class="nina-esq-rec" data-nome="' + esc(r.nome) + '" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px">✕</button></div>' +
+            '<div style="color:#8a93a3;font-size:12px;margin-top:4px">🛒 ' + esc((r.itens || []).join(', ')) + '</div></div>';
+        }).join('') : '<p class="fnote">Nenhuma receita ensinada ainda (a Nina já tem várias embutidas: churrasco, bolo, feijoada…).</p>';
+        var fullInp = inpStyle + ';width:100%;box-sizing:border-box;margin-bottom:6px';
+        var formRec = '<div style="' + rowStyle + '">' +
+          '<input id="rec-nome" style="' + fullInp + '" placeholder="Nome (ex.: sushi)"/>' +
+          '<input id="rec-gat" style="' + fullInp + '" placeholder="Gatilhos, por vírgula (ex.: sushi, temaki)"/>' +
+          '<input id="rec-itens" style="' + fullInp + '" placeholder="Itens, por vírgula (ex.: arroz, alga nori, salmão, shoyu)"/>' +
+          '<button id="rec-salvar" style="' + btnStyle + '">Salvar receita</button></div>';
         return '<div class="funnel">' +
           '<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">🧡 Treino da Nina</h3><button class="cov-btn" id="nina-refresh">↻ Atualizar</button></div>' +
           '<p class="fnote">Quando a Nina não entende, a pergunta aparece aqui. Ensine o que ela deve buscar (o sinônimo) e ela passa a entender <b>na hora</b>.</p>' +
           '<h4 style="margin:12px 0 4px">Perguntas sem resposta (mais frequentes)</h4>' + listaSem +
           '<h4 style="margin:16px 0 4px">Sinônimos ensinados</h4>' + listaSin +
+          '<h4 style="margin:16px 0 4px">🍳 Receitas ensinadas (evento → lista de compras)</h4>' + listaRec +
+          '<h4 style="margin:14px 0 4px">Nova receita</h4>' + formRec +
         '</div>';
       }
       async function carregarNina(force) {
@@ -917,6 +933,28 @@
         var alias = this.getAttribute('data-alias');
         try {
           await apiFetch('/admin/nina/sinonimos/' + encodeURIComponent(alias), { method: 'DELETE' });
+          state.nina = null; carregarNina(true);
+        } catch (e) { state.ninaErro = (e && e.message) || 'Erro ao remover.'; renderDashboard(); }
+      }
+      function csv(id) {
+        var v = (el(id) && el(id).value) || '';
+        return v.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      }
+      async function ensinarReceitaUI() {
+        var nomeEl = el('rec-nome');
+        var nome = nomeEl ? nomeEl.value.trim() : '';
+        var gat = csv('rec-gat'), itens = csv('rec-itens');
+        if (!nome || !gat.length || !itens.length) { state.ninaErro = 'Preencha nome, gatilhos e itens.'; renderDashboard(); return; }
+        this.disabled = true; this.textContent = '…';
+        try {
+          await apiFetch('/admin/nina/receitas', { method: 'POST', body: JSON.stringify({ nome: nome, gatilhos: gat, itens: itens }) });
+          state.nina = null; carregarNina(true);
+        } catch (e) { this.disabled = false; this.textContent = 'Salvar receita'; state.ninaErro = (e && e.message) || 'Erro ao salvar.'; renderDashboard(); }
+      }
+      async function esquecerReceitaUI() {
+        var nome = this.getAttribute('data-nome');
+        try {
+          await apiFetch('/admin/nina/receitas/' + encodeURIComponent(nome), { method: 'DELETE' });
           state.nina = null; carregarNina(true);
         } catch (e) { state.ninaErro = (e && e.message) || 'Erro ao remover.'; renderDashboard(); }
       }
@@ -1008,6 +1046,10 @@
           for (var e1 = 0; e1 < ens.length; e1++) ens[e1].onclick = ensinarSinonimoUI;
           var esq = document.querySelectorAll('.nina-esquecer');
           for (var e2 = 0; e2 < esq.length; e2++) esq[e2].onclick = esquecerSinonimoUI;
+          var salvarRec = el('rec-salvar');
+          if (salvarRec) salvarRec.onclick = ensinarReceitaUI;
+          var esqRec = document.querySelectorAll('.nina-esq-rec');
+          for (var e3 = 0; e3 < esqRec.length; e3++) esqRec[e3].onclick = esquecerReceitaUI;
           if (!state.nina && !state.ninaLoading) carregarNina();
         }
       }

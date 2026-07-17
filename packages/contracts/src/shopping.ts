@@ -53,6 +53,17 @@ export const MelhorMercadoResponseSchema = z.object({
 });
 export type MelhorMercadoResponse = z.infer<typeof MelhorMercadoResponseSchema>;
 
+/** Receita dinâmica servida ao app (para a Nina montar a lista): gatilhos → itens. */
+export const ReceitaPublicaSchema = z.object({
+  nome: z.string(),
+  gatilhos: z.array(z.string()),
+  itens: z.array(z.string()),
+});
+export const ReceitasResponseSchema = z.object({
+  receitas: z.array(ReceitaPublicaSchema),
+});
+export type ReceitasResponse = z.infer<typeof ReceitasResponseSchema>;
+
 /** Um produto extremo (mais caro/barato) da base — nome + preço. */
 export const BaseExtremoSchema = z.object({
   nome: z.string(),

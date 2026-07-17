@@ -76,6 +76,7 @@ export {
 
 // Nina — interpretação de intenção da conversa (determinística)
 export { interpretar, type Intencao } from './nina/Intent.js';
+export { montarLista, type Receita, type ReceitaDef } from './nina/receitas.js';
 
 // Busca tolerante de produtos (acento + abreviação + fuzzy) — compartilhada front/back
 export { semAcento, combinaBusca, combinaFuzzy, chaveProduto } from './text/busca.js';

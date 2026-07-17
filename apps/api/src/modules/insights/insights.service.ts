@@ -16,6 +16,7 @@ import type {
   MelhorMercadoResponse,
   OndeComprarResponse,
   ProdutoDTO,
+  ReceitasResponse,
 } from '@meumercado/contracts';
 import { aplicarSinonimos, combinaBusca, combinaFuzzy } from '../../common/texto.js';
 import { SEED_DATA } from '../../data/data.module.js';
@@ -26,6 +27,7 @@ import {
 } from '../pricing/price-observation.repository.js';
 import { PRODUTO_REPOSITORY, type ProdutoRepository } from '../catalog/produtos.repository.js';
 import { SINONIMO_REPOSITORY, type SinonimoRepository } from './sinonimo.repository.js';
+import { RECEITA_REPOSITORY, type ReceitaRepository } from './receita.repository.js';
 
 @Injectable()
 export class InsightsService {
@@ -37,7 +39,14 @@ export class InsightsService {
     @Inject(PRODUTO_REPOSITORY) private readonly produtos: ProdutoRepository,
     @Inject(SEED_DATA) private readonly seed: SeedData,
     @Inject(SINONIMO_REPOSITORY) private readonly sinonimos: SinonimoRepository,
+    @Inject(RECEITA_REPOSITORY) private readonly receitasRepo: ReceitaRepository,
   ) {}
+
+  /** Receitas DINÂMICAS (ensinadas pelo ADM) — a Nina baixa e usa no montar-lista. */
+  async receitas(): Promise<ReceitasResponse> {
+    const rs = await this.receitasRepo.listar();
+    return { receitas: rs.map((r) => ({ nome: r.nome, gatilhos: r.gatilhos, itens: r.itens })) };
+  }
 
   async gerar(cesta?: readonly BasketLine[]): Promise<InsightsResponse> {
     const asOf = new Date();

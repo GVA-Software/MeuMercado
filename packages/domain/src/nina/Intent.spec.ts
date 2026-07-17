@@ -188,6 +188,18 @@ describe('interpretar — intenção da conversa da Nina', () => {
     expect(interpretar('tem bolo?').tipo).toBe('buscar');
   });
 
+  it('receita DINÂMICA (ensinada pelo ADM) → montar-lista', () => {
+    const receitas = [
+      { nome: 'sushi', gatilhos: ['sushi', 'temaki'], itens: ['arroz', 'alga nori', 'salmão', 'shoyu'] },
+    ];
+    const r = interpretar('vou fazer sushi hoje', receitas);
+    expect(r.tipo).toBe('montar-lista');
+    if (r.tipo === 'montar-lista') {
+      expect(r.evento).toBe('sushi');
+      expect(r.itens).toContain('salmão');
+    }
+  });
+
   it('entende refinamento por raio quando não há produto na frase', () => {
     const r = interpretar('Quero em um raio de 3km perto de mim, qual seria o melhor mercado?');
     expect(r).toEqual({ tipo: 'refinar', raioMetros: 3000 });

@@ -8,6 +8,7 @@ import {
   type OndeComprarInput,
   type OndeComprarResponse,
   type ProdutoDTO,
+  type ReceitasResponse,
 } from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
@@ -63,6 +64,12 @@ export class InsightsController {
   @Get('base')
   baseResumo(@Query('q') q?: string): Promise<BaseResumoResponse> {
     return this.service.baseResumo(q);
+  }
+
+  /** Receitas dinâmicas (ensinadas pelo ADM) — a Nina usa no "montar lista". */
+  @Get('receitas')
+  receitas(): Promise<ReceitasResponse> {
+    return this.service.receitas();
   }
 
   /** "Onde eu compro este produto?" — melhores mercados por preço + distância. */

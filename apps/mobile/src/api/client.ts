@@ -19,6 +19,7 @@ import type {
   BaseResumoResponse,
   MelhorMercadoResponse,
   OndeComprarResponse,
+  ReceitasResponse,
   PriceHistoryDTO,
   PriceSummaryDTO,
   PriceTableRowDTO,
@@ -269,6 +270,10 @@ export class ApiClient {
   baseResumo(termo?: string): Promise<BaseResumoResponse> {
     const q = (termo ?? '').trim();
     return this.request(`/insights/base${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+  }
+  /** Receitas dinâmicas (ensinadas pelo ADM) — a Nina usa no "montar lista". */
+  ninaReceitas(): Promise<ReceitasResponse> {
+    return this.request('/insights/receitas');
   }
   melhorMercado(termo: string | null, lat?: number, lng?: number): Promise<MelhorMercadoResponse> {
     return this.request('/insights/melhor-mercado', {
