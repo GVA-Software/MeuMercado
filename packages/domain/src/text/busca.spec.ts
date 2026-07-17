@@ -56,6 +56,10 @@ describe('aplicarSinonimos — apelidos → termo do catálogo', () => {
     expect(aplicarSinonimos('arroz')).toBe('arroz');
     expect(aplicarSinonimos('Café')).toBe('cafe');
   });
+  it('aplica sinônimos DINÂMICOS (ensinados pelo ADM)', () => {
+    expect(aplicarSinonimos('zero', [['zero', 'refrigerante']])).toBe('refrigerante');
+    expect(aplicarSinonimos('Nescau', [['nescau', 'achocolatado']])).toBe('achocolatado');
+  });
 });
 
 describe('chaveProduto — detecção de duplicatas', () => {

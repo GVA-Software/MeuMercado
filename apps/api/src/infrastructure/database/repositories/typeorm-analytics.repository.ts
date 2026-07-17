@@ -32,4 +32,8 @@ export class TypeOrmAnalyticsRepository implements AnalyticsRepository {
   async usuariosComEvento(name: string): Promise<string[]> {
     return usuariosDistintos(await this.repo.find({ where: { name } }), name);
   }
+
+  listarPorNome(name: string): Promise<AnalyticsEvent[]> {
+    return this.repo.find({ where: { name } });
+  }
 }

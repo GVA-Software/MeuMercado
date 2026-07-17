@@ -22,6 +22,8 @@ export interface AnalyticsRepository {
   resumo(): Promise<EventoResumo[]>;
   /** Ids de usuário distintos que dispararam um evento. */
   usuariosComEvento(name: string): Promise<string[]>;
+  /** Todos os eventos de um nome (com props) — ex.: nina_sem_resposta pro treino. */
+  listarPorNome(name: string): Promise<AnalyticsEvent[]>;
 }
 
 export const ANALYTICS_REPOSITORY = 'ANALYTICS_REPOSITORY';
@@ -61,5 +63,8 @@ export class InMemoryAnalyticsRepository implements AnalyticsRepository {
   }
   usuariosComEvento(name: string): Promise<string[]> {
     return Promise.resolve(usuariosDistintos(this.eventos, name));
+  }
+  listarPorNome(name: string): Promise<AnalyticsEvent[]> {
+    return Promise.resolve(this.eventos.filter((e) => e.name === name));
   }
 }

@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import {
   chaveProduto,
   Produto,
+  semAcento,
   sugerirCategoria,
   type Assinatura,
   type Categoria,
@@ -25,6 +26,7 @@ import {
   type AdminStatsDTO,
   type AdminUserDTO,
   type AdminUsersResponse,
+  type NinaTreinoResponse,
   type QaConversaReportDTO,
 } from '@meumercado/contracts';
 import { isAdminEmail } from '../../common/admin-emails.js';
@@ -37,6 +39,7 @@ import {
   ANALYTICS_REPOSITORY,
   type AnalyticsRepository,
 } from '../analytics/analytics.repository.js';
+import { SINONIMO_REPOSITORY, type SinonimoRepository } from '../insights/sinonimo.repository.js';
 import {
   PRICE_OBSERVATION_REPOSITORY,
   type PriceObservationRepository,
@@ -62,7 +65,56 @@ export class AdminService {
     @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly prices: PriceObservationRepository,
     @Inject(PRODUTO_REPOSITORY) private readonly produtos: ProdutoRepository,
     @Inject(EMAIL_SERVICE) private readonly email: EmailService,
+    @Inject(SINONIMO_REPOSITORY) private readonly sinonimos: SinonimoRepository,
   ) {}
+
+  /**
+   * Painel de TREINO da Nina: as perguntas que ela não respondeu (agregadas do
+   * evento `nina_sem_resposta`) + os sinônimos já ensinados. O ADM olha as
+   * perguntas frequentes e ensina um sinônimo com 1 clique (a Nina passa a
+   * entender na hora). É o loop de aprendizado, human-in-the-loop.
+   */
+  async ninaTreino(): Promise<NinaTreinoResponse> {
+    const eventos = await this.analytics.listarPorNome('nina_sem_resposta');
+    const agg = new Map<string, { vezes: number; usuarios: Set<string>; ultimo: Date | null }>();
+    for (const e of eventos) {
+      const q = String(e.props?.q ?? '').trim();
+      if (!q) continue;
+      const chave = q.toLowerCase();
+      const cur = agg.get(chave) ?? { vezes: 0, usuarios: new Set<string>(), ultimo: null };
+      cur.vezes += 1;
+      if (e.userId) cur.usuarios.add(e.userId);
+      if (!cur.ultimo || e.createdAt > cur.ultimo) cur.ultimo = e.createdAt;
+      agg.set(chave, cur);
+    }
+    const semResposta = [...agg.entries()]
+      .map(([pergunta, v]) => ({
+        pergunta,
+        vezes: v.vezes,
+        usuarios: v.usuarios.size,
+        ultimoEm: v.ultimo ? v.ultimo.toISOString() : null,
+      }))
+      .sort((a, b) => b.vezes - a.vezes)
+      .slice(0, 50);
+    const sinonimos = (await this.sinonimos.listar()).map((s) => ({
+      alias: s.alias,
+      canonico: s.canonico,
+      criadoEm: s.criadoEm.toISOString(),
+    }));
+    return { semResposta, sinonimos };
+  }
+
+  /** Ensina um sinônimo (o alias é normalizado). A Nina usa na próxima busca. */
+  async ensinarSinonimo(alias: string, canonico: string): Promise<void> {
+    const a = semAcento(alias);
+    if (a.length < 2) throw new BadRequestException('Apelido inválido.');
+    await this.sinonimos.salvar({ alias: a, canonico: canonico.trim(), criadoEm: new Date() });
+  }
+
+  /** Remove um sinônimo ensinado. */
+  async esquecerSinonimo(alias: string): Promise<void> {
+    await this.sinonimos.remover(semAcento(alias));
+  }
 
   /**
    * Envia um e-mail de teste para o próprio ADM, validando a config de SMTP na

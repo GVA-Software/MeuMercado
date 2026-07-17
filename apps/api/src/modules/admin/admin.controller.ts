@@ -21,6 +21,7 @@ import {
   AdminJuntarMercadosSchema,
   AdminJuntarSchema,
   AdminSepararPrecoSchema,
+  AdminSinonimoSchema,
   PageQuerySchema,
   ResponderFeedbackSchema,
   type AdminClassificarInput,
@@ -37,10 +38,12 @@ import {
   type AdminJuntarMercadosInput,
   type AdminProdutoEdicaoDTO,
   type AdminSepararPrecoInput,
+  type AdminSinonimoInput,
   type AdminStatsDTO,
   type AdminUserDTO,
   type AdminUsersResponse,
   type FeedbacksResponse,
+  type NinaTreinoResponse,
   type PageQuery,
   type QaConversaReportDTO,
   type ResponderFeedbackInput,
@@ -189,6 +192,28 @@ export class AdminController {
   @Get('qa-conversa')
   qaConversa(): Promise<QaConversaReportDTO> {
     return this.service.qaConversa();
+  }
+
+  /** Treino da Nina: perguntas sem resposta (loop) + sinônimos ensinados. */
+  @Get('nina')
+  ninaTreino(): Promise<NinaTreinoResponse> {
+    return this.service.ninaTreino();
+  }
+
+  /** Ensina um sinônimo (alias → termo do catálogo) — a Nina usa na próxima busca. */
+  @Post('nina/sinonimos')
+  @HttpCode(204)
+  ensinarSinonimo(
+    @Body(new ZodValidationPipe(AdminSinonimoSchema)) body: AdminSinonimoInput,
+  ): Promise<void> {
+    return this.service.ensinarSinonimo(body.alias, body.canonico);
+  }
+
+  /** Remove um sinônimo ensinado. */
+  @Delete('nina/sinonimos/:alias')
+  @HttpCode(204)
+  esquecerSinonimo(@Param('alias') alias: string): Promise<void> {
+    return this.service.esquecerSinonimo(alias);
   }
 
   @Get('duplicados')

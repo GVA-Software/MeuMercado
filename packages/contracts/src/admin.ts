@@ -194,3 +194,36 @@ export const AdminClassificarSchema = z.object({
   categoria: CategoriaSchema,
 });
 export type AdminClassificarInput = z.infer<typeof AdminClassificarSchema>;
+
+// ---- Treino da Nina (loop de aprendizado) ----
+
+/** Uma pergunta que a Nina NÃO respondeu (evento nina_sem_resposta), agregada. */
+export const NinaSemRespostaSchema = z.object({
+  pergunta: z.string(),
+  vezes: z.number().int().nonnegative(),
+  usuarios: z.number().int().nonnegative(),
+  ultimoEm: z.string().datetime().nullable(),
+});
+export type NinaSemRespostaDTO = z.infer<typeof NinaSemRespostaSchema>;
+
+/** Um sinônimo dinâmico ensinado pelo ADM (alias → termo do catálogo). */
+export const NinaSinonimoSchema = z.object({
+  alias: z.string(),
+  canonico: z.string(),
+  criadoEm: z.string().datetime(),
+});
+export type NinaSinonimoDTO = z.infer<typeof NinaSinonimoSchema>;
+
+/** Painel de treino: perguntas sem resposta + sinônimos já ensinados. */
+export const NinaTreinoResponseSchema = z.object({
+  semResposta: z.array(NinaSemRespostaSchema),
+  sinonimos: z.array(NinaSinonimoSchema),
+});
+export type NinaTreinoResponse = z.infer<typeof NinaTreinoResponseSchema>;
+
+/** Ensinar um sinônimo: quando o usuário disser `alias`, a Nina busca `canonico`. */
+export const AdminSinonimoSchema = z.object({
+  alias: z.string().min(2, 'Apelido muito curto').max(60),
+  canonico: z.string().min(2, 'Informe o termo do catálogo').max(120),
+});
+export type AdminSinonimoInput = z.infer<typeof AdminSinonimoSchema>;

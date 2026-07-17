@@ -7,6 +7,7 @@ import type { AuthedUser } from '../auth/jwt-auth.guard.js';
 import type { StoredUser, UserRepository } from '../auth/user.repository.js';
 import type { PushService } from '../push/push.service.js';
 import type { AnalyticsRepository } from '../analytics/analytics.repository.js';
+import { InMemorySinonimoRepository } from '../insights/sinonimo.repository.js';
 import type { PriceObservationRepository } from '../pricing/price-observation.repository.js';
 import type { ProdutoRepository } from '../catalog/produtos.repository.js';
 import { BillingService } from '../billing/billing.service.js';
@@ -158,6 +159,7 @@ function makeService(
     prices,
     produtos,
     email as unknown as EmailService,
+    new InMemorySinonimoRepository(),
   );
   return {
     service,

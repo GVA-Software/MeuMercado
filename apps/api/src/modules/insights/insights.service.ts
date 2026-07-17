@@ -25,6 +25,7 @@ import {
   type PriceObservationRepository,
 } from '../pricing/price-observation.repository.js';
 import { PRODUTO_REPOSITORY, type ProdutoRepository } from '../catalog/produtos.repository.js';
+import { SINONIMO_REPOSITORY, type SinonimoRepository } from './sinonimo.repository.js';
 
 @Injectable()
 export class InsightsService {
@@ -35,6 +36,7 @@ export class InsightsService {
     @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly prices: PriceObservationRepository,
     @Inject(PRODUTO_REPOSITORY) private readonly produtos: ProdutoRepository,
     @Inject(SEED_DATA) private readonly seed: SeedData,
+    @Inject(SINONIMO_REPOSITORY) private readonly sinonimos: SinonimoRepository,
   ) {}
 
   async gerar(cesta?: readonly BasketLine[]): Promise<InsightsResponse> {
@@ -83,7 +85,11 @@ export class InsightsService {
       (await this.prices.all()).filter((o) => o.reporterId !== 'seed').map((o) => o.produtoId),
     );
     const produtos = (await this.produtos.findAll()).filter((p) => comPreco.has(p.id));
-    const alvo = aplicarSinonimos(t); // "bolacha" → "biscoito", "xampu" → "shampoo"
+    // Sinônimos estáticos + os DINÂMICOS ensinados pelo ADM (loop de aprendizado).
+    const dinamicos = (await this.sinonimos.listar()).map(
+      (s) => [s.alias, s.canonico] as [string, string],
+    );
+    const alvo = aplicarSinonimos(t, dinamicos);
     // 1ª tentativa: busca exata (acento + abreviação do cupom), com sinônimos.
     let match = produtos.filter((p) => combinaBusca(p.nome, alvo));
     // 2ª tentativa: tolera ERRO DE DIGITAÇÃO (fuzzy) — só quando a exata não achou.

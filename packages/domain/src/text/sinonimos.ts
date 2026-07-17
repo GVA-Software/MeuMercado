@@ -22,13 +22,26 @@ const SINONIMOS: Array<[RegExp, string]> = [
   [/\bpapel hig\b/g, 'papel higienico'],
 ];
 
+function escaparRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Reescreve o termo aplicando os sinônimos conhecidos (sem acento, minúsculo).
- * Devolve o termo canônico pra alimentar a busca; sem correspondência, devolve o
- * próprio termo normalizado.
+ * `extras` são os sinônimos DINÂMICOS adicionados pelo ADM (alias → canônico), que
+ * a Nina "aprendeu" com os fallbacks reais. Sem correspondência, devolve o próprio
+ * termo normalizado.
  */
-export function aplicarSinonimos(termo: string): string {
+export function aplicarSinonimos(
+  termo: string,
+  extras: ReadonlyArray<readonly [string, string]> = [],
+): string {
   let t = ` ${semAcento(termo)} `;
   for (const [re, canonico] of SINONIMOS) t = t.replace(re, ` ${canonico} `);
+  for (const [alias, canonico] of extras) {
+    const a = semAcento(alias);
+    if (a.length < 2) continue;
+    t = t.replace(new RegExp(`\\b${escaparRegex(a)}\\b`, 'g'), ` ${semAcento(canonico)} `);
+  }
   return t.replace(/\s+/g, ' ').trim();
 }

@@ -866,6 +866,60 @@
         return '<button class="tab' + (cur === id ? ' on' : '') + '" data-tab="' + id + '">' + label +
           (badge ? ' <span class="tab-badge">' + badge + '</span>' : '') + '</button>';
       }
+      function ninaHtml() {
+        if (state.ninaErro) return '<div class="funnel"><p class="fnote" style="color:#ef4444">' + esc(state.ninaErro) + '</p><button class="cov-btn" id="nina-refresh">Tentar de novo</button></div>';
+        var d = state.nina;
+        if (!d || state.ninaLoading) return '<div class="funnel"><p class="fnote">Carregando o treino da Nina…</p></div>';
+        var sem = d.semResposta || [], sins = d.sinonimos || [];
+        var rowStyle = 'border:1px solid #252b3a;border-radius:10px;padding:10px 12px;margin:6px 0;background:#161a23';
+        var inpStyle = 'flex:1;min-width:110px;padding:7px 9px;border-radius:8px;border:1px solid #252b3a;background:#0d0f14;color:#e8eaed;font-size:13px';
+        var btnStyle = 'padding:7px 12px;border-radius:8px;border:none;background:#ff6b2b;color:#fff;font-weight:700;cursor:pointer;font-size:13px';
+        var listaSem = sem.length ? sem.map(function (q) {
+          return '<div style="' + rowStyle + '">' +
+            '<div style="margin-bottom:6px"><b>' + esc(q.pergunta) + '</b> <i style="color:#8a93a3;font-style:normal">— ' + q.vezes + '×' + (q.usuarios ? ' · ' + q.usuarios + ' usuário' + (q.usuarios === 1 ? '' : 's') : '') + '</i></div>' +
+            '<div style="display:flex;gap:6px;align-items:center">' +
+              '<input class="nina-canon" style="' + inpStyle + '" placeholder="buscar como… (ex.: refrigerante)"/>' +
+              '<button class="nina-ensinar" data-alias="' + esc(q.pergunta) + '" style="' + btnStyle + '">Ensinar</button>' +
+            '</div></div>';
+        }).join('') : '<p class="fnote">Nenhuma pergunta sem resposta ainda 🎉 (a Nina registra aqui quando não entende algo).</p>';
+        var listaSin = sins.length ? sins.map(function (s) {
+          return '<div style="display:flex;justify-content:space-between;align-items:center;' + rowStyle + '">' +
+            '<span><b>' + esc(s.alias) + '</b> → ' + esc(s.canonico) + '</span>' +
+            '<button class="nina-esquecer" data-alias="' + esc(s.alias) + '" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px">✕</button></div>';
+        }).join('') : '<p class="fnote">Nenhum sinônimo ensinado ainda.</p>';
+        return '<div class="funnel">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">🧡 Treino da Nina</h3><button class="cov-btn" id="nina-refresh">↻ Atualizar</button></div>' +
+          '<p class="fnote">Quando a Nina não entende, a pergunta aparece aqui. Ensine o que ela deve buscar (o sinônimo) e ela passa a entender <b>na hora</b>.</p>' +
+          '<h4 style="margin:12px 0 4px">Perguntas sem resposta (mais frequentes)</h4>' + listaSem +
+          '<h4 style="margin:16px 0 4px">Sinônimos ensinados</h4>' + listaSin +
+        '</div>';
+      }
+      async function carregarNina(force) {
+        if (state.ninaLoading) return;
+        if (state.nina && !force) return;
+        state.ninaLoading = true; state.ninaErro = ''; renderDashboard();
+        try { state.nina = await apiFetch('/admin/nina'); }
+        catch (e) { state.ninaErro = (e && e.message) || 'Falha ao carregar o treino.'; }
+        state.ninaLoading = false; renderDashboard();
+      }
+      async function ensinarSinonimoUI() {
+        var alias = this.getAttribute('data-alias');
+        var input = this.parentNode.querySelector('.nina-canon');
+        var canonico = input ? input.value.trim() : '';
+        if (!canonico) { if (input) input.focus(); return; }
+        this.disabled = true; this.textContent = '…';
+        try {
+          await apiFetch('/admin/nina/sinonimos', { method: 'POST', body: JSON.stringify({ alias: alias, canonico: canonico }) });
+          state.nina = null; carregarNina(true);
+        } catch (e) { this.disabled = false; this.textContent = 'Ensinar'; state.ninaErro = (e && e.message) || 'Erro ao ensinar.'; renderDashboard(); }
+      }
+      async function esquecerSinonimoUI() {
+        var alias = this.getAttribute('data-alias');
+        try {
+          await apiFetch('/admin/nina/sinonimos/' + encodeURIComponent(alias), { method: 'DELETE' });
+          state.nina = null; carregarNina(true);
+        } catch (e) { state.ninaErro = (e && e.message) || 'Erro ao remover.'; renderDashboard(); }
+      }
       function renderDashboard() {
         var s = state.stats;
         var root = document.getElementById('root');
@@ -878,6 +932,8 @@
           conteudo = coberturaHtml();
         } else if (tab === 'feedbacks') {
           conteudo = feedbacksHtml();
+        } else if (tab === 'nina') {
+          conteudo = ninaHtml();
         } else {
           conteudo = (s ? (
               '<div class="stats">' +
@@ -907,6 +963,7 @@
             tabBtn('app', '📊 Aplicação', tab) +
             tabBtn('cobertura', '📦 Cobertura', tab) +
             tabBtn('feedbacks', '💬 Feedbacks', tab, abertos) +
+            tabBtn('nina', '🧡 Nina', tab) +
             tabBtn('projeto', '🛠️ Projeto', tab) +
           '</div>' +
           conteudo + '</div>';
@@ -944,6 +1001,14 @@
           renderCovMercBox();
           renderCovProdBox();
           if (!state.cobertura && !state.coberturaLoading) carregarCobertura();
+        } else if (tab === 'nina') {
+          var nr = el('nina-refresh');
+          if (nr) nr.onclick = function () { carregarNina(true); };
+          var ens = document.querySelectorAll('.nina-ensinar');
+          for (var e1 = 0; e1 < ens.length; e1++) ens[e1].onclick = ensinarSinonimoUI;
+          var esq = document.querySelectorAll('.nina-esquecer');
+          for (var e2 = 0; e2 < esq.length; e2++) esq[e2].onclick = esquecerSinonimoUI;
+          if (!state.nina && !state.ninaLoading) carregarNina();
         }
       }
       function renderLista() {

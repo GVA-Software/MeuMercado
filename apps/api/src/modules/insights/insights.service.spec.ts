@@ -5,6 +5,7 @@ import type { PriceObservationRepository } from '../pricing/price-observation.re
 import type { ProdutoRepository } from '../catalog/produtos.repository.js';
 import type { SeedData } from '../../data/seed.js';
 import { InsightsService } from './insights.service.js';
+import { InMemorySinonimoRepository } from './sinonimo.repository.js';
 
 const produto = (id: string, nome: string) =>
   new Produto({ id, nome, categoria: 'Outros', unidade: 'un' });
@@ -47,7 +48,7 @@ function make(produtos: Produto[], observations: PriceObservation[]): InsightsSe
     delete: () => Promise.resolve(),
   };
   const seed = { mercados: [], produtos: [] } as unknown as SeedData;
-  return new InsightsService(prices, prodRepo, seed);
+  return new InsightsService(prices, prodRepo, seed, new InMemorySinonimoRepository());
 }
 
 describe('InsightsService.buscarComPreco', () => {
