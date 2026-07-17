@@ -497,6 +497,94 @@ function TrendBadge({ trend, pct }: { trend: TrendDTO | null; pct: number | null
   );
 }
 
+/**
+ * "Reportar preço incorreto" — canal de correção para o usuário (notice-and-takedown
+ * do lado da comunidade). Vai pro MESMO fluxo de feedback que o ADM já lê e responde
+ * (com push). O prefixo [Preço incorreto] deixa o reporte fácil de triar.
+ */
+function ReportarPrecoButton({ produtoNome }: { produtoNome: string }) {
+  const { T } = useTheme();
+  const [aberto, setAberto] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [ok, setOk] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function enviar() {
+    setEnviando(true);
+    setErro(null);
+    try {
+      await api.enviarFeedback('outro', `[Preço incorreto] ${produtoNome} — ${msg.trim()}`);
+      setMsg('');
+      setAberto(false);
+      setOk(true);
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  if (ok) {
+    return (
+      <p style={{ color: T.green, fontSize: 12.5, textAlign: 'center', margin: '10px 0 0' }}>
+        🧡 Obrigado! Recebemos o reporte e vamos revisar.
+      </p>
+    );
+  }
+
+  if (!aberto) {
+    return (
+      <button
+        onClick={() => setAberto(true)}
+        style={{
+          width: '100%',
+          background: 'none',
+          border: 'none',
+          color: T.muted,
+          fontSize: 12.5,
+          fontWeight: 700,
+          cursor: 'pointer',
+          padding: '10px 0 0',
+        }}
+      >
+        🚩 Reportar preço incorreto
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <textarea
+        value={msg}
+        onChange={(e) => setMsg(e.target.value)}
+        placeholder="O que está errado? (ex.: preço, mercado ou produto trocado)"
+        rows={3}
+        maxLength={2000}
+        style={{
+          border: `1.5px solid ${T.border}`,
+          borderRadius: 12,
+          padding: '10px 12px',
+          background: T.card,
+          color: T.text,
+          fontSize: 13.5,
+          fontFamily: 'inherit',
+          resize: 'vertical',
+        }}
+      />
+      {erro && <p style={{ color: T.danger, fontSize: 12, margin: 0 }}>{erro}</p>}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <Btn full variant="ghost" small onClick={() => setAberto(false)}>
+          Cancelar
+        </Btn>
+        <Btn full small disabled={enviando || msg.trim().length < 3} onClick={() => void enviar()}>
+          {enviando ? 'Enviando…' : 'Enviar reporte'}
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
 function TabelaRow({ row, onClick }: { row: PriceTableRowDTO; onClick: () => void }) {
   const { T } = useTheme();
   return (
@@ -892,6 +980,8 @@ function DetailSheet({
       <Btn full onClick={() => onRegistrar(row.produto)}>
         ＋ Registrar preço deste produto
       </Btn>
+
+      <ReportarPrecoButton produtoNome={row.produto.nome} />
 
       {user?.isAdmin && (
         <div style={{ marginTop: 12, borderTop: `1px solid ${T.border}`, paddingTop: 12 }}>
