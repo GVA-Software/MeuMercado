@@ -62,6 +62,7 @@ export class AuthService {
       passwordHash: await this.hasher.hash(input.senha),
       criadoEm: new Date(),
       politicaVersao: POLITICA_VERSAO, // consentimento LGPD registrado no cadastro
+      politicaAceitaEm: new Date(),
     };
     await this.users.create(user);
     return this.issue(user);
@@ -115,6 +116,18 @@ export class AuthService {
     await this.sessions.revogarTodasDoUsuario(user.id);
     await this.compras.excluirTodas(user.id); // histórico pessoal de gastos (privado)
     await this.push.removerTodasDoUsuario(user.id); // não notificar mais
+  }
+
+  /**
+   * Registra o REACEITE da Política/Termos quando a versão muda (mudança material).
+   * Grava a nova versão + a data, e devolve o perfil atualizado.
+   */
+  async aceitarPolitica(userId: string): Promise<UserDTO> {
+    const user = await this.users.findById(userId);
+    if (!user || user.excluidoEm) throw new UnauthorizedException();
+    await this.users.registrarAceitePolitica(user.id, POLITICA_VERSAO, new Date());
+    user.politicaVersao = POLITICA_VERSAO;
+    return this.toDTO(user);
   }
 
   /** Atualiza o nome do próprio usuário e guarda a alteração na trilha de auditoria. */
@@ -216,6 +229,7 @@ export class AuthService {
       email: user.email,
       nome: user.nome,
       isAdmin: isAdminEmail(user.email, this.config.get('ADMIN_EMAILS', { infer: true })),
+      politicaVersao: user.politicaVersao ?? null,
     };
   }
 }

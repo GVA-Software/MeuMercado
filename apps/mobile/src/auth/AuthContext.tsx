@@ -15,6 +15,8 @@ interface AuthState {
   login: (email: string, senha: string) => Promise<void>;
   register: (email: string, nome: string, senha: string) => Promise<void>;
   atualizarNome: (nome: string) => Promise<void>;
+  /** Registra o reaceite da Política/Termos (quando a versão muda). */
+  aceitarPolitica: () => Promise<void>;
   logout: () => Promise<void>;
   cancelar: () => Promise<void>;
 }
@@ -118,6 +120,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await api.atualizarNome(nome));
   }, []);
 
+  const aceitarPolitica = useCallback(async () => {
+    setUser(await api.aceitarPolitica());
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.logout();
@@ -170,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         atualizarNome,
+        aceitarPolitica,
         logout,
         cancelar,
       }}

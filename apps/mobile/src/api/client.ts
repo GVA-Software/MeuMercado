@@ -318,6 +318,10 @@ export class ApiClient {
   baixarMeusDados(): Promise<Record<string, unknown>> {
     return this.request('/privacidade/meus-dados');
   }
+  /** Registra o reaceite da Política/Termos (quando a versão muda). */
+  aceitarPolitica(): Promise<UserDTO> {
+    return this.request('/auth/aceitar-politica', { method: 'POST' });
+  }
 
   // ---- Feedback ----
   enviarFeedback(tipo: FeedbackTipo, mensagem: string): Promise<void> {

@@ -8,6 +8,7 @@ import { NinaScreen } from '../features/nina/NinaScreen';
 import { PrecosScreen } from '../features/precos/PrecosScreen';
 import { PerfilScreen } from '../features/perfil/PerfilScreen';
 import { AuthScreen } from '../features/auth/AuthScreen';
+import { ReconsentGate } from '../features/auth/ReconsentGate';
 import { Onboarding } from '../features/onboarding/Onboarding';
 import { onboardingVisto, marcarOnboardingVisto } from '../features/onboarding/onboardingStore';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
@@ -142,6 +143,7 @@ export function App() {
             iOS) — as telas empilhavam em vez de trocar. A aba vem por prop. */}
         <ScrollTopFab tab={tab} />
         <UpdatePrompt />
+        <ReconsentGate />
       </div>
       {onboarding && (
         <Onboarding

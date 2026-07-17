@@ -135,6 +135,13 @@ export class AuthController {
     return this.service.me(user.id);
   }
 
+  /** Registra o reaceite da Política/Termos (quando a versão muda). */
+  @Post('aceitar-politica')
+  @UseGuards(JwtAuthGuard)
+  aceitarPolitica(@CurrentUser() user: AuthedUser): Promise<UserDTO> {
+    return this.service.aceitarPolitica(user.id);
+  }
+
   /** Atualiza o próprio nome (o e-mail não muda). */
   @Patch('me')
   @UseGuards(JwtAuthGuard)

@@ -21,7 +21,11 @@ export class UserEntity {
   @Column({ name: 'excluido_em', type: 'timestamptz', nullable: true })
   excluidoEm!: Date | null;
 
-  /** Versão da Política/Termos aceita no cadastro (consentimento LGPD). */
+  /** Versão da Política/Termos aceita (consentimento LGPD). */
   @Column({ name: 'politica_versao', type: 'varchar', nullable: true })
   politicaVersao!: string | null;
+
+  /** Quando aceitou a versão atual (cadastro ou reaceite). */
+  @Column({ name: 'politica_aceita_em', type: 'timestamptz', nullable: true })
+  politicaAceitaEm!: Date | null;
 }

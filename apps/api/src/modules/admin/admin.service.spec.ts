@@ -60,6 +60,7 @@ function makeService(
       deleted.push(id);
       return Promise.resolve();
     },
+    registrarAceitePolitica: () => Promise.resolve(),
   };
   const assinatura = Assinatura.free('x');
   const proAtivo = { isProAtivo: () => true } as unknown as Assinatura;

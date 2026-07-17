@@ -8,8 +8,10 @@ export interface StoredUser {
   criadoEm: Date;
   /** Soft-delete: conta excluída (bloqueia login), mas os preços dela ficam na base. */
   excluidoEm?: Date | null;
-  /** Versão da Política/Termos aceita no cadastro (trilha de consentimento LGPD). */
+  /** Versão da Política/Termos aceita (trilha de consentimento LGPD). */
   politicaVersao?: string | null;
+  /** Quando o usuário aceitou a versão atual (cadastro ou reaceite). */
+  politicaAceitaEm?: Date | null;
 }
 
 /** Porta de acesso a usuários. Assíncrona (suporta memória e banco). */
@@ -31,6 +33,8 @@ export interface UserRepository {
    * preços que a pessoa cadastrou (base comunitária, já sem PII vinculada).
    */
   marcarExcluido(id: string, quando: Date): Promise<void>;
+  /** Registra o (re)aceite da Política/Termos: grava a versão aceita e a data. */
+  registrarAceitePolitica(id: string, versao: string, quando: Date): Promise<void>;
 }
 
 export const USER_REPOSITORY = 'USER_REPOSITORY';
@@ -99,6 +103,14 @@ export class InMemoryUserRepository implements UserRepository {
       u.email = emailAnonimo(id);
       u.passwordHash = '';
       this.byEmail.set(u.email, u);
+    }
+    return Promise.resolve();
+  }
+  registrarAceitePolitica(id: string, versao: string, quando: Date): Promise<void> {
+    const u = this.byId.get(id);
+    if (u) {
+      u.politicaVersao = versao;
+      u.politicaAceitaEm = quando;
     }
     return Promise.resolve();
   }

@@ -6,7 +6,7 @@ import { IdSchema } from './common.js';
  * (trilha de consentimento LGPD). Ao publicar uma versão nova, atualize aqui E nas
  * páginas /privacidade.html e /termos.html.
  */
-export const POLITICA_VERSAO = '2026-07-16';
+export const POLITICA_VERSAO = '2026-07-17';
 
 export const RegisterSchema = z.object({
   email: z.string().email().max(254),
@@ -53,6 +53,9 @@ export const UserSchema = z.object({
   nome: z.string(),
   /** Derivado no servidor (allowlist de e-mails). Libera o painel de administração. */
   isAdmin: z.boolean(),
+  /** Versão da Política/Termos que o usuário aceitou. Se < POLITICA_VERSAO, o app
+   *  pede o reaceite (mudança relevante da política). */
+  politicaVersao: z.string().nullable(),
 });
 export type UserDTO = z.infer<typeof UserSchema>;
 

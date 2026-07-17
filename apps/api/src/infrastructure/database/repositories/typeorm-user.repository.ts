@@ -54,4 +54,8 @@ export class TypeOrmUserRepository implements UserRepository {
       passwordHash: '',
     });
   }
+
+  async registrarAceitePolitica(id: string, versao: string, quando: Date): Promise<void> {
+    await this.repo.update(id, { politicaVersao: versao, politicaAceitaEm: quando });
+  }
 }
