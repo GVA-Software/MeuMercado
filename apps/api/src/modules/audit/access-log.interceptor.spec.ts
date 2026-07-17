@@ -23,13 +23,15 @@ const handler: CallHandler = { handle: () => of('ok') };
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 describe('AccessLogInterceptor', () => {
-  it('registra uma mutação (POST) com autor, IP (1º do XFF), rota e método', async () => {
+  it('registra uma mutação (POST) com autor, IP REAL (req.ip), rota e método', async () => {
     const repo = new InMemoryAccessLogRepository();
     const it = new AccessLogInterceptor(repo);
     const req: FakeReq = {
       method: 'POST',
       originalUrl: '/api/pricing/observations?x=1',
-      headers: { 'x-forwarded-for': '1.2.3.4, 5.6.7.8', 'user-agent': 'jsdom' },
+      ip: '203.0.113.9', // IP real (Express já resolveu via trust proxy)
+      // cliente TENTA forjar o 1º X-Forwarded-For — deve ser IGNORADO
+      headers: { 'x-forwarded-for': '1.2.3.4, 203.0.113.9', 'user-agent': 'jsdom' },
       user: { id: 'u1' },
     };
     await firstValueFrom(it.intercept(ctx(req), handler));
@@ -41,9 +43,10 @@ describe('AccessLogInterceptor', () => {
       method: 'POST',
       path: '/api/pricing/observations', // sem querystring
       userId: 'u1',
-      ip: '1.2.3.4',
+      ip: '203.0.113.9', // req.ip, NÃO o 1.2.3.4 forjado no XFF
       userAgent: 'jsdom',
     });
+    expect(logs[0]!.ip).not.toBe('1.2.3.4');
     expect(logs[0]!.criadoEm).toBeInstanceOf(Date);
   });
 
@@ -56,12 +59,13 @@ describe('AccessLogInterceptor', () => {
     expect(await repo.listarPorUsuario('u1')).toHaveLength(0);
   });
 
-  it('ignora telemetria pura (/api/analytics)', async () => {
+  it('ignora telemetria pura (/api/events)', async () => {
     const repo = new InMemoryAccessLogRepository();
     const it = new AccessLogInterceptor(repo);
     const req: FakeReq = {
       method: 'POST',
-      originalUrl: '/api/analytics',
+      originalUrl: '/api/events',
+      ip: '203.0.113.9',
       headers: {},
       user: { id: 'u1' },
     };

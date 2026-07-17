@@ -33,7 +33,9 @@ interface ReqLike {
 @Injectable()
 export class AccessLogInterceptor implements NestInterceptor {
   private readonly MUTACOES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-  private readonly IGNORAR = ['/api/analytics'];
+  // Telemetria própria (beacon de alto volume) — o controller é @Controller('events'),
+  // então o path real é /api/events. NÃO poluir o log legal com isso.
+  private readonly IGNORAR = ['/api/events'];
 
   constructor(@Inject(ACCESS_LOG_REPOSITORY) private readonly logs: AccessLogRepository) {}
 
@@ -71,9 +73,17 @@ export class AccessLogInterceptor implements NestInterceptor {
   }
 
   private ipDe(req: ReqLike): string | null {
+    // `req.ip` já respeita `app.set('trust proxy', 1)` (main.ts) → é o IP REAL do
+    // cliente, não o 1º valor do X-Forwarded-For, que é controlado pelo cliente e
+    // FORJÁVEL (envenenaria a atribuição legal do log). Só se `req.ip` faltar,
+    // usa a ÚLTIMA entrada do XFF (a que o proxy confiável anexou), nunca a 1ª.
+    if (req.ip) return this.recorta(req.ip, 64);
     const xff = this.headerUnico(req.headers['x-forwarded-for']);
-    if (xff) return this.recorta(xff.split(',')[0]?.trim(), 64);
-    return this.recorta(req.ip, 64);
+    if (xff) {
+      const partes = xff.split(',');
+      return this.recorta(partes[partes.length - 1]?.trim(), 64);
+    }
+    return null;
   }
 
   private headerUnico(v: string | string[] | undefined): string | undefined {
