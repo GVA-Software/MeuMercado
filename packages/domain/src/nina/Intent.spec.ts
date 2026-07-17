@@ -134,6 +134,40 @@ describe('interpretar — intenção da conversa da Nina', () => {
     expect(interpretar('liste os produtos').tipo).toBe('listar-produtos');
   });
 
+  it('perguntas sobre a BASE comunitária (contagem + extremos)', () => {
+    const c1 = interpretar('quantos itens você tem em sua base de preço?');
+    expect(c1.tipo).toBe('base');
+    if (c1.tipo === 'base') {
+      expect(c1.campo).toBe('contagem');
+      expect(c1.termo ?? '').toBe('');
+    }
+    const c2 = interpretar('quantos produtos de limpeza você tem?');
+    expect(c2.tipo).toBe('base');
+    if (c2.tipo === 'base') {
+      expect(c2.campo).toBe('contagem');
+      expect(c2.termo).toBe('limpeza');
+    }
+    const caro = interpretar('qual o produto mais caro da sua base?');
+    expect(caro.tipo).toBe('base');
+    if (caro.tipo === 'base') expect(caro.campo).toBe('mais-caro');
+  });
+
+  it('"quem te desenvolveu" é sobre o app (ajuda), não busca "des..." (desodorante)', () => {
+    expect(interpretar('quem te desenvolveu?').tipo).toBe('ajuda');
+    expect(interpretar('quem criou esse app?').tipo).toBe('ajuda');
+  });
+
+  it('"qual o mercado mais perto de mim" → listar-mercados (Mapa)', () => {
+    expect(interpretar('qual o mercado mais perto de mim?').tipo).toBe('listar-mercados');
+    // "qual o melhor mercado num raio de 3km" continua sendo refino (tem produto na conversa).
+    expect(interpretar('qual o melhor mercado num raio de 3km perto de mim?').tipo).toBe('refinar');
+  });
+
+  it('pergunta fora de escopo → fora-de-escopo', () => {
+    expect(interpretar('hoje vai chover?').tipo).toBe('fora-de-escopo');
+    expect(interpretar('que horas são?').tipo).toBe('fora-de-escopo');
+  });
+
   it('entende refinamento por raio quando não há produto na frase', () => {
     const r = interpretar('Quero em um raio de 3km perto de mim, qual seria o melhor mercado?');
     expect(r).toEqual({ tipo: 'refinar', raioMetros: 3000 });

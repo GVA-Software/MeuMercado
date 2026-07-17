@@ -16,6 +16,7 @@ import type {
   NfceDraftDTO,
   NfceImportRequest,
   NfceImportResult,
+  BaseResumoResponse,
   MelhorMercadoResponse,
   OndeComprarResponse,
   PriceHistoryDTO,
@@ -264,6 +265,11 @@ export class ApiClient {
     });
   }
   /** "Qual o melhor mercado para [categoria]?" — recomenda um mercado. */
+  /** Resumo da base comunitária (contagens + extremos), opcional filtro por termo. */
+  baseResumo(termo?: string): Promise<BaseResumoResponse> {
+    const q = (termo ?? '').trim();
+    return this.request(`/insights/base${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+  }
   melhorMercado(termo: string | null, lat?: number, lng?: number): Promise<MelhorMercadoResponse> {
     return this.request('/insights/melhor-mercado', {
       method: 'POST',

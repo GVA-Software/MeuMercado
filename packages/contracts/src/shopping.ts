@@ -52,3 +52,21 @@ export const MelhorMercadoResponseSchema = z.object({
   mercados: z.array(MercadoAgregadoSchema),
 });
 export type MelhorMercadoResponse = z.infer<typeof MelhorMercadoResponseSchema>;
+
+/** Um produto extremo (mais caro/barato) da base — nome + preço. */
+export const BaseExtremoSchema = z.object({
+  nome: z.string(),
+  precoCents: z.number().int().nonnegative(),
+});
+
+/** Resumo da BASE comunitária (contagens + extremos), opcionalmente filtrado por termo. */
+export const BaseResumoResponseSchema = z.object({
+  /** Termo que filtrou (vazio = base inteira). */
+  termo: z.string(),
+  produtos: z.number().int().nonnegative(),
+  precos: z.number().int().nonnegative(),
+  mercados: z.number().int().nonnegative(),
+  maisCaro: BaseExtremoSchema.nullable(),
+  maisBarato: BaseExtremoSchema.nullable(),
+});
+export type BaseResumoResponse = z.infer<typeof BaseResumoResponseSchema>;

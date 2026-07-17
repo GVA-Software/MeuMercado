@@ -197,8 +197,20 @@ export function NinaChat({ T }: { T: Theme }) {
       empurrar({
         from: 'nina',
         kind: 'text',
-        text: 'Eu sou a Nina 🧡, a assistente do Meu Mercado. Eu te ajudo a:\n• achar onde um produto está mais barato perto de você — é só escrever o nome (ex.: café, arroz);\n• recomendar o melhor mercado pra sua cesta ("qual mercado pra minhas compras?");\n• responder sobre as suas compras ("qual foi minha última compra?", "quanto gastei?");\n• te avisar de altas e quedas em ✨ Meus alertas.\nÉ só perguntar!',
+        text: 'Eu sou a Nina 🧡, a assistente do Meu Mercado (feito pela GVA Software). Eu te ajudo a:\n• achar onde um produto está mais barato perto de você — é só escrever o nome (ex.: café, arroz);\n• recomendar o melhor mercado pra sua cesta ("qual mercado pra minhas compras?");\n• responder sobre as suas compras ("qual foi minha última compra?", "quanto gastei?");\n• contar sobre a nossa base ("quantos produtos você tem?", "o mais caro da base?");\n• te avisar de altas e quedas em ✨ Meus alertas.\nÉ só perguntar!',
       });
+      return;
+    }
+    if (intent.tipo === 'fora-de-escopo') {
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: 'Essa fugiu do meu cardápio 😅 — eu sou a Nina, cuido de preços e compras. Posso achar onde um produto está mais barato, recomendar mercado pra sua cesta, ou te contar sobre as suas compras. Manda um produto (ex.: café) ou pergunta "qual mercado pra minhas compras?". 🧡',
+      });
+      return;
+    }
+    if (intent.tipo === 'base') {
+      void responderBase(intent.campo, intent.termo);
       return;
     }
     if (intent.tipo === 'listar-mercados') {
@@ -233,7 +245,7 @@ export function NinaChat({ T }: { T: Theme }) {
       empurrar({
         from: 'nina',
         kind: 'text',
-        text: 'Não entendi 🤔 Me diz o nome de um produto — ex.: café, arroz, sabão.',
+        text: 'Não peguei essa 🤔 Me diz um produto (ex.: café, arroz) — ou pergunta "qual mercado pra minhas compras?", "quanto gastei?", "o que mais comprei?".',
       });
       return;
     }
@@ -265,6 +277,45 @@ export function NinaChat({ T }: { T: Theme }) {
     }
   }
 
+  /** Responde perguntas sobre a BASE comunitária (contagens + extremos). */
+  async function responderBase(
+    campo: 'contagem' | 'mais-caro' | 'mais-barato',
+    termo: string | undefined,
+  ) {
+    setOcupada(true);
+    try {
+      const r = await api.baseResumo(termo);
+      if (r.produtos === 0) {
+        empurrar({
+          from: 'nina',
+          kind: 'text',
+          text: termo
+            ? `Ainda não tenho produtos de "${termo}" com preço na base. Bora registrar alguns? 🧡`
+            : 'Ainda não tenho preços na base — seja o primeiro a registrar na aba Preços! 🧡',
+        });
+        return;
+      }
+      let text: string;
+      if (campo === 'mais-caro' && r.maisCaro) {
+        text = `O produto mais caro da base${termo ? ` em "${termo}"` : ''} é ${r.maisCaro.nome}, a ${formatBRL(r.maisCaro.precoCents)}.`;
+      } else if (campo === 'mais-barato' && r.maisBarato) {
+        text = `O produto mais barato da base${termo ? ` em "${termo}"` : ''} é ${r.maisBarato.nome}, a ${formatBRL(r.maisBarato.precoCents)}.`;
+      } else {
+        const escopo = termo ? ` de ${termo}` : '';
+        text = `Na base eu tenho ${r.produtos} ${r.produtos === 1 ? 'produto' : 'produtos'}${escopo} com preço, ${r.precos} ${r.precos === 1 ? 'reporte' : 'reportes'} no total, em ${r.mercados} ${r.mercados === 1 ? 'mercado' : 'mercados'}.`;
+      }
+      empurrar({ from: 'nina', kind: 'text', text });
+    } catch {
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: 'Não consegui consultar a base agora. Tenta de novo?',
+      });
+    } finally {
+      setOcupada(false);
+    }
+  }
+
   async function buscar(termo: string, raioMetros: number | null) {
     setOcupada(true);
     try {
@@ -273,7 +324,7 @@ export function NinaChat({ T }: { T: Theme }) {
         empurrar({
           from: 'nina',
           kind: 'text',
-          text: `Não encontrei "${termo}" com preço ainda. Tente outro nome — ou registre o preço na aba Preços.`,
+          text: `Não achei "${termo}" nos preços 🤔 Se for um produto, tenta outro nome (ex.: café, sabão) ou registre na aba Preços. Também posso recomendar mercado ou falar das suas compras!`,
         });
       } else {
         // Nunca escolhe sozinho: mostra o(s) que achou pra você tocar.

@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import {
   OndeComprarSchema,
+  type BaseResumoResponse,
   type InsightsResponse,
   type MelhorMercadoResponse,
   type OndeComprarInput,
@@ -56,6 +57,12 @@ export class InsightsController {
   @Get('produtos')
   buscarProdutos(@Query('q') q?: string): Promise<ProdutoDTO[]> {
     return this.service.buscarComPreco(q ?? '');
+  }
+
+  /** Resumo da BASE (contagens + extremos), opcional `?q=` p/ filtrar por categoria. */
+  @Get('base')
+  baseResumo(@Query('q') q?: string): Promise<BaseResumoResponse> {
+    return this.service.baseResumo(q);
   }
 
   /** "Onde eu compro este produto?" — melhores mercados por preço + distância. */

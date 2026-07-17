@@ -10,6 +10,7 @@ import {
   type ProdutoRef,
 } from '@meumercado/domain';
 import type {
+  BaseResumoResponse,
   InsightDTO,
   InsightsResponse,
   MelhorMercadoResponse,
@@ -130,6 +131,38 @@ export class InsightsService {
       termo: t,
       totalProdutos: produtoIds.length,
       mercados: melhorMercadoPara(observations, produtoIds, usuario).slice(0, 3),
+    };
+  }
+
+  /**
+   * Resumo da BASE comunitária: quantos produtos/preços/mercados (só dados reais),
+   * e o produto mais caro/mais barato. Com `termo`, filtra pela categoria
+   * ("quantos produtos de limpeza"). Alimenta as perguntas da Nina sobre a base.
+   */
+  async baseResumo(termo?: string): Promise<BaseResumoResponse> {
+    const t = (termo ?? '').trim();
+    const reais = (await this.prices.all()).filter((o) => o.reporterId !== 'seed');
+    let obs = reais;
+    if (t) {
+      const ids = new Set((await this.buscarComPreco(t)).map((p) => p.id));
+      obs = reais.filter((o) => ids.has(o.produtoId));
+    }
+    const nomePorProduto = new Map((await this.produtos.findAll()).map((p) => [p.id, p.nome]));
+    let maisCaro: { nome: string; precoCents: number } | null = null;
+    let maisBarato: { nome: string; precoCents: number } | null = null;
+    for (const o of obs) {
+      const cents = o.price.cents;
+      const nome = nomePorProduto.get(o.produtoId) ?? o.produtoId;
+      if (!maisCaro || cents > maisCaro.precoCents) maisCaro = { nome, precoCents: cents };
+      if (!maisBarato || cents < maisBarato.precoCents) maisBarato = { nome, precoCents: cents };
+    }
+    return {
+      termo: t,
+      produtos: new Set(obs.map((o) => o.produtoId)).size,
+      precos: obs.length,
+      mercados: new Set(obs.map((o) => o.mercadoId)).size,
+      maisCaro,
+      maisBarato,
     };
   }
 

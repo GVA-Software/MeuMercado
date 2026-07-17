@@ -27,6 +27,13 @@ export type Intencao =
       campo: 'ultima' | 'mais-caro' | 'mais-comprado' | 'gasto' | 'gasto-produto';
       produto?: string;
     }
+  /**
+   * Pergunta sobre a BASE comunitária. `campo`: `contagem` (quantos produtos/itens),
+   * `mais-caro`/`mais-barato` (extremos). `termo` filtra por categoria.
+   */
+  | { tipo: 'base'; campo: 'contagem' | 'mais-caro' | 'mais-barato'; termo?: string }
+  /** Pergunta fora do escopo (clima, horas, piada…) — redireciona com gentileza. */
+  | { tipo: 'fora-de-escopo' }
   | { tipo: 'refinar'; raioMetros: number | null }
   /**
    * "Qual o melhor MERCADO para [X]?" — recomenda um mercado, não 1 produto.
@@ -47,7 +54,13 @@ const AGRADECIMENTO = /(obrigad|brigad|valeu|vlw|agradec|\bobg\b|\btmj\b|\bgrat[
 const DESPEDIDA = /\b(tchau|adeus|falou|xau|flw|fui|ate (mais|logo|breve|a proxima|mais tarde))\b/;
 const SAUDACAO = /\b(oi+|ola|opa|e ?ai|salve|bom dia|boa tarde|boa noite|hey|hello|oie)\b/;
 const AJUDA =
-  /\b(ajuda|me ajuda|como funciona|como (se )?usa|pra que serve|o que (voce|vc|esse app|este app|o app|isso|a nina|essa nina)? ?faz|o que (e|eh) (isso|o app|este app|esse app|o meu mercado|a nina|voce)|qual (o )?(seu|teu) nome|quem (e|eh) (voce|vc|a nina|nina)|voce faz o que)\b/;
+  /\b(ajuda|me ajuda|como funciona|como (se )?usa|pra que serve|o que (voce|vc|esse app|este app|o app|isso|a nina|essa nina)? ?faz|o que (e|eh) (isso|o app|este app|esse app|o meu mercado|a nina|voce)|qual (o )?(seu|teu) nome|quem (e|eh) (voce|vc|a nina|nina)|voce faz o que|quem (te |lhe |o |a )?(desenvolveu|criou|fez|programou|construiu)|quem (e|eh) (o )?(dono|criador|desenvolvedor)|quem (fez|criou) (esse|este|o) app)\b/;
+/**
+ * Fora do escopo do app (clima, horas, piadas…) — a Nina redireciona com gentileza.
+ * SEM `\b` no fim de propósito: "chov" precisa casar "chover"/"chovendo" (prefixo).
+ */
+const FORA_ESCOPO =
+  /\b(chov|chuva|clima|previsao|temperatura|que horas|que dia (e|eh) hoje|piada|conta uma|seu time|voce (namora|gosta|torce)|quem ganhou|noticia)/;
 const MENCIONA_DISTANCIA = /\b(perto|proxim[oa]s?|raio|distancia|redondezas|redor)\b/;
 /** Pergunta sobre MERCADO (recomendar loja), não sobre um produto específico. */
 const PERGUNTA_MERCADO = /\bmercado/;
@@ -94,6 +107,7 @@ const FILLER: RegExp[] = [
 /** Palavras vazias — removidas só nas BORDAS (mantém conectores internos, ex.: "pão de forma"). */
 const STOP = new Set([
   'o','a','os','as','um','uma','uns','umas','de','do','da','dos','das','em','no','na','nos','nas',
+  'num','numa','nuns','numas',
   'pra','para','me','mim','meu','minha','qual','quais','seria','quero','comprar','onde','mercado',
   'mercados','melhor','melhores','mais','barato','barata','perto','proximo','proxima','raio','km',
   'm','metros','e','ou','por','com','que','tem','ver','quanto','custa','preco','valor','aqui','saber',
@@ -171,6 +185,43 @@ function interpretarHistorico(n: string): Intencao | null {
   return null;
 }
 
+/** Extrai a categoria de "quantos produtos de X (você tem)" — tira a moldura. */
+function extrairCategoria(n: string): string {
+  return n
+    .replace(
+      /\b(quant[oa]s?|produtos?|itens?|item|coisas?|tipos?|voce|voces|vc|tem|cadastrad[oa]s?|na|no|da|do|de|em|sua|seu|base|catalogo|app|meu mercado|precos?|preco|mercados?|conhece|ai|la|tenho|possui)\b/g,
+      ' ',
+    )
+    .replace(/[?!.,;:]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Perguntas sobre a BASE comunitária ("quantos produtos você tem?", "qual o produto
+ * mais caro da base?"). Devolve null se não for sobre a base. (Chamado DEPOIS do
+ * histórico, então "mais caro das minhas compras" já foi tratado.)
+ */
+function interpretarBase(n: string): Intencao | null {
+  const falaBase =
+    /\b(sua base|na base|da base|no catalogo|catalogo|voce(s)? tem|voce(s)? possui|tem cadastrad|no app|no meu mercado|voce conhece|voce tem)\b/.test(
+      n,
+    );
+  const conta = /\bquant[oa]s?\b/.test(n);
+  const caro = /mais car[oa]/.test(n);
+  const barato = /mais barat[oa]/.test(n);
+  // Extremos: "qual o produto mais caro/barato da base".
+  if ((caro || barato) && (falaBase || /\bproduto/.test(n))) {
+    return { tipo: 'base', campo: caro ? 'mais-caro' : 'mais-barato' };
+  }
+  // Contagem: "quantos produtos/itens/preços/mercados (de X) você tem".
+  if (conta && (falaBase || /\b(produtos?|itens?|item|precos?|preco|mercados?)\b/.test(n))) {
+    const termo = extrairCategoria(n);
+    return termo ? { tipo: 'base', campo: 'contagem', termo } : { tipo: 'base', campo: 'contagem' };
+  }
+  return null;
+}
+
 export function interpretar(texto: string): Intencao {
   const n = norm(texto);
   if (!n) return { tipo: 'buscar', termo: '', raioMetros: null };
@@ -179,6 +230,7 @@ export function interpretar(texto: string): Intencao {
   if (AGRADECIMENTO.test(n)) return { tipo: 'agradecimento' };
   if (DESPEDIDA.test(n)) return { tipo: 'despedida' };
   if (AJUDA.test(n)) return { tipo: 'ajuda' };
+  if (FORA_ESCOPO.test(n)) return { tipo: 'fora-de-escopo' };
   if (SAUDACAO.test(n) && palavras.length <= 4) return { tipo: 'saudacao' };
 
   const raioMetros = extrairRaio(n);
@@ -194,12 +246,19 @@ export function interpretar(texto: string): Intencao {
     const hist = interpretarHistorico(n);
     if (hist) return hist;
   }
+  // Perguntas sobre a BASE ("quantos produtos você tem?", "produto mais caro da base?").
+  const base = interpretarBase(n);
+  if (base) return base;
   // "Liste os produtos" (que NÃO são as minhas compras) → aponta pra aba Preços.
   if (/\b(list[ae]|liste|mostr\w*|ver todos?)\b/.test(n) && /\bprodutos?\b/.test(n) && !/\bcompr/.test(n)) {
     return { tipo: 'listar-produtos' };
   }
 
   if (!termo) {
+    // "Qual o mercado MAIS PERTO/próximo de mim?" (proximidade é a pergunta) → Mapa.
+    if (/\bmercados?\b/.test(n) && /\bmais (perto|proxim)/.test(n) && !/\bmelhor/.test(n)) {
+      return { tipo: 'listar-mercados' };
+    }
     // "Quais MERCADOS (plural) perto de mim?" → listar lojas → manda pro Mapa.
     if (LISTAR_MERCADOS.test(n) && (MENCIONA_DISTANCIA.test(n) || VER_LISTA.test(n))) {
       return { tipo: 'listar-mercados' };
