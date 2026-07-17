@@ -89,6 +89,51 @@ describe('interpretar — intenção da conversa da Nina', () => {
     expect(interpretar('qual o melhor mercado?').tipo).toBe('melhor-mercado');
   });
 
+  it('responde sobre o app / a Nina (ajuda)', () => {
+    for (const t of [
+      'o que este app faz?',
+      'qual seu nome?',
+      'pra que serve',
+      'o que você faz?',
+      'como funciona?',
+    ]) {
+      expect(interpretar(t).tipo).toBe('ajuda');
+    }
+  });
+
+  it('perguntas sobre o HISTÓRICO de compras', () => {
+    const casos: Array<[string, string]> = [
+      ['qual o valor da minha última compra?', 'ultima'],
+      ['qual foi a data da minha última compra?', 'ultima'],
+      ['onde foi minha última compra?', 'ultima'],
+      ['liste minha última compra', 'ultima'],
+      ['item mais caro das minhas compras', 'mais-caro'],
+      ['liste o que mais comprei', 'mais-comprado'],
+      ['quanto gastei este mês?', 'gasto'],
+    ];
+    for (const [t, campo] of casos) {
+      const r = interpretar(t);
+      expect(r.tipo).toBe('historico');
+      if (r.tipo === 'historico') expect(r.campo).toBe(campo);
+    }
+    const r = interpretar('quanto paguei na escova de dente?');
+    expect(r.tipo).toBe('historico');
+    if (r.tipo === 'historico') {
+      expect(r.campo).toBe('gasto-produto');
+      expect(r.produto).toContain('escova');
+    }
+  });
+
+  it('"qual mercado pra minhas compras" continua sendo recomendação (não histórico)', () => {
+    expect(interpretar('qual o melhor mercado pra fazer minhas compras hoje?').tipo).toBe(
+      'melhor-mercado',
+    );
+  });
+
+  it('"liste os produtos" aponta pra Preços (listar-produtos)', () => {
+    expect(interpretar('liste os produtos').tipo).toBe('listar-produtos');
+  });
+
   it('entende refinamento por raio quando não há produto na frase', () => {
     const r = interpretar('Quero em um raio de 3km perto de mim, qual seria o melhor mercado?');
     expect(r).toEqual({ tipo: 'refinar', raioMetros: 3000 });

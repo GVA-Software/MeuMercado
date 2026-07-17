@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { InsightDTO, OndeComprarResponse, ProdutoDTO } from '@meumercado/contracts';
-import { interpretar } from '@meumercado/domain';
+import type {
+  CompraDTO,
+  InsightDTO,
+  OndeComprarResponse,
+  ProdutoDTO,
+} from '@meumercado/contracts';
+import { combinaBusca, interpretar } from '@meumercado/domain';
 import { api, formatBRL } from '../../api/client';
 import { useNav } from '../../app/nav';
 import type { Theme } from '../../theme/theme';
@@ -16,6 +21,85 @@ function formatDistancia(m: number | null): string | null {
 
 function fmtDataCurta(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
+function fmtDataLonga(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+type CampoHistorico = 'ultima' | 'mais-caro' | 'mais-comprado' | 'gasto' | 'gasto-produto';
+
+/**
+ * Monta a resposta sobre o HISTÓRICO PESSOAL de compras — determinístico, a partir
+ * das compras do usuário (que a Nina já busca). Nomes de mercado saem bonitos.
+ */
+function respostaHistorico(
+  campo: CampoHistorico,
+  produto: string | undefined,
+  compras: CompraDTO[],
+): string {
+  const nomeMercado = (m: string | null) => (m ? ` no ${marcaMercado(m).label}` : '');
+  const unidadeDe = (u?: string) => (u && u !== 'un' ? `/${u}` : '');
+
+  if (campo === 'ultima') {
+    const c = compras[0]!; // listarCompras vem do mais recente pro mais antigo
+    const linhas = c.itens
+      .slice(0, 6)
+      .map((i) => `• ${i.nome} — ${formatBRL(Math.round(i.unitPriceCents * i.quantity))}`)
+      .join('\n');
+    const n = c.itens.length;
+    const resto = n > 6 ? `\n…e mais ${n - 6} ${n - 6 === 1 ? 'item' : 'itens'}` : '';
+    const eco = c.economiaCents > 0 ? ` (${formatBRL(c.economiaCents)} abaixo da média 💰)` : '';
+    return `Sua última compra foi em ${fmtDataLonga(c.criadaEm)}${nomeMercado(c.mercadoNome)} — total de ${formatBRL(c.totalCents)}${eco}, ${n} ${n === 1 ? 'item' : 'itens'}:\n${linhas}${resto}`;
+  }
+
+  if (campo === 'mais-caro') {
+    let top: { i: CompraDTO['itens'][number]; c: CompraDTO } | null = null;
+    for (const c of compras)
+      for (const i of c.itens)
+        if (!top || i.unitPriceCents > top.i.unitPriceCents) top = { i, c };
+    if (!top) return 'Ainda não vejo itens nas suas compras registradas.';
+    return `O item mais caro que você comprou foi ${top.i.nome}, a ${formatBRL(top.i.unitPriceCents)}${unidadeDe(top.i.unidade)}${nomeMercado(top.c.mercadoNome)} (${fmtDataLonga(top.c.criadaEm)}).`;
+  }
+
+  if (campo === 'mais-comprado') {
+    const cont = new Map<string, { nome: string; vezes: number; qtd: number }>();
+    for (const c of compras)
+      for (const i of c.itens) {
+        const cur = cont.get(i.nome) ?? { nome: i.nome, vezes: 0, qtd: 0 };
+        cur.vezes += 1;
+        cur.qtd += i.quantity;
+        cont.set(i.nome, cur);
+      }
+    const top = [...cont.values()].sort((a, b) => b.vezes - a.vezes || b.qtd - a.qtd).slice(0, 3);
+    if (top.length === 0) return 'Ainda não vejo itens nas suas compras registradas.';
+    const medalhas = ['🥇', '🥈', '🥉'];
+    const linhas = top
+      .map((x, idx) => `${medalhas[idx]} ${x.nome} — ${x.vezes} ${x.vezes === 1 ? 'vez' : 'vezes'}`)
+      .join('\n');
+    return `O que você mais comprou:\n${linhas}`;
+  }
+
+  if (campo === 'gasto') {
+    const total = compras.reduce((s, c) => s + c.totalCents, 0);
+    const economia = compras.reduce((s, c) => s + c.economiaCents, 0);
+    const eco =
+      economia > 0 ? ` — e pagou ${formatBRL(economia)} abaixo da média da comunidade 💰` : '';
+    return `Somando suas ${compras.length} ${compras.length === 1 ? 'compra' : 'compras'}, você já gastou ${formatBRL(total)}${eco}.`;
+  }
+
+  // gasto-produto: acha o produto nas compras (mais recente primeiro).
+  const alvo = produto ?? '';
+  for (const c of compras)
+    for (const i of c.itens)
+      if (combinaBusca(i.nome, alvo)) {
+        return `Na sua compra de ${fmtDataLonga(c.criadaEm)}${nomeMercado(c.mercadoNome)}, você pagou ${formatBRL(i.unitPriceCents)}${unidadeDe(i.unidade)} em ${i.nome}.`;
+      }
+  return `Não achei "${alvo}" nas suas compras registradas. Talvez tenha entrado com outro nome — dá uma olhada na aba Compra. 🙂`;
 }
 
 /** Uma mensagem do bate-papo (Nina ou usuário). */
@@ -113,7 +197,7 @@ export function NinaChat({ T }: { T: Theme }) {
       empurrar({
         from: 'nina',
         kind: 'text',
-        text: 'É simples: escreva o nome de um produto e eu mostro os mercados mais baratos perto de você. Toque em ✨ Meus alertas pra ver o que encontrei nos seus preços.',
+        text: 'Eu sou a Nina 🧡, a assistente do Meu Mercado. Eu te ajudo a:\n• achar onde um produto está mais barato perto de você — é só escrever o nome (ex.: café, arroz);\n• recomendar o melhor mercado pra sua cesta ("qual mercado pra minhas compras?");\n• responder sobre as suas compras ("qual foi minha última compra?", "quanto gastei?");\n• te avisar de altas e quedas em ✨ Meus alertas.\nÉ só perguntar!',
       });
       return;
     }
@@ -123,6 +207,18 @@ export function NinaChat({ T }: { T: Theme }) {
         kind: 'text',
         text: 'Pra ver os mercados perto de você, abre a aba 📍 Mapa aqui embaixo — mostro todos no mapa, inclusive quem já tem preço cadastrado. Aqui eu te ajudo a achar onde um produto está mais barato. 🧡',
       });
+      return;
+    }
+    if (intent.tipo === 'listar-produtos') {
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: 'Dá pra ver todos os produtos com preço na aba 🏷️ Preços — lá você filtra e compara à vontade. Aqui eu acho onde um item específico está mais barato. 🧡',
+      });
+      return;
+    }
+    if (intent.tipo === 'historico') {
+      void responderHistorico(intent.campo, intent.produto);
       return;
     }
     if (intent.tipo === 'refinar') {
@@ -142,6 +238,31 @@ export function NinaChat({ T }: { T: Theme }) {
       return;
     }
     void buscar(intent.termo, intent.raioMetros);
+  }
+
+  /** Responde perguntas sobre o histórico PESSOAL de compras do usuário. */
+  async function responderHistorico(campo: CampoHistorico, produto: string | undefined) {
+    setOcupada(true);
+    try {
+      const { compras } = await api.listarCompras();
+      if (compras.length === 0) {
+        empurrar({
+          from: 'nina',
+          kind: 'text',
+          text: 'Você ainda não registrou compras 🛒 — finalize uma na aba Compra e eu passo a te contar tudo sobre os seus gastos!',
+        });
+        return;
+      }
+      empurrar({ from: 'nina', kind: 'text', text: respostaHistorico(campo, produto, compras) });
+    } catch {
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: 'Não consegui ver as suas compras agora. Tenta de novo?',
+      });
+    } finally {
+      setOcupada(false);
+    }
   }
 
   async function buscar(termo: string, raioMetros: number | null) {

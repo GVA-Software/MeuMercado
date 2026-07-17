@@ -8,9 +8,25 @@ export type Intencao =
   | { tipo: 'saudacao' }
   | { tipo: 'agradecimento' }
   | { tipo: 'despedida' }
+  /** "O que o app faz?", "qual seu nome?", "como funciona?" — sobre o app/a Nina. */
   | { tipo: 'ajuda' }
   /** "Quais mercados perto de mim?" — listar lojas (a Nina manda pro Mapa). */
   | { tipo: 'listar-mercados' }
+  /** "Liste os produtos" — aponta pra aba Preços (listar tudo não cabe no chat). */
+  | { tipo: 'listar-produtos' }
+  /**
+   * Pergunta sobre o HISTÓRICO PESSOAL de compras do usuário. `campo`:
+   * - `ultima`: resumo da última compra (data, mercado, total, itens);
+   * - `mais-caro`: item mais caro que já comprou;
+   * - `mais-comprado`: o que mais comprou;
+   * - `gasto`: quanto gastou (total);
+   * - `gasto-produto`: quanto pagou num produto (`produto`).
+   */
+  | {
+      tipo: 'historico';
+      campo: 'ultima' | 'mais-caro' | 'mais-comprado' | 'gasto' | 'gasto-produto';
+      produto?: string;
+    }
   | { tipo: 'refinar'; raioMetros: number | null }
   /**
    * "Qual o melhor MERCADO para [X]?" — recomenda um mercado, não 1 produto.
@@ -30,7 +46,8 @@ const norm = (s: string): string =>
 const AGRADECIMENTO = /(obrigad|brigad|valeu|vlw|agradec|\bobg\b|\btmj\b|\bgrat[oa]\b|thank)/;
 const DESPEDIDA = /\b(tchau|adeus|falou|xau|flw|fui|ate (mais|logo|breve|a proxima|mais tarde))\b/;
 const SAUDACAO = /\b(oi+|ola|opa|e ?ai|salve|bom dia|boa tarde|boa noite|hey|hello|oie)\b/;
-const AJUDA = /\b(ajuda|me ajuda|como funciona|como usa|o que (voce|vc) faz|pra que serve)\b/;
+const AJUDA =
+  /\b(ajuda|me ajuda|como funciona|como (se )?usa|pra que serve|o que (voce|vc|esse app|este app|o app|isso|a nina|essa nina)? ?faz|o que (e|eh) (isso|o app|este app|esse app|o meu mercado|a nina|voce)|qual (o )?(seu|teu) nome|quem (e|eh) (voce|vc|a nina|nina)|voce faz o que)\b/;
 const MENCIONA_DISTANCIA = /\b(perto|proxim[oa]s?|raio|distancia|redondezas|redor)\b/;
 /** Pergunta sobre MERCADO (recomendar loja), não sobre um produto específico. */
 const PERGUNTA_MERCADO = /\bmercado/;
@@ -115,6 +132,45 @@ function extrairItens(n: string): string[] {
     .filter((s) => s.length >= 2);
 }
 
+/**
+ * Perguntas sobre o HISTÓRICO PESSOAL de compras ("minha última compra", "item mais
+ * caro", "o que mais comprei", "quanto gastei/paguei"). Determinístico. Devolve null
+ * se não for sobre o histórico do usuário.
+ */
+function interpretarHistorico(n: string): Intencao | null {
+  // "o que MAIS comprei" / "mais comprado".
+  if (/(mais|que mais) compr|mais comprad/.test(n)) {
+    return { tipo: 'historico', campo: 'mais-comprado' };
+  }
+  // "item MAIS CARO" (das minhas compras / que comprei / paguei).
+  if (/mais car[oa]/.test(n) && /\b(compr|gast|paguei|iten|item)/.test(n)) {
+    return { tipo: 'historico', campo: 'mais-caro' };
+  }
+  // "minha ÚLTIMA compra" / "compra recente" (valor, data, onde, itens).
+  if (/(ultim[ao]|recente)/.test(n) && /\bcompr/.test(n)) {
+    return { tipo: 'historico', campo: 'ultima' };
+  }
+  // "quanto PAGUEI/GASTEI [em <produto>]".
+  const g = n.match(
+    /\b(?:paguei|gastei)\b\s*(?:em |no |na |nos |nas |com |de |do |da |num |numa |pel[oa]s? )?(.*)/,
+  );
+  if (g) {
+    const prod = extrairTermo(g[1] ?? '');
+    if (prod && !/\b(total|mes|hoje|ao todo|tudo|ate|agora|no total)\b/.test(prod)) {
+      return { tipo: 'historico', campo: 'gasto-produto', produto: prod };
+    }
+    return { tipo: 'historico', campo: 'gasto' };
+  }
+  if (/\bgastos?\b/.test(n) && /\b(meu|meus|minha|minhas)\b/.test(n)) {
+    return { tipo: 'historico', campo: 'gasto' };
+  }
+  // "minhas compras" / "o que comprei" → resumo da última.
+  if (/\bminhas? compras?\b/.test(n) || /\bcomprei\b/.test(n)) {
+    return { tipo: 'historico', campo: 'ultima' };
+  }
+  return null;
+}
+
 export function interpretar(texto: string): Intencao {
   const n = norm(texto);
   if (!n) return { tipo: 'buscar', termo: '', raioMetros: null };
@@ -131,6 +187,17 @@ export function interpretar(texto: string): Intencao {
   // (ex.: "minhas compras", "a feira"), com um gatilho de recomendação.
   const querMercado =
     (PERGUNTA_MERCADO.test(n) || GENERIC_COMPRA.test(n)) && CUE_RECOMENDA.test(n);
+
+  // Histórico PESSOAL ("minha última compra", "quanto gastei"...) — a MENOS que seja
+  // claramente uma recomendação de mercado ("qual mercado pra minhas compras hoje").
+  if (!querMercado) {
+    const hist = interpretarHistorico(n);
+    if (hist) return hist;
+  }
+  // "Liste os produtos" (que NÃO são as minhas compras) → aponta pra aba Preços.
+  if (/\b(list[ae]|liste|mostr\w*|ver todos?)\b/.test(n) && /\bprodutos?\b/.test(n) && !/\bcompr/.test(n)) {
+    return { tipo: 'listar-produtos' };
+  }
 
   if (!termo) {
     // "Quais MERCADOS (plural) perto de mim?" → listar lojas → manda pro Mapa.
