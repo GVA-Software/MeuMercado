@@ -26,7 +26,8 @@ const BasketSchema = z.object({
 });
 
 const MelhorMercadoInputSchema = z.object({
-  termo: z.string().min(1).max(120),
+  // Sem `termo` = pergunta GENÉRICA ("qual mercado pra minhas compras?") → base toda.
+  termo: z.string().max(120).optional(),
   lat: z.number().min(-90).max(90).optional(),
   lng: z.number().min(-180).max(180).optional(),
 });

@@ -44,6 +44,31 @@ describe('interpretar — intenção da conversa da Nina', () => {
     expect(interpretar('produtos de limpeza').tipo).toBe('buscar');
   });
 
+  it('recomendação GENÉRICA (sem produto específico) → termo null (avalia a base toda)', () => {
+    const r1 = interpretar('qual o melhor mercado pra fazer minhas compras hoje?');
+    expect(r1.tipo).toBe('melhor-mercado');
+    if (r1.tipo === 'melhor-mercado') expect(r1.termo).toBeNull();
+
+    const r2 = interpretar('qual o melhor mercado?');
+    expect(r2.tipo).toBe('melhor-mercado');
+    if (r2.tipo === 'melhor-mercado') expect(r2.termo).toBeNull();
+
+    const r3 = interpretar('onde fazer a feira do mês?');
+    expect(r3.tipo).toBe('melhor-mercado');
+    if (r3.tipo === 'melhor-mercado') expect(r3.termo).toBeNull();
+
+    // Com produto específico, NÃO é genérica — mantém o termo.
+    const r4 = interpretar('qual o melhor mercado pra café?');
+    expect(r4.tipo).toBe('melhor-mercado');
+    if (r4.tipo === 'melhor-mercado') expect(r4.termo).toBe('cafe');
+  });
+
+  it('reconhece despedida', () => {
+    for (const t of ['tchau', 'falou', 'até mais', 'até logo', 'adeus']) {
+      expect(interpretar(t).tipo).toBe('despedida');
+    }
+  });
+
   it('entende refinamento por raio quando não há produto na frase', () => {
     const r = interpretar('Quero em um raio de 3km perto de mim, qual seria o melhor mercado?');
     expect(r).toEqual({ tipo: 'refinar', raioMetros: 3000 });

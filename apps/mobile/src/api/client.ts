@@ -264,11 +264,11 @@ export class ApiClient {
     });
   }
   /** "Qual o melhor mercado para [categoria]?" — recomenda um mercado. */
-  melhorMercado(termo: string, lat?: number, lng?: number): Promise<MelhorMercadoResponse> {
+  melhorMercado(termo: string | null, lat?: number, lng?: number): Promise<MelhorMercadoResponse> {
     return this.request('/insights/melhor-mercado', {
       method: 'POST',
       body: JSON.stringify({
-        termo,
+        ...(termo ? { termo } : {}), // sem termo = pergunta genérica (base toda)
         ...(lat !== undefined ? { lat } : {}),
         ...(lng !== undefined ? { lng } : {}),
       }),

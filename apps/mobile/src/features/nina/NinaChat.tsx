@@ -93,6 +93,14 @@ export function NinaChat({ T }: { T: Theme }) {
       });
       return;
     }
+    if (intent.tipo === 'despedida') {
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: 'Até logo! 🧡 Boas compras — e conta comigo pra economizar na próxima.',
+      });
+      return;
+    }
     if (intent.tipo === 'saudacao') {
       empurrar({
         from: 'nina',
@@ -161,8 +169,8 @@ export function NinaChat({ T }: { T: Theme }) {
     }
   }
 
-  /** "Qual o melhor mercado para [categoria]?" — avalia a base e recomenda um mercado. */
-  async function recomendarMercado(termo: string) {
+  /** "Qual o melhor mercado para [X]?" (ou genérica, termo=null) — recomenda um mercado. */
+  async function recomendarMercado(termo: string | null) {
     setOcupada(true);
     try {
       const { lat, lng } = await posicao();
@@ -178,14 +186,17 @@ export function NinaChat({ T }: { T: Theme }) {
       const top = resp.mercados[0]!;
       const dist =
         top.distanciaMetros !== null ? ` (a ${formatDistancia(top.distanciaMetros)})` : '';
+      const plural = resp.totalProdutos === 1 ? 'produto' : 'produtos';
       const porque =
         top.vitorias > 0
-          ? `tem o menor preço em ${top.vitorias} de ${resp.totalProdutos} ${resp.totalProdutos === 1 ? 'produto' : 'produtos'}`
-          : `é onde temos mais desses produtos`;
+          ? `tem o menor preço em ${top.vitorias} de ${resp.totalProdutos} ${plural}${termo === null ? ' da base' : ''}`
+          : 'é onde temos mais produtos com preço';
+      const abertura =
+        termo === null ? 'Pra fazer suas compras, com o que temos hoje' : 'Com o que temos hoje';
       empurrar({
         from: 'nina',
         kind: 'text',
-        text: `Com o que temos hoje, eu iria de ${marcaMercado(top.mercadoNome).label}${dist} — ${porque}. Quanto mais preços na base, mais certeira fica. Quer ver um produto específico? 🧡`,
+        text: `${abertura}, eu iria de ${marcaMercado(top.mercadoNome).label}${dist} — ${porque}. Quanto mais preços na base, mais certeira fica. Quer ver um produto específico? 🧡`,
       });
       const resto = resp.mercados.slice(1);
       if (resto.length > 0) {

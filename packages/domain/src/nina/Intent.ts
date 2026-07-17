@@ -7,10 +7,15 @@
 export type Intencao =
   | { tipo: 'saudacao' }
   | { tipo: 'agradecimento' }
+  | { tipo: 'despedida' }
   | { tipo: 'ajuda' }
   | { tipo: 'refinar'; raioMetros: number | null }
-  /** "Qual o melhor MERCADO para [categoria]?" — recomenda um mercado, não 1 produto. */
-  | { tipo: 'melhor-mercado'; termo: string; raioMetros: number | null }
+  /**
+   * "Qual o melhor MERCADO para [X]?" — recomenda um mercado, não 1 produto.
+   * `termo` = categoria/produto pedido; `null` = pergunta GENÉRICA ("pra minhas
+   * compras", "o melhor mercado?") → avalia a base inteira.
+   */
+  | { tipo: 'melhor-mercado'; termo: string | null; raioMetros: number | null }
   | { tipo: 'buscar'; termo: string; raioMetros: number | null };
 
 const norm = (s: string): string =>
@@ -21,12 +26,16 @@ const norm = (s: string): string =>
     .trim();
 
 const AGRADECIMENTO = /(obrigad|brigad|valeu|vlw|agradec|\bobg\b|\btmj\b|\bgrat[oa]\b|thank)/;
+const DESPEDIDA = /\b(tchau|adeus|falou|xau|flw|fui|ate (mais|logo|breve|a proxima|mais tarde))\b/;
 const SAUDACAO = /\b(oi+|ola|opa|e ?ai|salve|bom dia|boa tarde|boa noite|hey|hello|oie)\b/;
 const AJUDA = /\b(ajuda|me ajuda|como funciona|como usa|o que (voce|vc) faz|pra que serve)\b/;
 const MENCIONA_DISTANCIA = /\b(perto|proxim[oa]s?|raio|distancia|redondezas|redor)\b/;
 /** Pergunta sobre MERCADO (recomendar loja), não sobre um produto específico. */
 const PERGUNTA_MERCADO = /\bmercado/;
 const CUE_RECOMENDA = /(melhor|qual|onde|barat|vale a pena|compensa|indica)/;
+/** Pergunta GENÉRICA de compra (sem produto específico) → avaliar a base toda. */
+const GENERIC_COMPRA =
+  /\b(minhas? compras?|minhas? feiras?|fazer (as |a )?compras?|fazer (a )?feira|feira do mes|compras? do mes|compra do mes|mercado do mes|abastecer|cesta( basica)?)\b/;
 
 /** Frases de "enfeite" (a moldura da pergunta) removidas para achar o produto. */
 const FILLER: RegExp[] = [
@@ -86,6 +95,7 @@ export function interpretar(texto: string): Intencao {
   const palavras = n.split(/\s+/);
 
   if (AGRADECIMENTO.test(n)) return { tipo: 'agradecimento' };
+  if (DESPEDIDA.test(n)) return { tipo: 'despedida' };
   if (AJUDA.test(n)) return { tipo: 'ajuda' };
   if (SAUDACAO.test(n) && palavras.length <= 4) return { tipo: 'saudacao' };
 
@@ -102,14 +112,23 @@ export function interpretar(texto: string): Intencao {
   while (tokens.length && souBorda(tokens[tokens.length - 1]!)) tokens.pop();
   const termo = tokens.join(' ');
 
+  // Quer recomendação de MERCADO: menciona "mercado" OU é uma compra genérica
+  // (ex.: "minhas compras", "a feira"), com um gatilho de recomendação.
+  const querMercado =
+    (PERGUNTA_MERCADO.test(n) || GENERIC_COMPRA.test(n)) && CUE_RECOMENDA.test(n);
+
   if (!termo) {
+    // Refinar por distância tem prioridade (ex.: "e num raio de 3km?" após buscar).
     if (raioMetros !== null || MENCIONA_DISTANCIA.test(n)) return { tipo: 'refinar', raioMetros };
+    // "Qual o melhor mercado?" sem produto → recomendação GENÉRICA (base toda).
+    if (querMercado) return { tipo: 'melhor-mercado', termo: null, raioMetros };
     return { tipo: 'buscar', termo: '', raioMetros: null };
   }
-  // "Qual o melhor MERCADO para [X]?" → recomenda um mercado avaliando a base,
-  // em vez de listar tipos de produto. Distingue-se por mencionar "mercado".
-  if (PERGUNTA_MERCADO.test(n) && CUE_RECOMENDA.test(n)) {
-    return { tipo: 'melhor-mercado', termo, raioMetros };
+  // "Qual o melhor MERCADO para [X]?" → recomenda um mercado avaliando a base.
+  if (querMercado) {
+    // Genérica ("pra minhas compras") ignora o "termo" (que viraria ruído) e
+    // avalia a base inteira; específica ("pra café/limpeza") mantém o termo.
+    return { tipo: 'melhor-mercado', termo: GENERIC_COMPRA.test(n) ? null : termo, raioMetros };
   }
   return { tipo: 'buscar', termo, raioMetros };
 }

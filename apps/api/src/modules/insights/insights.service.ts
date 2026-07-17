@@ -97,11 +97,24 @@ export class InsightsService {
    * termo (ex.: "limpeza" → todos os LIMP…) e agrega os mercados sobre eles,
    * recomendando onde vale a pena. Honesto com base rasa (poucos multi-mercado).
    */
-  async melhorMercado(termo: string, lat?: number, lng?: number): Promise<MelhorMercadoResponse> {
-    const t = termo.trim();
-    const produtoIds = (await this.buscarComPreco(t)).map((p) => p.id);
-    if (produtoIds.length === 0) return { termo: t, totalProdutos: 0, mercados: [] };
+  async melhorMercado(
+    termo: string | undefined,
+    lat?: number,
+    lng?: number,
+  ): Promise<MelhorMercadoResponse> {
+    const t = (termo ?? '').trim();
     const observations = await this.prices.all();
+    // Com termo → só os produtos que casam; SEM termo (pergunta genérica, ex.:
+    // "qual mercado pra minhas compras?") → a base INTEIRA (todo produto com
+    // preço real). Assim a Nina recomenda o mercado avaliando tudo, não 1 termo.
+    const produtoIds = t
+      ? (await this.buscarComPreco(t)).map((p) => p.id)
+      : [
+          ...new Set(
+            observations.filter((o) => o.reporterId !== 'seed').map((o) => o.produtoId),
+          ),
+        ];
+    if (produtoIds.length === 0) return { termo: t, totalProdutos: 0, mercados: [] };
     const usuario = lat !== undefined && lng !== undefined ? new GeoPoint(lat, lng) : null;
     return {
       termo: t,
