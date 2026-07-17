@@ -166,6 +166,10 @@ describe('interpretar — intenção da conversa da Nina', () => {
   it('pergunta fora de escopo → fora-de-escopo', () => {
     expect(interpretar('hoje vai chover?').tipo).toBe('fora-de-escopo');
     expect(interpretar('que horas são?').tipo).toBe('fora-de-escopo');
+    expect(interpretar('está sol?').tipo).toBe('fora-de-escopo');
+    expect(interpretar('faz calor hoje?').tipo).toBe('fora-de-escopo');
+    // "frios" (categoria) NÃO é clima (sem "está/faz frio").
+    expect(interpretar('tem frios?').tipo).not.toBe('fora-de-escopo');
   });
 
   it('entende refinamento por raio quando não há produto na frase', () => {

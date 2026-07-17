@@ -60,7 +60,7 @@ const AJUDA =
  * SEM `\b` no fim de propósito: "chov" precisa casar "chover"/"chovendo" (prefixo).
  */
 const FORA_ESCOPO =
-  /\b(chov|chuva|clima|previsao|temperatura|que horas|que dia (e|eh) hoje|piada|conta uma|seu time|voce (namora|gosta|torce)|quem ganhou|noticia)/;
+  /\b(chov|chuva|clima|previsao|temperatura|ensolarad|esta sol|ta sol|faz sol|sol (hoje|la fora)|(esta|ta|faz) (calor|frio|ventando|vento)|que horas|que dia (e|eh) hoje|piada|conta uma|seu time|voce (namora|gosta|torce)|quem ganhou|noticia)/;
 const MENCIONA_DISTANCIA = /\b(perto|proxim[oa]s?|raio|distancia|redondezas|redor)\b/;
 /** Pergunta sobre MERCADO (recomendar loja), não sobre um produto específico. */
 const PERGUNTA_MERCADO = /\bmercado/;
