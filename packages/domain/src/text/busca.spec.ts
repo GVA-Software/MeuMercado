@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { chaveProduto, combinaBusca, semAcento } from './busca.js';
+import { chaveProduto, combinaBusca, combinaFuzzy, semAcento } from './busca.js';
+import { aplicarSinonimos } from './sinonimos.js';
 
 describe('semAcento', () => {
   it('remove acentos e normaliza para minúsculas', () => {
@@ -30,6 +31,30 @@ describe('combinaBusca — acento + abreviação do cupom', () => {
     expect(combinaBusca('ARROZ CAMIL', 'sabao')).toBe(false);
     // "REF." de açúcar REFinado não deve casar com "refrigerante"
     expect(combinaBusca('ACUC.REF.UNIAO', 'refrigerante')).toBe(false);
+  });
+});
+
+describe('combinaFuzzy — tolera erro de digitação', () => {
+  it('acha o produto mesmo com typo', () => {
+    expect(combinaFuzzy('ARROZ CAMIL', 'arros')).toBe(true);
+    expect(combinaFuzzy('FEIJAO KICALDO', 'fejao')).toBe(true);
+    expect(combinaFuzzy('CAFE PILAO', 'caffe')).toBe(true);
+  });
+  it('não casa palavra curta (exige exato) nem coisa distante', () => {
+    expect(combinaFuzzy('SAL REFINADO', 'sol')).toBe(false); // curta → sem fuzzy
+    expect(combinaFuzzy('ARROZ CAMIL', 'sabao')).toBe(false);
+  });
+});
+
+describe('aplicarSinonimos — apelidos → termo do catálogo', () => {
+  it('mapeia sinônimos cross-word', () => {
+    expect(aplicarSinonimos('bolacha')).toBe('biscoito');
+    expect(aplicarSinonimos('xampu')).toBe('shampoo');
+    expect(aplicarSinonimos('miojo')).toBe('macarrao');
+  });
+  it('deixa termos sem sinônimo intactos (normalizados)', () => {
+    expect(aplicarSinonimos('arroz')).toBe('arroz');
+    expect(aplicarSinonimos('Café')).toBe('cafe');
   });
 });
 

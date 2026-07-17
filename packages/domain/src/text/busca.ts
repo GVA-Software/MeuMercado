@@ -45,3 +45,42 @@ export function combinaBusca(nome: string, termo: string): boolean {
   if (!primeiro) return false;
   return q.split(/\s+/).some((w) => w.length > primeiro.length && w.startsWith(primeiro));
 }
+
+/** Distância de edição (Levenshtein) — quantas letras mudar pra ir de `a` a `b`. */
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0]!;
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = dp[j]!;
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j]!, dp[j - 1]!);
+      prev = tmp;
+    }
+  }
+  return dp[n]!;
+}
+
+/**
+ * Casa tolerando ERRO DE DIGITAÇÃO (fuzzy) — 2ª tentativa da busca da Nina, só
+ * quando a busca exata não achou nada. Cada palavra do termo (≥4 letras) precisa
+ * casar, com distância pequena, alguma palavra do nome do produto. Ex.: "arros"→
+ * "arroz", "fejao"→"feijao". Conservador (letras curtas exigem match exato).
+ */
+export function combinaFuzzy(nome: string, termo: string): boolean {
+  const qs = semAcento(termo)
+    .split(/\s+/)
+    .filter((t) => t.length >= 4);
+  if (qs.length === 0) return false;
+  const ns = semAcento(nome)
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3);
+  return qs.every((q) => {
+    const max = q.length <= 6 ? 1 : 2;
+    return ns.some((w) => Math.abs(w.length - q.length) <= max && levenshtein(w, q) <= max);
+  });
+}

@@ -247,6 +247,7 @@ export function NinaChat({ T }: { T: Theme }) {
         kind: 'text',
         text: 'Não peguei essa 🤔 Me diz um produto (ex.: café, arroz) — ou pergunta "qual mercado pra minhas compras?", "quanto gastei?", "o que mais comprei?".',
       });
+      api.track('nina_sem_resposta', { q: t }); // loop de aprendizado
       return;
     }
     void buscar(intent.termo, intent.raioMetros);
@@ -326,6 +327,7 @@ export function NinaChat({ T }: { T: Theme }) {
           kind: 'text',
           text: `Não achei "${termo}" nos preços 🤔 Se for um produto, tenta outro nome (ex.: café, sabão) ou registre na aba Preços. Também posso recomendar mercado ou falar das suas compras!`,
         });
+        api.track('nina_sem_resposta', { q: termo }); // loop de aprendizado
       } else {
         // Nunca escolhe sozinho: mostra o(s) que achou pra você tocar.
         empurrar({

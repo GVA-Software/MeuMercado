@@ -17,7 +17,7 @@ import type {
   OndeComprarResponse,
   ProdutoDTO,
 } from '@meumercado/contracts';
-import { combinaBusca } from '../../common/texto.js';
+import { aplicarSinonimos, combinaBusca, combinaFuzzy } from '../../common/texto.js';
 import { SEED_DATA } from '../../data/data.module.js';
 import type { SeedData } from '../../data/seed.js';
 import {
@@ -82,11 +82,13 @@ export class InsightsService {
     const comPreco = new Set(
       (await this.prices.all()).filter((o) => o.reporterId !== 'seed').map((o) => o.produtoId),
     );
-    const produtos = await this.produtos.findAll();
-    return produtos
-      .filter((p) => comPreco.has(p.id) && combinaBusca(p.nome, t))
-      .slice(0, 20)
-      .map((p) => p.toJSON());
+    const produtos = (await this.produtos.findAll()).filter((p) => comPreco.has(p.id));
+    const alvo = aplicarSinonimos(t); // "bolacha" → "biscoito", "xampu" → "shampoo"
+    // 1ª tentativa: busca exata (acento + abreviação do cupom), com sinônimos.
+    let match = produtos.filter((p) => combinaBusca(p.nome, alvo));
+    // 2ª tentativa: tolera ERRO DE DIGITAÇÃO (fuzzy) — só quando a exata não achou.
+    if (match.length === 0) match = produtos.filter((p) => combinaFuzzy(p.nome, alvo));
+    return match.slice(0, 20).map((p) => p.toJSON());
   }
 
   /**

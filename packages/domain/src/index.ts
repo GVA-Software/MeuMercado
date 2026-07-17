@@ -77,8 +77,9 @@ export {
 // Nina — interpretação de intenção da conversa (determinística)
 export { interpretar, type Intencao } from './nina/Intent.js';
 
-// Busca tolerante de produtos (acento + abreviação) — compartilhada front/back
-export { semAcento, combinaBusca, chaveProduto } from './text/busca.js';
+// Busca tolerante de produtos (acento + abreviação + fuzzy) — compartilhada front/back
+export { semAcento, combinaBusca, combinaFuzzy, chaveProduto } from './text/busca.js';
+export { aplicarSinonimos } from './text/sinonimos.js';
 
 // Rotas (apoio à aba Mapa — "como chegar" ao mercado)
 export { Route } from './routing/Route.js';

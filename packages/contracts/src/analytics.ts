@@ -9,6 +9,8 @@ export const EVENT_NAMES = [
   'onboarding_cta_registrar',
   'onboarding_explorar',
   'onboarding_dispensado',
+  /** A Nina não entendeu / não achou — alimenta o loop de aprendizado (prop `q`). */
+  'nina_sem_resposta',
 ] as const;
 
 export const EventNameSchema = z.enum(EVENT_NAMES);
