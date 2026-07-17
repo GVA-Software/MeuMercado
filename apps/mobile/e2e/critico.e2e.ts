@@ -169,8 +169,8 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await composer.fill('qual o melhor mercado para produtos de limpeza');
     await composer.press('Enter');
 
-    // Recomenda um mercado (não pede pra escolher um tipo).
-    await expect(page.getByText(/iria de Atacadao/)).toBeVisible();
+    // Recomenda um mercado com o nome BONITO (Atacadao -> Atacadão), sem ecoar o termo.
+    await expect(page.getByText(/iria de Atacadão/)).toBeVisible();
   });
 
   test('Nina entende agradecimento e responde com tom acolhedor', async ({ page }) => {

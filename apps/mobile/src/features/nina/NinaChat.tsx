@@ -5,6 +5,7 @@ import { api, formatBRL } from '../../api/client';
 import { useNav } from '../../app/nav';
 import type { Theme } from '../../theme/theme';
 import { emojiDe } from '../../ui/emoji';
+import { marcaMercado } from '../../ui/market';
 
 const MEDALHAS = ['🥇', '🥈', '🥉'];
 
@@ -170,7 +171,7 @@ export function NinaChat({ T }: { T: Theme }) {
         empurrar({
           from: 'nina',
           kind: 'text',
-          text: `Ainda não tenho preços de "${termo}" na base pra comparar mercados. Bora registrar alguns na aba Preços? 🧡`,
+          text: `Ainda não tenho preços suficientes na base pra recomendar um mercado. Bora registrar alguns na aba Preços? 🧡`,
         });
         return;
       }
@@ -184,7 +185,7 @@ export function NinaChat({ T }: { T: Theme }) {
       empurrar({
         from: 'nina',
         kind: 'text',
-        text: `Com o que temos hoje, pra ${termo} eu iria de ${top.mercadoNome}${dist} — ${porque}. Quanto mais preços na base, mais certeira fica; quer ver um produto específico? 🧡`,
+        text: `Com o que temos hoje, eu iria de ${marcaMercado(top.mercadoNome).label}${dist} — ${porque}. Quanto mais preços na base, mais certeira fica. Quer ver um produto específico? 🧡`,
       });
       const resto = resp.mercados.slice(1);
       if (resto.length > 0) {
@@ -196,7 +197,7 @@ export function NinaChat({ T }: { T: Theme }) {
             resto
               .map(
                 (m) =>
-                  `• ${m.mercadoNome}: ${m.produtosComPreco} ${m.produtosComPreco === 1 ? 'produto' : 'produtos'}${m.vitorias > 0 ? `, melhor em ${m.vitorias}` : ''}`,
+                  `• ${marcaMercado(m.mercadoNome).label}: ${m.produtosComPreco} ${m.produtosComPreco === 1 ? 'produto' : 'produtos'}${m.vitorias > 0 ? `, melhor em ${m.vitorias}` : ''}`,
               )
               .join('\n'),
         });
@@ -258,8 +259,8 @@ export function NinaChat({ T }: { T: Theme }) {
           kind: 'text',
           text:
             raioMetros !== null
-              ? `Dentro de ${formatDistancia(raioMetros)}, pelos preços que a comunidade informou, o mais em conta pra ${produto.nome} é o ${barato.mercadoNome}, ${formatBRL(barato.priceCents)}:`
-              : `${produto.nome}: pelos preços da comunidade, o mais em conta é o ${barato.mercadoNome}, ${formatBRL(barato.priceCents)}. Veja as opções:`,
+              ? `Dentro de ${formatDistancia(raioMetros)}, pelos preços que a comunidade informou, o mais em conta pra ${produto.nome} é o ${marcaMercado(barato.mercadoNome).label}, a ${formatBRL(barato.priceCents)}:`
+              : `${produto.nome}: pelos preços da comunidade, o mais em conta é o ${marcaMercado(barato.mercadoNome).label}, a ${formatBRL(barato.priceCents)}. Veja as opções:`,
         });
         empurrar({ from: 'nina', kind: 'mercados', resp: { ...resp, mercados: dentro } });
       } else {
@@ -561,7 +562,7 @@ function Mercados({ T, resp }: { T: Theme; resp: OndeComprarResponse }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
               <span style={{ fontSize: 15 }}>{MEDALHAS[i] ?? '•'}</span>
               <span style={{ color: T.text, fontSize: 13, fontWeight: 700, flex: 1 }}>
-                {m.mercadoNome}
+                {marcaMercado(m.mercadoNome).label}
               </span>
               <span style={{ color: i === 0 ? T.green : T.text, fontSize: 15, fontWeight: 800 }}>
                 {formatBRL(m.priceCents)}
