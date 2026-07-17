@@ -24,6 +24,7 @@ import { PushModule } from './modules/push/push.module.js';
 import { AnalyticsModule } from './modules/analytics/analytics.module.js';
 import { EmailModule } from './modules/email/email.module.js';
 import { FeedbackModule } from './modules/feedback/feedback.module.js';
+import { AuditModule } from './modules/audit/audit.module.js';
 import { QaModule } from './qa/qa.module.js';
 
 type ModuleImport = Type | DynamicModule | Promise<DynamicModule> | ForwardReference;
@@ -60,6 +61,7 @@ const imports: ModuleImport[] = [
   AnalyticsModule,
   EmailModule,
   FeedbackModule,
+  AuditModule,
   QaModule,
 ];
 

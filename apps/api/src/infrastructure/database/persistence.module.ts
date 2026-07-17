@@ -46,7 +46,12 @@ import {
   FEEDBACK_REPOSITORY,
   InMemoryFeedbackRepository,
 } from '../../modules/feedback/feedback.repository.js';
+import {
+  ACCESS_LOG_REPOSITORY,
+  InMemoryAccessLogRepository,
+} from '../../modules/audit/access-log.repository.js';
 import { AnalyticsEventEntity } from './entities/analytics-event.entity.js';
+import { AccessLogEntity } from './entities/access-log.entity.js';
 import { FeedbackEntity } from './entities/feedback.entity.js';
 import { CartEntity, CartItemEntity } from './entities/cart.entity.js';
 import { CompraEntity } from './entities/compra.entity.js';
@@ -72,6 +77,7 @@ import { TypeOrmPasswordResetRepository } from './repositories/typeorm-password-
 import { TypeOrmPushSubscriptionRepository } from './repositories/typeorm-push-subscription.repository.js';
 import { TypeOrmAnalyticsRepository } from './repositories/typeorm-analytics.repository.js';
 import { TypeOrmFeedbackRepository } from './repositories/typeorm-feedback.repository.js';
+import { TypeOrmAccessLogRepository } from './repositories/typeorm-access-log.repository.js';
 
 const ENTITIES = [
   UserEntity,
@@ -88,6 +94,7 @@ const ENTITIES = [
   CompraEntity,
   AnalyticsEventEntity,
   FeedbackEntity,
+  AccessLogEntity,
 ];
 const TOKENS = [
   USER_REPOSITORY,
@@ -103,6 +110,7 @@ const TOKENS = [
   COMPRA_REPOSITORY,
   ANALYTICS_REPOSITORY,
   FEEDBACK_REPOSITORY,
+  ACCESS_LOG_REPOSITORY,
 ];
 
 /**
@@ -134,6 +142,7 @@ export class PersistenceModule {
           { provide: COMPRA_REPOSITORY, useClass: InMemoryCompraRepository },
           { provide: ANALYTICS_REPOSITORY, useClass: InMemoryAnalyticsRepository },
           { provide: FEEDBACK_REPOSITORY, useClass: InMemoryFeedbackRepository },
+          { provide: ACCESS_LOG_REPOSITORY, useClass: InMemoryAccessLogRepository },
         ],
         exports: TOKENS,
       };
@@ -175,6 +184,7 @@ export class PersistenceModule {
         { provide: COMPRA_REPOSITORY, useClass: TypeOrmCompraRepository },
         { provide: ANALYTICS_REPOSITORY, useClass: TypeOrmAnalyticsRepository },
         { provide: FEEDBACK_REPOSITORY, useClass: TypeOrmFeedbackRepository },
+        { provide: ACCESS_LOG_REPOSITORY, useClass: TypeOrmAccessLogRepository },
       ],
       exports: TOKENS,
     };

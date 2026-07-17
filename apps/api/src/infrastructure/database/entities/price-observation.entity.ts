@@ -1,4 +1,4 @@
-import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryColumn } from 'typeorm';
 
 /**
  * Observação de preço reportada por um usuário — o dado colaborativo bruto que
@@ -8,6 +8,14 @@ import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
 export class PriceObservationEntity {
   @PrimaryColumn('uuid')
   id!: string;
+
+  /**
+   * Carimbo IMUTÁVEL do SERVIDOR no momento da inserção (art. 15 do Marco Civil).
+   * Diferente de `observed_at`, que é a data INFORMADA pelo cliente e pode ser
+   * manipulada — este é a hora real em que o preço entrou na base.
+   */
+  @CreateDateColumn({ name: 'criado_em', type: 'timestamptz' })
+  criadoEm!: Date;
 
   @Index()
   @Column({ name: 'produto_id' })
