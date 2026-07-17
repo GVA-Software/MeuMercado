@@ -172,6 +172,22 @@ describe('interpretar — intenção da conversa da Nina', () => {
     expect(interpretar('tem frios?').tipo).not.toBe('fora-de-escopo');
   });
 
+  it('receita/evento → montar-lista com a cesta de itens', () => {
+    const r = interpretar('vou fazer um churrasco');
+    expect(r.tipo).toBe('montar-lista');
+    if (r.tipo === 'montar-lista') {
+      expect(r.evento).toBe('churrasco');
+      expect(r.itens.length).toBeGreaterThan(3);
+      expect(r.itens.join(' ').toLowerCase()).toContain('carvão');
+    }
+    const b = interpretar('quero fazer um bolo de chocolate');
+    expect(b.tipo).toBe('montar-lista');
+    if (b.tipo === 'montar-lista') expect(b.evento).toBe('bolo');
+    expect(interpretar('o que comprar para uma feijoada?').tipo).toBe('montar-lista');
+    // "tem bolo?" (sem gatilho de fazer) continua sendo busca de produto.
+    expect(interpretar('tem bolo?').tipo).toBe('buscar');
+  });
+
   it('entende refinamento por raio quando não há produto na frase', () => {
     const r = interpretar('Quero em um raio de 3km perto de mim, qual seria o melhor mercado?');
     expect(r).toEqual({ tipo: 'refinar', raioMetros: 3000 });

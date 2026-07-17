@@ -213,6 +213,15 @@ export function NinaChat({ T }: { T: Theme }) {
       void responderBase(intent.campo, intent.termo);
       return;
     }
+    if (intent.tipo === 'montar-lista') {
+      const linhas = intent.itens.map((i) => `• ${i}`).join('\n');
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: `Pra ${intent.evento}, montei sua lista 🛒:\n${linhas}\n\nQuer saber onde essa cesta sai mais em conta? É só me pedir o mercado pra esses itens. 🧡`,
+      });
+      return;
+    }
     if (intent.tipo === 'listar-mercados') {
       empurrar({
         from: 'nina',

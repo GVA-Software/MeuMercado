@@ -4,6 +4,8 @@
  * da conversa: distingue saudação, agradecimento, ajuda, refinamento por
  * distância e busca de produto (tirando o "enfeite" da frase).
  */
+import { montarLista } from './receitas.js';
+
 export type Intencao =
   | { tipo: 'saudacao' }
   | { tipo: 'agradecimento' }
@@ -34,6 +36,8 @@ export type Intencao =
   | { tipo: 'base'; campo: 'contagem' | 'mais-caro' | 'mais-barato'; termo?: string }
   /** Pergunta fora do escopo (clima, horas, piada…) — redireciona com gentileza. */
   | { tipo: 'fora-de-escopo' }
+  /** "Vou fazer um churrasco/bolo…" → monta a lista de compras (evento + itens). */
+  | { tipo: 'montar-lista'; evento: string; itens: string[] }
   | { tipo: 'refinar'; raioMetros: number | null }
   /**
    * "Qual o melhor MERCADO para [X]?" — recomenda um mercado, não 1 produto.
@@ -65,6 +69,9 @@ const MENCIONA_DISTANCIA = /\b(perto|proxim[oa]s?|raio|distancia|redondezas|redo
 /** Pergunta sobre MERCADO (recomendar loja), não sobre um produto específico. */
 const PERGUNTA_MERCADO = /\bmercado/;
 const CUE_RECOMENDA = /(melhor|qual|onde|barat|vale a pena|compensa|indica)/;
+/** Quer montar uma LISTA de compras a partir de uma receita/evento. */
+const CUE_LISTA =
+  /\b(vou|quero|pretendo|bora|planejo|to) (fazer|preparar|assar|cozinhar|servir)\b|\bmonta(r)? (uma |a )?lista|o que (comprar|preciso|levar|falta)|\bingredientes\b|\breceita (de|pra|para)|lista (de |pra |para )?compras?|(pra|para) (o |a |um |uma )?(churrasco|festa|almoco|jantar|ceia)/;
 /** Pergunta GENÉRICA de compra (sem produto específico) → avaliar a base toda. */
 const GENERIC_COMPRA =
   /\b(minhas? compras?|minhas? feiras?|fazer (as |a )?compras?|fazer (a )?feira|feira do mes|compras? do mes|compra do mes|mercado do mes|abastecer|cesta( basica)?)\b/;
@@ -249,6 +256,11 @@ export function interpretar(texto: string): Intencao {
   // Perguntas sobre a BASE ("quantos produtos você tem?", "produto mais caro da base?").
   const base = interpretarBase(n);
   if (base) return base;
+  // Receita/evento → lista de compras ("vou fazer um churrasco", "receita de bolo").
+  if (CUE_LISTA.test(n)) {
+    const lista = montarLista(n);
+    if (lista) return { tipo: 'montar-lista', evento: lista.nome, itens: lista.itens };
+  }
   // "Liste os produtos" (que NÃO são as minhas compras) → aponta pra aba Preços.
   if (/\b(list[ae]|liste|mostr\w*|ver todos?)\b/.test(n) && /\bprodutos?\b/.test(n) && !/\bcompr/.test(n)) {
     return { tipo: 'listar-produtos' };
