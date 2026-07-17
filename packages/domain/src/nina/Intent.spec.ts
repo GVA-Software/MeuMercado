@@ -63,6 +63,14 @@ describe('interpretar — intenção da conversa da Nina', () => {
     if (r4.tipo === 'melhor-mercado') expect(r4.termo).toBe('cafe');
   });
 
+  it('reação/elogio curto → reacao (não busca produto)', () => {
+    for (const t of ['Legal', 'show!', 'parabéns', 'muito bom', 'adorei', 'top']) {
+      expect(interpretar(t).tipo).toBe('reacao');
+    }
+    // frase longa com "legal" continua sendo busca (não reação).
+    expect(interpretar('quero um café bem legal').tipo).toBe('buscar');
+  });
+
   it('reconhece despedida', () => {
     for (const t of ['tchau', 'falou', 'até mais', 'até logo', 'adeus']) {
       expect(interpretar(t).tipo).toBe('despedida');

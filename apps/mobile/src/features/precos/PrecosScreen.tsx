@@ -70,6 +70,7 @@ export function PrecosScreen({
   const [nfceOpen, setNfceOpen] = useState(false);
   const [mercadoFiltro, setMercadoFiltro] = useState<string | null>(null);
   const [mercadosDisp, setMercadosDisp] = useState<MercadoResumoDTO[]>([]);
+  const [categoria, setCategoria] = useState<string>('');
   const [completar, setCompletar] = useState<ProdutoParaCompletarDTO[]>([]);
 
   const carregar = useCallback(async () => {
@@ -120,11 +121,18 @@ export function PrecosScreen({
       .catch(() => {});
   }, [carregarMercados, carregarCompletar]);
 
+  // Categorias presentes nos preços (pra montar o filtro sem opções vazias).
+  const categoriasDisp = useMemo(
+    () => [...new Set((rows ?? []).map((r) => r.produto.categoria))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [rows],
+  );
+
   const filtradas = useMemo(() => {
     if (!rows) return null;
     const t = busca.trim();
     // Mesma busca tolerante do back (acento + abreviação): "Pão" acha "PAO FRANCES".
-    const base = t ? rows.filter((r) => combinaBusca(r.produto.nome, t)) : rows;
+    let base = t ? rows.filter((r) => combinaBusca(r.produto.nome, t)) : rows;
+    if (categoria) base = base.filter((r) => r.produto.categoria === categoria);
     const arr = [...base];
     if (ordem === 'menor')
       arr.sort((a, b) => (a.mediaCents ?? Infinity) - (b.mediaCents ?? Infinity));
@@ -133,12 +141,12 @@ export function PrecosScreen({
       arr.sort((a, b) => a.produto.nome.localeCompare(b.produto.nome, 'pt-BR'));
     // 'populares' = já vem por nº de reportes (backend)
     return arr;
-  }, [rows, busca, ordem]);
+  }, [rows, busca, ordem, categoria]);
 
-  // Volta pro topo da paginação quando muda a busca/ordem.
+  // Volta pro topo da paginação quando muda a busca/ordem/categoria.
   useEffect(() => {
     setVisiveis(20);
-  }, [busca, ordem]);
+  }, [busca, ordem, categoria]);
 
   function abrirCadastro(produto?: ProdutoDTO) {
     setDetalhe(null);
@@ -277,6 +285,31 @@ export function PrecosScreen({
           </select>
         )}
 
+        {categoriasDisp.length > 1 && (
+          <select
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value)}
+            style={{
+              width: '100%',
+              border: `1.5px solid ${categoria ? T.primary : T.border}`,
+              borderRadius: 12,
+              padding: '11px 14px',
+              background: T.card,
+              color: T.text,
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="">🏷️ Todas as categorias</option>
+            {categoriasDisp.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        )}
+
         {!erro && rows === null && <CartLoader label="Carregando preços…" />}
 
         {rows && rows.length === 0 && mercadoFiltro && (
@@ -295,10 +328,23 @@ export function PrecosScreen({
           />
         )}
 
+        {rows && rows.length > 0 && filtradas && filtradas.length === 0 && (
+          <EmptyState
+            emoji="🔍"
+            titulo="Nada encontrado"
+            sub={
+              categoria
+                ? `Nenhum produto em ${categoria}${busca.trim() ? ` com "${busca.trim()}"` : ''}. Tente outra categoria.`
+                : `Nenhum produto com "${busca.trim()}". Tente outro nome.`
+            }
+          />
+        )}
+
         {filtradas && filtradas.length > 0 && (
           <>
             <SLabel>
               {filtradas.length} {filtradas.length === 1 ? 'produto' : 'produtos'}
+              {categoria ? ` · ${categoria}` : ''}
             </SLabel>
             {filtradas.slice(0, visiveis).map((r) => (
               <TabelaRow key={r.produto.id} row={r} onClick={() => setDetalhe(r)} />

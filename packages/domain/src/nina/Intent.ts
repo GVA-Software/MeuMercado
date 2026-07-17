@@ -9,6 +9,8 @@ import { montarLista, type ReceitaDef } from './receitas.js';
 export type Intencao =
   | { tipo: 'saudacao' }
   | { tipo: 'agradecimento' }
+  /** Reação/elogio curto ("legal", "show", "parabéns") — a Nina agradece, não busca. */
+  | { tipo: 'reacao' }
   | { tipo: 'despedida' }
   /** "O que o app faz?", "qual seu nome?", "como funciona?" — sobre o app/a Nina. */
   | { tipo: 'ajuda' }
@@ -55,6 +57,9 @@ const norm = (s: string): string =>
     .trim();
 
 const AGRADECIMENTO = /(obrigad|brigad|valeu|vlw|agradec|\bobg\b|\btmj\b|\bgrat[oa]\b|thank)/;
+/** Reação/elogio curto (não é produto): "legal", "show", "parabéns", "muito bom"… */
+const REACAO =
+  /\b(legal|show|showw?|bacana|beleza|blz|otim[oa]|perfeit[oa]|maravilh\w*|adorei|adoro|gostei|demais|incrivel|excelente|uau|arrasou|mandou bem|top|parabens|que bom|que legal|muito bom|isso ai|boa demais)\b/;
 const DESPEDIDA = /\b(tchau|adeus|falou|xau|flw|fui|ate (mais|logo|breve|a proxima|mais tarde))\b/;
 const SAUDACAO = /\b(oi+|ola|opa|e ?ai|salve|bom dia|boa tarde|boa noite|hey|hello|oie)\b/;
 const AJUDA =
@@ -240,6 +245,9 @@ export function interpretar(
   const palavras = n.split(/\s+/);
 
   if (AGRADECIMENTO.test(n)) return { tipo: 'agradecimento' };
+  // Reação/elogio curto ("legal", "parabéns") — só quando a frase é curta, pra não
+  // confundir com uma busca ("quero um café bem legal").
+  if (REACAO.test(n) && palavras.length <= 3) return { tipo: 'reacao' };
   if (DESPEDIDA.test(n)) return { tipo: 'despedida' };
   if (AJUDA.test(n)) return { tipo: 'ajuda' };
   if (FORA_ESCOPO.test(n)) return { tipo: 'fora-de-escopo' };

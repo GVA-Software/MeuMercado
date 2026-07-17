@@ -188,6 +188,14 @@ export function NinaChat({ T }: { T: Theme }) {
       });
       return;
     }
+    if (intent.tipo === 'reacao') {
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: 'Ahh, que bom! 🧡 Precisando de um produto, um mercado ou de saber das suas compras, é só chamar.',
+      });
+      return;
+    }
     if (intent.tipo === 'despedida') {
       empurrar({
         from: 'nina',
