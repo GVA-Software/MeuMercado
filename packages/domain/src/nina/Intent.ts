@@ -194,14 +194,16 @@ function interpretarHistorico(n: string): Intencao | null {
 
 /** Extrai a categoria de "quantos produtos de X (você tem)" — tira a moldura. */
 function extrairCategoria(n: string): string {
-  return n
+  const limpo = n
     .replace(
-      /\b(quant[oa]s?|produtos?|itens?|item|coisas?|tipos?|voce|voces|vc|tem|cadastrad[oa]s?|na|no|da|do|de|em|sua|seu|base|catalogo|app|meu mercado|precos?|preco|mercados?|conhece|ai|la|tenho|possui)\b/g,
+      /\b(quant[oa]s?|produtos?|itens?|item|coisas?|tipos?|voce|voces|vc|tem|cadastrad[oa]s?|registrad[oa]s?|na|no|da|do|de|em|sua|seu|base|catalogo|app|meu mercado|precos?|preco|mercados?|conhece|ai|la|tenho|possui|hoje|ja|agora|atualmente|ainda|entao|mesmo|que|ao todo|no total|ate|total)\b/g,
       ' ',
     )
     .replace(/[?!.,;:]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  // Ruído curto (sobras de 1-2 letras) NÃO é categoria → conta a base inteira.
+  return limpo.length >= 3 ? limpo : '';
 }
 
 /**

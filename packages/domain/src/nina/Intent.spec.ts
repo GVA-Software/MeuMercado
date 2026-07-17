@@ -147,6 +147,18 @@ describe('interpretar — intenção da conversa da Nina', () => {
       expect(c2.campo).toBe('contagem');
       expect(c2.termo).toBe('limpeza');
     }
+    // "hoje" e "já" NÃO são categorias — conta a base inteira (sem termo).
+    for (const t of [
+      'quantos produtos você tem na base hoje?',
+      'quantos produtos você já tem cadastrados?',
+    ]) {
+      const c = interpretar(t);
+      expect(c.tipo).toBe('base');
+      if (c.tipo === 'base') {
+        expect(c.campo).toBe('contagem');
+        expect(c.termo ?? '').toBe('');
+      }
+    }
     const caro = interpretar('qual o produto mais caro da sua base?');
     expect(caro.tipo).toBe('base');
     if (caro.tipo === 'base') expect(caro.campo).toBe('mais-caro');
