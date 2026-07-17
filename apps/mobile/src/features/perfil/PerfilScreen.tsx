@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { useTheme } from '../../theme/theme';
 import { AppLogo, AvisoDialog, Btn, Card, ConfirmDialog, Pill, ThemeToggle } from '../../ui/kit';
+import { CreditoDev } from '../../ui/brand';
 import { api, mensagemDeErro } from '../../api/client';
 import { AuthForm } from '../auth/AuthForm';
 import { PushToggle } from './PushToggle';
@@ -724,6 +725,7 @@ export function PerfilScreen() {
                 Termos de Uso
               </a>
             </p>
+            <CreditoDev style={{ margin: '2px 0 0' }} />
           </>
         )}
       </div>

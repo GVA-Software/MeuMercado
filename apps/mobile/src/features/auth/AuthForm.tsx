@@ -3,6 +3,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useTheme } from '../../theme/theme';
 import { api, mensagemDeErro } from '../../api/client';
 import { AppLogo, Btn, Card } from '../../ui/kit';
+import { CreditoDev } from '../../ui/brand';
 
 type Mode = 'login' | 'register' | 'forgot';
 
@@ -229,6 +230,7 @@ export function AuthForm() {
           Termos
         </a>
       </p>
+      <CreditoDev />
     </Card>
   );
 }
