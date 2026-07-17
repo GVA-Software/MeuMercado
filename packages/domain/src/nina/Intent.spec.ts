@@ -69,6 +69,26 @@ describe('interpretar — intenção da conversa da Nina', () => {
     }
   });
 
+  it('lista de produtos (cesta) vira recomendação de mercado, mesmo sem "mercado"', () => {
+    const r = interpretar('arroz, feijão, óleo');
+    expect(r.tipo).toBe('melhor-mercado');
+    if (r.tipo === 'melhor-mercado') expect(r.termo).toBe('arroz, feijao, oleo');
+
+    const r2 = interpretar('quero comprar leite e ovos');
+    expect(r2.tipo).toBe('melhor-mercado');
+    if (r2.tipo === 'melhor-mercado') expect(r2.termo).toBe('leite, ovos');
+
+    // Um produto só (com conector interno "de") continua sendo busca.
+    expect(interpretar('pão de forma').tipo).toBe('buscar');
+  });
+
+  it('"quais mercados (plural) perto de mim" → listar-mercados (manda pro Mapa)', () => {
+    expect(interpretar('quais mercados perto de mim?').tipo).toBe('listar-mercados');
+    expect(interpretar('mercados perto de mim').tipo).toBe('listar-mercados');
+    // Singular "qual o melhor mercado?" NÃO é listar (é recomendação).
+    expect(interpretar('qual o melhor mercado?').tipo).toBe('melhor-mercado');
+  });
+
   it('entende refinamento por raio quando não há produto na frase', () => {
     const r = interpretar('Quero em um raio de 3km perto de mim, qual seria o melhor mercado?');
     expect(r).toEqual({ tipo: 'refinar', raioMetros: 3000 });

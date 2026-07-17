@@ -104,16 +104,26 @@ export class InsightsService {
   ): Promise<MelhorMercadoResponse> {
     const t = (termo ?? '').trim();
     const observations = await this.prices.all();
-    // Com termo → só os produtos que casam; SEM termo (pergunta genérica, ex.:
-    // "qual mercado pra minhas compras?") → a base INTEIRA (todo produto com
-    // preço real). Assim a Nina recomenda o mercado avaliando tudo, não 1 termo.
-    const produtoIds = t
-      ? (await this.buscarComPreco(t)).map((p) => p.id)
-      : [
-          ...new Set(
-            observations.filter((o) => o.reporterId !== 'seed').map((o) => o.produtoId),
-          ),
-        ];
+    // SEM termo (pergunta genérica, "qual mercado pra minhas compras?") → base INTEIRA.
+    // COM termo: pode ser 1 categoria ("limpeza") OU uma CESTA separada por vírgula
+    // ("arroz, feijão, óleo") — nesse caso casa CADA item e une os produtos.
+    let produtoIds: string[];
+    if (!t) {
+      produtoIds = [
+        ...new Set(observations.filter((o) => o.reporterId !== 'seed').map((o) => o.produtoId)),
+      ];
+    } else {
+      const itens = t
+        .split(/[,;]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length >= 2);
+      const alvos = itens.length > 1 ? itens : [t];
+      const ids = new Set<string>();
+      for (const alvo of alvos) {
+        for (const p of await this.buscarComPreco(alvo)) ids.add(p.id);
+      }
+      produtoIds = [...ids];
+    }
     if (produtoIds.length === 0) return { termo: t, totalProdutos: 0, mercados: [] };
     const usuario = lat !== undefined && lng !== undefined ? new GeoPoint(lat, lng) : null;
     return {

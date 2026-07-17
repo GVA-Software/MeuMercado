@@ -117,6 +117,14 @@ export function NinaChat({ T }: { T: Theme }) {
       });
       return;
     }
+    if (intent.tipo === 'listar-mercados') {
+      empurrar({
+        from: 'nina',
+        kind: 'text',
+        text: 'Pra ver os mercados perto de você, abre a aba 📍 Mapa aqui embaixo — mostro todos no mapa, inclusive quem já tem preço cadastrado. Aqui eu te ajudo a achar onde um produto está mais barato. 🧡',
+      });
+      return;
+    }
     if (intent.tipo === 'refinar') {
       void refinarUltimo(intent.raioMetros);
       return;

@@ -9,6 +9,8 @@ export type Intencao =
   | { tipo: 'agradecimento' }
   | { tipo: 'despedida' }
   | { tipo: 'ajuda' }
+  /** "Quais mercados perto de mim?" — listar lojas (a Nina manda pro Mapa). */
+  | { tipo: 'listar-mercados' }
   | { tipo: 'refinar'; raioMetros: number | null }
   /**
    * "Qual o melhor MERCADO para [X]?" — recomenda um mercado, não 1 produto.
@@ -36,6 +38,9 @@ const CUE_RECOMENDA = /(melhor|qual|onde|barat|vale a pena|compensa|indica)/;
 /** Pergunta GENÉRICA de compra (sem produto específico) → avaliar a base toda. */
 const GENERIC_COMPRA =
   /\b(minhas? compras?|minhas? feiras?|fazer (as |a )?compras?|fazer (a )?feira|feira do mes|compras? do mes|compra do mes|mercado do mes|abastecer|cesta( basica)?)\b/;
+/** "Quais MERCADOS perto de mim?" (plural = LISTAR lojas, não recomendar uma). */
+const LISTAR_MERCADOS = /\bmercados\b/;
+const VER_LISTA = /\b(quais|quantos|lista|ver|mostr|tem|onde|quero)\b/;
 
 /** Frases de "enfeite" (a moldura da pergunta) removidas para achar o produto. */
 const FILLER: RegExp[] = [
@@ -89,6 +94,27 @@ function souBorda(w: string): boolean {
   return STOP.has(w) || /^\d+$/.test(w);
 }
 
+/** Tira a moldura da pergunta e devolve o miolo (nome do produto). */
+function extrairTermo(n: string): string {
+  let bruto = ` ${n} `;
+  for (const re of FILLER) bruto = bruto.replace(re, ' ');
+  const tokens = bruto
+    .replace(/[?!.,;:]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  while (tokens.length && souBorda(tokens[0]!)) tokens.shift();
+  while (tokens.length && souBorda(tokens[tokens.length - 1]!)) tokens.pop();
+  return tokens.join(' ');
+}
+
+/** Itens de uma cesta ("arroz, feijão e óleo"): divide por vírgula/"e"/"ou" e limpa cada um. */
+function extrairItens(n: string): string[] {
+  return n
+    .split(/[,;]|\be\b|\bou\b/)
+    .map((seg) => extrairTermo(seg))
+    .filter((s) => s.length >= 2);
+}
+
 export function interpretar(texto: string): Intencao {
   const n = norm(texto);
   if (!n) return { tipo: 'buscar', termo: '', raioMetros: null };
@@ -100,35 +126,36 @@ export function interpretar(texto: string): Intencao {
   if (SAUDACAO.test(n) && palavras.length <= 4) return { tipo: 'saudacao' };
 
   const raioMetros = extrairRaio(n);
-
-  // Tira a moldura da pergunta, preserva o miolo (nome do produto).
-  let bruto = ` ${n} `;
-  for (const re of FILLER) bruto = bruto.replace(re, ' ');
-  const tokens = bruto
-    .replace(/[?!.,;:]/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean);
-  while (tokens.length && souBorda(tokens[0]!)) tokens.shift();
-  while (tokens.length && souBorda(tokens[tokens.length - 1]!)) tokens.pop();
-  const termo = tokens.join(' ');
-
+  const termo = extrairTermo(n);
   // Quer recomendação de MERCADO: menciona "mercado" OU é uma compra genérica
   // (ex.: "minhas compras", "a feira"), com um gatilho de recomendação.
   const querMercado =
     (PERGUNTA_MERCADO.test(n) || GENERIC_COMPRA.test(n)) && CUE_RECOMENDA.test(n);
 
   if (!termo) {
+    // "Quais MERCADOS (plural) perto de mim?" → listar lojas → manda pro Mapa.
+    if (LISTAR_MERCADOS.test(n) && (MENCIONA_DISTANCIA.test(n) || VER_LISTA.test(n))) {
+      return { tipo: 'listar-mercados' };
+    }
     // Refinar por distância tem prioridade (ex.: "e num raio de 3km?" após buscar).
     if (raioMetros !== null || MENCIONA_DISTANCIA.test(n)) return { tipo: 'refinar', raioMetros };
     // "Qual o melhor mercado?" sem produto → recomendação GENÉRICA (base toda).
     if (querMercado) return { tipo: 'melhor-mercado', termo: null, raioMetros };
     return { tipo: 'buscar', termo: '', raioMetros: null };
   }
-  // "Qual o melhor MERCADO para [X]?" → recomenda um mercado avaliando a base.
+  // Pergunta GENÉRICA de compra ("pra minhas compras") → base inteira (ignora o ruído).
+  if (querMercado && GENERIC_COMPRA.test(n)) {
+    return { tipo: 'melhor-mercado', termo: null, raioMetros };
+  }
+  // Lista/CESTA (2+ itens: "arroz, feijão, óleo") → recomenda o mercado da cesta,
+  // MESMO sem a palavra "mercado". Passa os itens separados por vírgula.
+  const itens = extrairItens(n);
+  if (itens.length >= 2) {
+    return { tipo: 'melhor-mercado', termo: itens.join(', '), raioMetros };
+  }
+  // "Qual o melhor MERCADO para [X]?" (1 categoria/produto).
   if (querMercado) {
-    // Genérica ("pra minhas compras") ignora o "termo" (que viraria ruído) e
-    // avalia a base inteira; específica ("pra café/limpeza") mantém o termo.
-    return { tipo: 'melhor-mercado', termo: GENERIC_COMPRA.test(n) ? null : termo, raioMetros };
+    return { tipo: 'melhor-mercado', termo, raioMetros };
   }
   return { tipo: 'buscar', termo, raioMetros };
 }
