@@ -80,6 +80,17 @@ export class CartController {
     return this.service.repetirUltima(id, user.id);
   }
 
+  /** Semeia a lista a partir de uma lista SALVA do usuário (planejados). */
+  @Post(':id/usar-lista/:listaId')
+  @HttpCode(201)
+  usarLista(
+    @Param('id') id: string,
+    @Param('listaId') listaId: string,
+    @CurrentUser() user: AuthedUser,
+  ): Promise<CartDTO> {
+    return this.service.usarLista(id, user.id, listaId);
+  }
+
   /** Fecha a compra: guarda no histórico e esvazia o carrinho. */
   @Post(':id/finalizar')
   @HttpCode(201)

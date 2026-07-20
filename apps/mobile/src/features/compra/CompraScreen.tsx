@@ -7,6 +7,7 @@ import type {
   EstimativaListaResponse,
   MercadoDTO,
   ProdutoDTO,
+  SavedListDTO,
 } from '@meumercado/contracts';
 import { combinaBusca } from '@meumercado/domain';
 import { api, formatBRL, mensagemDeErro } from '../../api/client';
@@ -79,6 +80,10 @@ export function CompraScreen() {
   // Estimativa da lista pela base (prévia de gasto + produtos sem preço).
   const [estimativa, setEstimativa] = useState<EstimativaListaResponse | null>(null);
   const [verSemPreco, setVerSemPreco] = useState(false);
+  // Listas salvas (modelos reutilizáveis) + modais de usar/salvar.
+  const [listasSalvas, setListasSalvas] = useState<SavedListDTO[]>([]);
+  const [listasOpen, setListasOpen] = useState(false);
+  const [salvarOpen, setSalvarOpen] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -97,6 +102,10 @@ export function CompraScreen() {
         api
           .listarCompras()
           .then((r) => setTemHistorico(r.compras.length > 0))
+          .catch(() => {});
+        api
+          .listarListas()
+          .then((r) => setListasSalvas(r.listas ?? []))
           .catch(() => {});
       } catch (e) {
         setError(mensagemDeErro(e));
@@ -127,6 +136,50 @@ export function CompraScreen() {
   const status = cart?.status ?? 'sem-limite';
   const barColor = status === 'estourado' ? T.danger : status === 'alerta' ? T.yellow : T.green;
   const progress = cart?.progressPercent ?? 0;
+
+  async function recarregarListas() {
+    try {
+      setListasSalvas((await api.listarListas()).listas ?? []);
+    } catch {
+      /* mantém as listas atuais */
+    }
+  }
+
+  /** Usa uma lista salva: semeia o carrinho com os itens (planejados). */
+  async function usarListaSalva(listaId: string) {
+    if (!cart) return;
+    try {
+      setCart(await api.usarLista(cart.id, listaId));
+      setListasOpen(false);
+      setAddOpen(false);
+    } catch (e) {
+      setAviso(mensagemDeErro(e));
+    }
+  }
+
+  /** Salva a lista atual como modelo nomeado. Lança em erro (o modal mostra). */
+  async function salvarListaAtual(nome: string) {
+    if (!cart) return;
+    const itens = cart.items.map((i) => ({
+      produtoId: i.produtoId,
+      nome: i.nome,
+      ...(i.emoji !== undefined ? { emoji: i.emoji } : {}),
+      quantity: i.quantity,
+    }));
+    await api.salvarLista(nome, itens);
+    await recarregarListas();
+    setSalvarOpen(false);
+    setAviso('Lista salva! 💾');
+  }
+
+  async function excluirListaSalva(id: string) {
+    try {
+      await api.excluirLista(id);
+      await recarregarListas();
+    } catch (e) {
+      setAviso(mensagemDeErro(e));
+    }
+  }
 
   /** Semeia a lista com os itens da última compra (planejados). */
   async function repetirUltima() {
@@ -673,6 +726,23 @@ export function CompraScreen() {
                   {repetindo ? 'Trazendo…' : '🔁 Repetir última compra'}
                 </button>
               )}
+              {listasSalvas.length > 0 && (
+                <button
+                  onClick={() => setListasOpen(true)}
+                  style={{
+                    background: 'none',
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 99,
+                    padding: '9px 16px',
+                    color: T.text,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  📋 Minhas listas ({listasSalvas.length})
+                </button>
+              )}
             </div>
           </Card>
         ) : (
@@ -695,11 +765,29 @@ export function CompraScreen() {
                   <SLabel>
                     Lista · {riscados} de {total} {total === 1 ? 'item' : 'itens'}
                   </SLabel>
-                  {riscados > 0 && (
-                    <span style={{ color: T.green, fontSize: 12, fontWeight: 700 }}>
-                      {tudoRiscado ? '✓ tudo riscado' : `${riscados} riscado${riscados > 1 ? 's' : ''}`}
-                    </span>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {riscados > 0 && (
+                      <span style={{ color: T.green, fontSize: 12, fontWeight: 700 }}>
+                        {tudoRiscado
+                          ? '✓ tudo riscado'
+                          : `${riscados} riscado${riscados > 1 ? 's' : ''}`}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setSalvarOpen(true)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: T.primary,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                    >
+                      💾 Salvar
+                    </button>
+                  </div>
                 </div>
                 {/* Prévia do gasto pela base + produtos ainda sem preço. */}
                 {estimativa && !tudoRiscado && (
@@ -881,7 +969,252 @@ export function CompraScreen() {
           onClose={() => setRiscando(null)}
         />
       )}
+
+      {salvarOpen && cart && (
+        <SalvarListaModal
+          sugestao={`Lista de ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`}
+          onSave={salvarListaAtual}
+          onClose={() => setSalvarOpen(false)}
+        />
+      )}
+
+      {listasOpen && (
+        <ListasSheet
+          listas={listasSalvas}
+          onUsar={(id) => void usarListaSalva(id)}
+          onExcluir={(id) => void excluirListaSalva(id)}
+          onClose={() => setListasOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+/** Modal central: nomear e salvar a lista atual como modelo. */
+function SalvarListaModal({
+  sugestao,
+  onSave,
+  onClose,
+}: {
+  sugestao: string;
+  onSave: (nome: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const { T } = useTheme();
+  const [nome, setNome] = useState(sugestao);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function salvar() {
+    const n = nome.trim();
+    if (n.length === 0 || salvando) return;
+    setSalvando(true);
+    setErro(null);
+    try {
+      await onSave(n);
+    } catch (e) {
+      setErro(mensagemDeErro(e));
+      setSalvando(false);
+    }
+  }
+
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.62)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 400,
+          background: T.surface,
+          borderRadius: 20,
+          padding: 22,
+          boxShadow: '0 16px 48px rgba(0,0,0,0.45)',
+        }}
+      >
+        <p style={{ color: T.text, fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>
+          💾 Salvar esta lista
+        </p>
+        <p style={{ color: T.muted, fontSize: 12, margin: '0 0 14px', lineHeight: 1.5 }}>
+          Dê um nome pra reusar depois (ex.: "Compra do mês", "Churrasco").
+        </p>
+        <input
+          autoFocus
+          value={nome}
+          onChange={(e) => setNome(e.target.value)}
+          onKeyUp={(e) => e.key === 'Enter' && void salvar()}
+          maxLength={60}
+          placeholder="Nome da lista"
+          style={{
+            width: '100%',
+            border: `1.5px solid ${T.border}`,
+            borderRadius: 12,
+            padding: '12px 14px',
+            background: T.card,
+            color: T.text,
+            fontSize: 15,
+            marginBottom: 14,
+          }}
+        />
+        {erro && <p style={{ color: T.danger, fontSize: 13, margin: '0 0 12px' }}>{erro}</p>}
+        <Btn full disabled={nome.trim().length === 0 || salvando} onClick={() => void salvar()}>
+          {salvando ? 'Salvando…' : 'Salvar lista'}
+        </Btn>
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%',
+            background: 'none',
+            border: 'none',
+            color: T.muted,
+            fontSize: 13,
+            padding: '14px 0 0',
+            cursor: 'pointer',
+          }}
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/** Bottom sheet: escolher uma lista salva pra usar (ou excluir). */
+function ListasSheet({
+  listas,
+  onUsar,
+  onExcluir,
+  onClose,
+}: {
+  listas: SavedListDTO[];
+  onUsar: (id: string) => void;
+  onExcluir: (id: string) => void;
+  onClose: () => void;
+}) {
+  const { T } = useTheme();
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.55)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: 430,
+          background: T.surface,
+          borderRadius: '24px 24px 0 0',
+          padding: '18px 20px calc(24px + env(safe-area-inset-bottom))',
+          maxHeight: '86vh',
+          overflowY: 'auto',
+        }}
+      >
+        <div
+          style={{ width: 40, height: 4, background: T.border, borderRadius: 99, margin: '0 auto 16px' }}
+        />
+        <p style={{ color: T.text, fontSize: 17, fontWeight: 800, margin: '0 0 14px' }}>
+          📋 Minhas listas
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {listas.map((l) => (
+            <div
+              key={l.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                background: T.card,
+                border: `1px solid ${T.border}`,
+                borderRadius: 12,
+                padding: '11px 12px',
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p
+                  style={{
+                    color: T.text,
+                    fontSize: 14,
+                    fontWeight: 700,
+                    margin: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {l.nome}
+                </p>
+                <p style={{ color: T.muted, fontSize: 12, margin: '2px 0 0' }}>
+                  {l.itens.length} {l.itens.length === 1 ? 'item' : 'itens'}
+                </p>
+              </div>
+              <button
+                onClick={() => onUsar(l.id)}
+                style={{
+                  background: T.primary,
+                  color: '#FFF',
+                  border: 'none',
+                  borderRadius: 99,
+                  padding: '7px 14px',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                usar
+              </button>
+              <button
+                onClick={() => onExcluir(l.id)}
+                aria-label="Excluir lista"
+                title="Excluir lista"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: T.muted,
+                  fontSize: 16,
+                  padding: '4px 2px',
+                }}
+              >
+                🗑️
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%',
+            background: 'none',
+            border: 'none',
+            color: T.muted,
+            fontSize: 13,
+            padding: '16px 0 0',
+            cursor: 'pointer',
+          }}
+        >
+          Fechar
+        </button>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

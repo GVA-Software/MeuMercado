@@ -4,6 +4,7 @@ import { Cart, CartItem, Money } from '@meumercado/domain';
 import type { AddCartItemInput, CartDTO, CartMercadoDTO, CompraDTO } from '@meumercado/contracts';
 import { PricingService } from '../pricing/pricing.service.js';
 import { ComprasService } from '../compras/compras.service.js';
+import { ListasService } from '../listas/listas.service.js';
 import { CART_STORE, type CartStore } from './cart.store.js';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class CartService {
     @Inject(CART_STORE) private readonly store: CartStore,
     private readonly pricing: PricingService,
     private readonly compras: ComprasService,
+    private readonly listas: ListasService,
   ) {}
 
   async criar(userId: string): Promise<CartDTO> {
@@ -75,9 +77,37 @@ export class CartService {
     if (!ultima || ultima.itens.length === 0) {
       throw new BadRequestException('Você ainda não tem uma compra anterior pra repetir.');
     }
+    this.semear(cart, ultima.itens);
+    await this.store.save(cart);
+    return this.toDTO(cart);
+  }
+
+  /** Semeia a lista a partir de uma lista SALVA do usuário (como PLANEJADOS). */
+  async usarLista(id: string, userId: string, listaId: string): Promise<CartDTO> {
+    const cart = await this.requireCart(id, userId);
+    const lista = await this.listas.obter(userId, listaId);
+    if (!lista) throw new NotFoundException('Lista não encontrada.');
+    this.semear(cart, lista.itens);
+    await this.store.save(cart);
+    return this.toDTO(cart);
+  }
+
+  /**
+   * Adiciona itens ao carrinho como PLANEJADOS (sem preço), sem duplicar o que já
+   * está lá (por produtoId). Base do "repetir última" e do "usar lista salva".
+   */
+  private semear(
+    cart: Cart,
+    itens: readonly {
+      produtoId: string;
+      nome: string;
+      emoji?: string | undefined;
+      quantity: number;
+    }[],
+  ): void {
     const existentes = new Set(cart.items.map((i) => i.produtoId));
-    for (const it of ultima.itens) {
-      if (existentes.has(it.produtoId)) continue; // não duplica o que já está na lista
+    for (const it of itens) {
+      if (existentes.has(it.produtoId)) continue;
       cart.addItem(
         new CartItem({
           lineId: randomUUID(),
@@ -90,8 +120,6 @@ export class CartService {
       );
       existentes.add(it.produtoId);
     }
-    await this.store.save(cart);
-    return this.toDTO(cart);
   }
 
   /** Desmarca um item (volta a planejado; o preço já reportado permanece na base). */

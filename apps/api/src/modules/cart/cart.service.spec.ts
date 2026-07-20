@@ -5,6 +5,7 @@ import { Cart } from '@meumercado/domain';
 import type { CompraDTO } from '@meumercado/contracts';
 import type { PricingService } from '../pricing/pricing.service.js';
 import type { ComprasService } from '../compras/compras.service.js';
+import type { ListasService } from '../listas/listas.service.js';
 import { InMemoryCartStore } from './cart.store.js';
 import { CartService } from './cart.service.js';
 
@@ -22,7 +23,8 @@ function make() {
     },
   } as unknown as PricingService;
   const compras = {} as unknown as ComprasService;
-  return { service: new CartService(store, pricing, compras), store, reportado };
+  const listas = {} as unknown as ListasService;
+  return { service: new CartService(store, pricing, compras, listas), store, reportado };
 }
 
 describe('CartService — escopo por dono', () => {
@@ -115,7 +117,8 @@ describe('CartService — repetir última compra', () => {
     const store = new InMemoryCartStore();
     const pricing = { reportar: () => Promise.resolve() } as unknown as PricingService;
     const compras = { ultimaDe: () => Promise.resolve(ultima) } as unknown as ComprasService;
-    return new CartService(store, pricing, compras);
+    const listas = {} as unknown as ListasService;
+    return new CartService(store, pricing, compras, listas);
   }
 
   it('semeia a lista (planejados) com os itens da última compra, sem duplicar', async () => {
@@ -148,6 +151,48 @@ describe('CartService — repetir última compra', () => {
     const cart = await service.criar('userA');
     await expect(service.repetirUltima(cart.id, 'userA')).rejects.toBeInstanceOf(
       BadRequestException,
+    );
+  });
+});
+
+describe('CartService — usar lista salva', () => {
+  function makeCom(lista: unknown) {
+    const store = new InMemoryCartStore();
+    const pricing = { reportar: () => Promise.resolve() } as unknown as PricingService;
+    const compras = {} as unknown as ComprasService;
+    const listas = {
+      obter: (_u: string, id: string) => Promise.resolve(id === 'L1' ? lista : null),
+    } as unknown as ListasService;
+    return new CartService(store, pricing, compras, listas);
+  }
+
+  it('semeia o carrinho com os itens da lista salva (planejados, sem duplicar)', async () => {
+    const lista = {
+      id: 'L1',
+      nome: 'Semana',
+      criadaEm: '2026-07-10T12:00:00.000Z',
+      itens: [
+        { produtoId: 'p-arroz', nome: 'Arroz', quantity: 2 },
+        { produtoId: 'p-leite', nome: 'Leite', quantity: 1 },
+      ],
+    };
+    const service = makeCom(lista);
+    const cart = await service.criar('userA');
+    await service.adicionarItem(
+      cart.id,
+      { produtoId: 'p-arroz', nome: 'Arroz', quantity: 1 },
+      'userA',
+    );
+    const r = await service.usarLista(cart.id, 'userA', 'L1');
+    expect(r.items.map((i) => i.produtoId).sort()).toEqual(['p-arroz', 'p-leite']);
+    expect(r.items.every((i) => !i.comprado)).toBe(true);
+  });
+
+  it('lista inexistente → 404', async () => {
+    const service = makeCom(null);
+    const cart = await service.criar('userA');
+    await expect(service.usarLista(cart.id, 'userA', 'nope')).rejects.toBeInstanceOf(
+      NotFoundException,
     );
   });
 });

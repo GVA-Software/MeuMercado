@@ -7,6 +7,7 @@ import { InMemoryUserRepository } from './user.repository.js';
 import { InMemoryNameChangeRepository } from './name-change.repository.js';
 import { InMemoryRefreshSessionRepository } from './refresh-session.repository.js';
 import { InMemoryCompraRepository } from '../compras/compra.repository.js';
+import { InMemoryListaRepository } from '../listas/lista.repository.js';
 import { InMemoryPushSubscriptionRepository } from '../push/push-subscription.repository.js';
 import type { Env } from '../../config/env.schema.js';
 
@@ -22,6 +23,7 @@ const config = { get: (k: string) => env[k] } as unknown as ConfigService<Env, t
 function make() {
   const sessions = new InMemoryRefreshSessionRepository();
   const compras = new InMemoryCompraRepository();
+  const listas = new InMemoryListaRepository();
   const push = new InMemoryPushSubscriptionRepository();
   const tokens = new TokenService(config);
   const service = new AuthService(
@@ -32,9 +34,10 @@ function make() {
     config,
     sessions,
     compras,
+    listas,
     push,
   );
-  return { service, tokens, sessions, compras, push };
+  return { service, tokens, sessions, compras, listas, push };
 }
 
 const registrar = (s: AuthService) =>
@@ -116,8 +119,8 @@ describe('AuthService — exclusão de conta (anonimização LGPD)', () => {
     expect(novo.response.user.email).toBe('a@b.com');
   });
 
-  it('apaga o histórico PRIVADO de compras e as inscrições de push (mas não os preços)', async () => {
-    const { service, compras, push } = make();
+  it('apaga o histórico PRIVADO de compras, as listas salvas e o push (mas não os preços)', async () => {
+    const { service, compras, listas, push } = make();
     const reg = await registrar(service);
     const userId = reg.response.user.id;
 
@@ -131,6 +134,12 @@ describe('AuthService — exclusão de conta (anonimização LGPD)', () => {
       itens: [],
       criadaEm: new Date().toISOString(),
     });
+    await listas.salvar(userId, {
+      id: 'L1',
+      nome: 'Semana',
+      itens: [{ produtoId: 'p1', nome: 'Arroz', quantity: 1 }],
+      criadaEm: new Date().toISOString(),
+    });
     await push.salvar({
       id: 'p1',
       userId,
@@ -140,12 +149,14 @@ describe('AuthService — exclusão de conta (anonimização LGPD)', () => {
       criadoEm: new Date(),
     });
     expect(await compras.listarPorUsuario(userId)).toHaveLength(1);
+    expect(await listas.listarPorUsuario(userId)).toHaveLength(1);
     expect(await push.listarPorUsuario(userId)).toHaveLength(1);
 
     await service.excluirConta(userId, 'senha-de-teste');
 
     // dado pessoal do titular some…
     expect(await compras.listarPorUsuario(userId)).toHaveLength(0);
+    expect(await listas.listarPorUsuario(userId)).toHaveLength(0);
     expect(await push.listarPorUsuario(userId)).toHaveLength(0);
     // (os preços vivem em outro repositório — a comunidade não perde nada.)
   });

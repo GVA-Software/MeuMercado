@@ -595,4 +595,167 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await expect(page.getByText('Arroz Camil')).toBeVisible();
     await expect(page.getByText(/Toque para riscar quando pegar/)).toBeVisible();
   });
+
+  test('Minhas listas: usar uma lista salva semeia o carrinho', async ({ page }) => {
+    await installApiMocks(page, { pro: true });
+
+    // Uma lista salva → habilita "Minhas listas" na lista vazia.
+    await page.route(
+      (url) => url.pathname.endsWith('/listas'),
+      (route) => {
+        if (route.request().method() !== 'GET') return route.fallback();
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: { 'access-control-allow-origin': '*' },
+          body: JSON.stringify({
+            listas: [
+              {
+                id: 'L1',
+                nome: 'Compra do mês',
+                criadaEm: '2026-07-10T12:00:00.000Z',
+                itens: [
+                  { produtoId: 'p-arroz', nome: 'Arroz Camil', emoji: '🍚', quantity: 2 },
+                  { produtoId: 'p-cafe', nome: 'Café Pilão', emoji: '☕', quantity: 1 },
+                ],
+              },
+            ],
+          }),
+        });
+      },
+    );
+
+    // Carrinho com estado: "usar-lista" semeia os itens.
+    const items: Array<Record<string, unknown>> = [];
+    const toDTO = () => ({
+      id: 'cart-e2e',
+      items: items.map((i) => ({ ...i, subtotal: { cents: 0 } })),
+      total: { cents: 0 },
+      limite: null,
+      remaining: null,
+      progressPercent: 0,
+      status: 'sem-limite',
+      mercado: null,
+    });
+    await page.route(
+      (url) => url.pathname.includes('/carts'),
+      (route) => {
+        const path = new URL(route.request().url()).pathname;
+        const done = (b: unknown) =>
+          route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: { 'access-control-allow-origin': '*' },
+            body: JSON.stringify(b),
+          });
+        if (path.includes('/usar-lista/')) {
+          items.push(
+            { lineId: 'l1', produtoId: 'p-arroz', nome: 'Arroz Camil', emoji: '🍚', unitPrice: null, quantity: 2, comprado: false },
+            { lineId: 'l2', produtoId: 'p-cafe', nome: 'Café Pilão', emoji: '☕', unitPrice: null, quantity: 1, comprado: false },
+          );
+        }
+        return done(toDTO());
+      },
+    );
+
+    await page.goto('/');
+
+    // Abre "Minhas listas" → usa a lista → os itens entram no carrinho.
+    await page.getByRole('button', { name: /Minhas listas/ }).click();
+    await expect(page.getByText('Compra do mês')).toBeVisible();
+    await page.getByRole('button', { name: 'usar', exact: true }).click();
+
+    await expect(page.getByText('Arroz Camil')).toBeVisible();
+    await expect(page.getByText('Café Pilão')).toBeVisible();
+  });
+
+  test('Minhas listas: salvar a lista atual como modelo', async ({ page }) => {
+    await installApiMocks(page, { pro: true });
+
+    let salvou: { nome?: string } = {};
+    await page.route(
+      (url) => url.pathname.endsWith('/listas'),
+      (route) => {
+        const req = route.request();
+        if (req.method() === 'GET') {
+          return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: { 'access-control-allow-origin': '*' },
+            body: JSON.stringify({ listas: [] }),
+          });
+        }
+        // POST /listas → captura e devolve o DTO salvo.
+        salvou = JSON.parse(req.postData() ?? '{}');
+        return route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          headers: { 'access-control-allow-origin': '*' },
+          body: JSON.stringify({
+            id: 'L1',
+            nome: salvou.nome,
+            itens: [],
+            criadaEm: '2026-07-20T12:00:00.000Z',
+          }),
+        });
+      },
+    );
+
+    // Carrinho com estado (pra ter item pra salvar).
+    const items: Array<Record<string, unknown>> = [];
+    const toDTO = () => ({
+      id: 'cart-e2e',
+      items: items.map((i) => ({ ...i, subtotal: { cents: 0 } })),
+      total: { cents: 0 },
+      limite: null,
+      remaining: null,
+      progressPercent: 0,
+      status: 'sem-limite',
+      mercado: null,
+    });
+    await page.route(
+      (url) => url.pathname.includes('/carts'),
+      (route) => {
+        const req = route.request();
+        const path = new URL(req.url()).pathname;
+        const done = (b: unknown) =>
+          route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: { 'access-control-allow-origin': '*' },
+            body: JSON.stringify(b),
+          });
+        if (req.method() === 'POST' && path.endsWith('/items')) {
+          const b = JSON.parse(req.postData() ?? '{}');
+          items.push({
+            lineId: 'l1',
+            produtoId: b.produtoId,
+            nome: b.nome,
+            emoji: b.emoji,
+            unitPrice: null,
+            quantity: b.quantity ?? 1,
+            comprado: false,
+          });
+        }
+        return done(toDTO());
+      },
+    );
+
+    await page.goto('/');
+
+    // Monta a lista com 1 item…
+    await page.getByRole('button', { name: '+', exact: true }).click();
+    await page.getByPlaceholder('Buscar produto…').fill('ARROZ');
+    await page.getByRole('button', { name: /ARROZ TIO JOAO 5KG/ }).click();
+    await page.getByRole('button', { name: /Adicionar à lista/ }).click();
+    await expect(page.getByText('ARROZ TIO JOAO 5KG')).toBeVisible();
+
+    // …salva como modelo.
+    await page.getByRole('button', { name: /Salvar/ }).click();
+    await page.getByPlaceholder('Nome da lista').fill('Compra do mês');
+    await page.getByRole('button', { name: 'Salvar lista' }).click();
+
+    await expect(page.getByText(/Lista salva/)).toBeVisible();
+    expect(salvou.nome).toBe('Compra do mês');
+  });
 });

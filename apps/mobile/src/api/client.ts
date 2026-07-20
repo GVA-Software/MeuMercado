@@ -9,6 +9,9 @@ import type {
   EanLookupDTO,
   EstimativaListaResponse,
   EventName,
+  SavedListDTO,
+  SavedListItemDTO,
+  SavedListsResponse,
   FeedbackTipo,
   InsightsResponse,
   LoginInput,
@@ -240,6 +243,22 @@ export class ApiClient {
     itens: Array<{ produtoId: string; quantity: number }>,
   ): Promise<EstimativaListaResponse> {
     return this.request('/prices/estimativa', { method: 'POST', body: JSON.stringify({ itens }) });
+  }
+
+  // ---- Listas salvas (modelos reutilizáveis) ----
+  salvarLista(nome: string, itens: SavedListItemDTO[]): Promise<SavedListDTO> {
+    return this.request('/listas', { method: 'POST', body: JSON.stringify({ nome, itens }) });
+  }
+  listarListas(): Promise<SavedListsResponse> {
+    return this.request('/listas');
+  }
+  excluirLista(id: string): Promise<void> {
+    return this.request(`/listas/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+  usarLista(cartId: string, listaId: string): Promise<CartDTO> {
+    return this.request(`/carts/${cartId}/usar-lista/${encodeURIComponent(listaId)}`, {
+      method: 'POST',
+    });
   }
 
   // ---- Minhas compras (histórico) ----

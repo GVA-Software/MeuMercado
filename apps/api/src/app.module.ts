@@ -19,6 +19,7 @@ import { PricingModule } from './modules/pricing/pricing.module.js';
 import { NfceModule } from './modules/nfce/nfce.module.js';
 import { CartModule } from './modules/cart/cart.module.js';
 import { ComprasModule } from './modules/compras/compras.module.js';
+import { ListasModule } from './modules/listas/listas.module.js';
 import { InsightsModule } from './modules/insights/insights.module.js';
 import { PushModule } from './modules/push/push.module.js';
 import { AnalyticsModule } from './modules/analytics/analytics.module.js';
@@ -57,6 +58,7 @@ const imports: ModuleImport[] = [
   NfceModule,
   CartModule,
   ComprasModule,
+  ListasModule,
   InsightsModule,
   PushModule,
   AnalyticsModule,

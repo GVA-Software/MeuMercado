@@ -6,6 +6,7 @@ export * from './pricing.js';
 export * from './nfce.js';
 export * from './cart.js';
 export * from './compra.js';
+export * from './listas.js';
 export * from './insights.js';
 export * from './geo.js';
 export * from './auth.js';

@@ -19,6 +19,7 @@ import {
   type RefreshSessionRepository,
 } from './refresh-session.repository.js';
 import { COMPRA_REPOSITORY, type CompraRepository } from '../compras/compra.repository.js';
+import { LISTA_REPOSITORY, type ListaRepository } from '../listas/lista.repository.js';
 import {
   PUSH_SUBSCRIPTION_REPOSITORY,
   type PushSubscriptionRepository,
@@ -40,6 +41,7 @@ export class AuthService {
     private readonly config: ConfigService<Env, true>,
     @Inject(REFRESH_SESSION_REPOSITORY) private readonly sessions: RefreshSessionRepository,
     @Inject(COMPRA_REPOSITORY) private readonly compras: CompraRepository,
+    @Inject(LISTA_REPOSITORY) private readonly listas: ListaRepository,
     @Inject(PUSH_SUBSCRIPTION_REPOSITORY) private readonly push: PushSubscriptionRepository,
   ) {}
 
@@ -115,6 +117,7 @@ export class AuthService {
     await this.users.marcarExcluido(user.id, new Date());
     await this.sessions.revogarTodasDoUsuario(user.id);
     await this.compras.excluirTodas(user.id); // histórico pessoal de gastos (privado)
+    await this.listas.excluirTodas(user.id); // listas salvas (dado pessoal privado)
     await this.push.removerTodasDoUsuario(user.id); // não notificar mais
   }
 
