@@ -22,8 +22,9 @@ export class TypeOrmCartRepository implements CartStore {
           lineId: i.lineId,
           produtoId: i.produtoId,
           nome: i.nome,
-          unitPrice: Money.fromCents(i.unitPriceCents),
           quantity: i.quantity,
+          comprado: i.comprado,
+          ...(i.unitPriceCents !== null ? { unitPrice: Money.fromCents(i.unitPriceCents) } : {}),
           ...(i.emoji !== null ? { emoji: i.emoji } : {}),
         }),
     );
@@ -64,8 +65,9 @@ export class TypeOrmCartRepository implements CartStore {
       produtoId: i.produtoId,
       nome: i.nome,
       emoji: i.emoji ?? null,
-      unitPriceCents: i.unitPrice.cents,
+      unitPriceCents: i.unitPrice?.cents ?? null,
       quantity: i.quantity,
+      comprado: i.comprado,
     }));
     if (rows.length > 0) await this.items.insert(rows);
   }

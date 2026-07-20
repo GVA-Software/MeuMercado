@@ -6,8 +6,11 @@ export const CartItemSchema = z.object({
   produtoId: IdSchema,
   nome: z.string().min(1).max(120),
   emoji: z.string().max(8).optional(),
-  unitPrice: MoneySchema,
+  /** null = item PLANEJADO (ainda sem preço, na lista). */
+  unitPrice: MoneySchema.nullable(),
   quantity: z.number().int().min(1),
+  /** Já riscado/comprado (com preço)? */
+  comprado: z.boolean(),
   subtotal: MoneySchema,
 });
 export type CartItemDTO = z.infer<typeof CartItemSchema>;
@@ -37,15 +40,23 @@ export const CartSchema = z.object({
 });
 export type CartDTO = z.infer<typeof CartSchema>;
 
-/** Adicionar um item ao carrinho. */
+/** Adicionar um item à lista/carrinho. Sem `unitPriceCents` = item PLANEJADO. */
 export const AddCartItemSchema = z.object({
   produtoId: IdSchema,
   nome: z.string().min(1).max(120),
   emoji: z.string().max(8).optional(),
-  unitPriceCents: z.number().int().positive(),
+  /** Opcional: informado só no "add rápido com preço"; na lista, o preço vem ao riscar. */
+  unitPriceCents: z.number().int().positive().optional(),
   quantity: z.number().int().min(1).max(999).default(1),
 });
 export type AddCartItemInput = z.infer<typeof AddCartItemSchema>;
+
+/** Riscar um item: grava o preço pago e a quantidade (e alimenta a base). */
+export const MarcarCompradoSchema = z.object({
+  precoCents: z.number().int().positive().max(100_000_000),
+  quantity: z.number().int().min(1).max(999).default(1),
+});
+export type MarcarCompradoInput = z.infer<typeof MarcarCompradoSchema>;
 
 export const SetLimiteSchema = z.object({
   limiteCents: z.number().int().min(0).nullable(),

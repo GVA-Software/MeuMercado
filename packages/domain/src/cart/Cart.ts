@@ -99,6 +99,25 @@ export class Cart {
     this._items.set(lineId, item.withQuantity(quantity));
   }
 
+  /** Risca um item da lista: grava preço + quantidade e marca como comprado. */
+  marcarComprado(lineId: string, unitPrice: Money, quantity: number): void {
+    const item = this._items.get(lineId);
+    if (!item) throw new InvalidCartError(`Linha não encontrada: ${lineId}`);
+    this._items.set(lineId, item.marcarComprado(unitPrice, quantity));
+  }
+
+  /** Desmarca um item (volta a planejado). */
+  desmarcar(lineId: string): void {
+    const item = this._items.get(lineId);
+    if (!item) throw new InvalidCartError(`Linha não encontrada: ${lineId}`);
+    this._items.set(lineId, item.desmarcar());
+  }
+
+  /** Itens já comprados (riscados com preço) — o que vira Compra no fim. */
+  get comprados(): readonly CartItem[] {
+    return [...this._items.values()].filter((i) => i.comprado);
+  }
+
   /** Soma dos subtotais. Carrinho vazio → R$ 0,00. */
   total(): Money {
     let total = Money.zero();

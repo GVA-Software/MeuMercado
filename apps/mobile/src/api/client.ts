@@ -200,6 +200,21 @@ export class ApiClient {
   removerItem(id: string, lineId: string): Promise<CartDTO> {
     return this.request(`/carts/${id}/items/${lineId}`, { method: 'DELETE' });
   }
+  /** Risca um item (comprei): grava preço + qtd e alimenta a base da comunidade. */
+  marcarComprado(
+    id: string,
+    lineId: string,
+    body: { precoCents: number; quantity: number },
+  ): Promise<CartDTO> {
+    return this.request(`/carts/${id}/items/${lineId}/comprado`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+  /** Desmarca um item riscado (volta a planejado na lista). */
+  desmarcarItem(id: string, lineId: string): Promise<CartDTO> {
+    return this.request(`/carts/${id}/items/${lineId}/comprado`, { method: 'DELETE' });
+  }
   definirLimite(id: string, limiteCents: number | null): Promise<CartDTO> {
     return this.request(`/carts/${id}/limite`, {
       method: 'PUT',

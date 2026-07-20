@@ -1,4 +1,5 @@
 import type { Page, Route } from '@playwright/test';
+import { POLITICA_VERSAO } from '@meumercado/contracts';
 
 /**
  * Fixtures + mock da API para os e2e.
@@ -14,6 +15,8 @@ export const USER = {
   email: 'teste@meumercado.app',
   nome: 'Gustavo Teste',
   isAdmin: false,
+  // Já aceitou a política vigente → o ReconsentGate (modal full-screen) não cobre o app.
+  politicaVersao: POLITICA_VERSAO,
 };
 
 export const AUTH = { accessToken: 'e2e-access-token', user: USER };

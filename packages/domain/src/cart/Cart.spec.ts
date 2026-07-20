@@ -10,6 +10,7 @@ const item = (lineId: string, reais: number, qty: number): CartItem =>
     nome: `Produto ${lineId}`,
     unitPrice: Money.fromReais(reais),
     quantity: qty,
+    comprado: true,
   });
 
 describe('Cart', () => {
@@ -55,5 +56,17 @@ describe('Cart', () => {
     cart.removeItem('a');
     expect(cart.itemCount).toBe(1);
     expect(cart.total().cents).toBe(2000);
+  });
+
+  it('item PLANEJADO não soma; ao RISCAR, entra no total e vira comprado', () => {
+    const cart = new Cart({ id: 'c1' });
+    cart.addItem(new CartItem({ lineId: 'a', produtoId: 'p', nome: 'Arroz', quantity: 2 }));
+    expect(cart.total().cents).toBe(0); // planejado não soma
+    expect(cart.comprados.length).toBe(0);
+    cart.marcarComprado('a', Money.fromReais(5), 3);
+    expect(cart.total().cents).toBe(1500); // 5,00 × 3
+    expect(cart.comprados.length).toBe(1);
+    cart.desmarcar('a');
+    expect(cart.total().cents).toBe(0);
   });
 });

@@ -28,40 +28,80 @@ export class CartService {
 
   async adicionarItem(id: string, input: AddCartItemInput, reporterId: string): Promise<CartDTO> {
     const cart = await this.requireCart(id, reporterId);
+    const temPreco = input.unitPriceCents !== undefined;
     cart.addItem(
       new CartItem({
         lineId: randomUUID(),
         produtoId: input.produtoId,
         nome: input.nome,
-        unitPrice: Money.fromCents(input.unitPriceCents),
         quantity: input.quantity,
+        // Sem preço = item PLANEJADO da lista; com preço = "add rápido" já comprado.
+        ...(temPreco
+          ? { unitPrice: Money.fromCents(input.unitPriceCents!), comprado: true }
+          : {}),
         ...(input.emoji !== undefined ? { emoji: input.emoji } : {}),
       }),
     );
     await this.store.save(cart);
-    // Auto-report: se a compra está vinculada a um mercado, o preço digitado
-    // alimenta a base colaborativa automaticamente (best-effort).
-    const m = cart.mercado;
-    if (m && reporterId) {
-      try {
-        await this.pricing.reportar(
-          {
-            produtoId: input.produtoId,
-            mercadoId: m.id,
-            mercadoNome: m.nome,
-            ...(m.endereco ? { mercadoEndereco: m.endereco } : {}),
-            ...(m.lat !== undefined ? { mercadoLat: m.lat } : {}),
-            ...(m.lng !== undefined ? { mercadoLng: m.lng } : {}),
-            priceCents: input.unitPriceCents,
-            source: 'manual',
-          },
-          reporterId,
-        );
-      } catch (e) {
-        this.logger.warn(`Auto-report do carrinho falhou: ${String(e)}`);
-      }
+    // Add rápido COM preço e mercado definido → já alimenta a base (best-effort).
+    if (temPreco && cart.mercado) {
+      await this.autoReport(cart, input.produtoId, input.unitPriceCents!, reporterId);
     }
     return this.toDTO(cart);
+  }
+
+  /** Risca um item da lista: grava preço + qtd e alimenta a base (se houver mercado). */
+  async marcarComprado(
+    id: string,
+    userId: string,
+    lineId: string,
+    precoCents: number,
+    quantity: number,
+  ): Promise<CartDTO> {
+    const cart = await this.requireCart(id, userId);
+    cart.marcarComprado(lineId, Money.fromCents(precoCents), quantity);
+    await this.store.save(cart);
+    const item = cart.items.find((i) => i.lineId === lineId);
+    if (item && cart.mercado) {
+      await this.autoReport(cart, item.produtoId, precoCents, userId);
+    }
+    return this.toDTO(cart);
+  }
+
+  /** Desmarca um item (volta a planejado; o preço já reportado permanece na base). */
+  async desmarcar(id: string, userId: string, lineId: string): Promise<CartDTO> {
+    const cart = await this.requireCart(id, userId);
+    cart.desmarcar(lineId);
+    await this.store.save(cart);
+    return this.toDTO(cart);
+  }
+
+  /** Reporta o preço à base comunitária, atribuído ao mercado do carrinho. */
+  private async autoReport(
+    cart: Cart,
+    produtoId: string,
+    priceCents: number,
+    reporterId: string,
+  ): Promise<void> {
+    const m = cart.mercado;
+    if (!m || !reporterId) return;
+    try {
+      await this.pricing.reportar(
+        {
+          produtoId,
+          mercadoId: m.id,
+          mercadoNome: m.nome,
+          ...(m.endereco ? { mercadoEndereco: m.endereco } : {}),
+          ...(m.lat !== undefined ? { mercadoLat: m.lat } : {}),
+          ...(m.lng !== undefined ? { mercadoLng: m.lng } : {}),
+          priceCents,
+          source: 'manual',
+        },
+        reporterId,
+      );
+    } catch (e) {
+      this.logger.warn(`Auto-report do carrinho falhou: ${String(e)}`);
+    }
   }
 
   async definirMercado(
@@ -111,11 +151,11 @@ export class CartService {
     return this.toDTO(cart);
   }
 
-  /** Fecha a compra: salva no histórico e esvazia o carrinho para a próxima. */
+  /** Fecha a compra: salva no histórico (só os itens comprados) e esvazia a lista. */
   async finalizar(id: string, userId: string): Promise<CompraDTO> {
     const cart = await this.requireCart(id, userId);
-    if (cart.items.length === 0) {
-      throw new BadRequestException('Carrinho vazio — adicione itens antes de finalizar.');
+    if (cart.comprados.length === 0) {
+      throw new BadRequestException('Nada comprado ainda — risque os itens que você pegou.');
     }
     const compra = await this.compras.criarDeCarrinho(cart, userId);
     for (const item of cart.items) cart.removeItem(item.lineId);

@@ -47,9 +47,14 @@ export class CartItemEntity {
   @Column({ type: 'varchar', nullable: true })
   emoji!: string | null;
 
-  @Column({ name: 'unit_price_cents', type: 'int' })
-  unitPriceCents!: number;
+  /** null = item planejado (ainda sem preço na lista). */
+  @Column({ name: 'unit_price_cents', type: 'int', nullable: true })
+  unitPriceCents!: number | null;
 
   @Column({ type: 'int' })
   quantity!: number;
+
+  /** Já riscado/comprado (com preço)? */
+  @Column({ type: 'boolean', default: false })
+  comprado!: boolean;
 }

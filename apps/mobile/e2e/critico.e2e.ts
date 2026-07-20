@@ -128,10 +128,11 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await expect(page.getByText(/Achei 2 tipos/)).toBeVisible();
 
     // Escolhe um tipo → mercados ranqueados (mais barato primeiro).
+    // O nome é exibido BONITO (marcaMercado: "Atacadao" → "Atacadão").
     await page.getByRole('button', { name: /CAFE PILAO 500G/ }).click();
-    await expect(page.getByText('Atacadao', { exact: true })).toBeVisible();
+    await expect(page.getByText('Atacadão', { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/12,90/).first()).toBeVisible(); // resumo + cartão
-    await expect(page.getByText('Rossi', { exact: true })).toBeVisible();
+    await expect(page.getByText('Rossi', { exact: true }).first()).toBeVisible();
   });
 
   test('Nina: "qual o melhor mercado para [X]" recomenda um mercado', async ({ page }) => {
@@ -377,5 +378,104 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await page.getByRole('button', { name: /Nina IA/ }).click();
 
     await expect(page.getByText('A Nina IA é um recurso Pro')).toBeVisible();
+  });
+
+  test('Lista de compras: adiciona planejado → risca com preço → alimenta o total', async ({
+    page,
+  }) => {
+    await installApiMocks(page, { pro: true });
+
+    // Carrinho COM ESTADO: reflete add/riscar (o mock base é estático).
+    interface Item {
+      lineId: string;
+      produtoId: string;
+      nome: string;
+      emoji?: string;
+      unitPrice: { cents: number } | null;
+      quantity: number;
+      comprado: boolean;
+    }
+    const items: Item[] = [];
+    const sub = (i: Item) => (i.comprado && i.unitPrice ? i.unitPrice.cents * i.quantity : 0);
+    const toDTO = () => ({
+      id: 'cart-e2e',
+      items: items.map((i) => ({ ...i, subtotal: { cents: sub(i) } })),
+      total: { cents: items.reduce((s, i) => s + sub(i), 0) },
+      limite: null,
+      remaining: null,
+      progressPercent: 0,
+      status: 'sem-limite',
+      mercado: null,
+    });
+
+    await page.route(
+      (url) => url.pathname.includes('/carts'),
+      (route) => {
+        const req = route.request();
+        const method = req.method();
+        const path = new URL(req.url()).pathname;
+        const done = (body: unknown) =>
+          route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: {
+              'access-control-allow-origin': req.headers()['origin'] ?? '*',
+              'access-control-allow-credentials': 'true',
+            },
+            body: JSON.stringify(body),
+          });
+
+        const risca = path.match(/\/items\/([^/]+)\/comprado$/);
+        if (risca) {
+          const it = items.find((i) => i.lineId === risca[1]);
+          if (it && method === 'POST') {
+            const b = JSON.parse(req.postData() ?? '{}');
+            it.comprado = true;
+            it.unitPrice = { cents: b.precoCents };
+            it.quantity = b.quantity ?? it.quantity;
+          } else if (it && method === 'DELETE') {
+            it.comprado = false;
+          }
+          return done(toDTO());
+        }
+        if (method === 'POST' && path.endsWith('/items')) {
+          const b = JSON.parse(req.postData() ?? '{}');
+          items.push({
+            lineId: `line-${items.length + 1}`,
+            produtoId: b.produtoId,
+            nome: b.nome,
+            emoji: b.emoji,
+            unitPrice: b.unitPriceCents ? { cents: b.unitPriceCents } : null,
+            quantity: b.quantity ?? 1,
+            comprado: Boolean(b.unitPriceCents),
+          });
+          return done(toDTO());
+        }
+        return done(toDTO()); // criar/obter
+      },
+    );
+
+    await page.goto('/');
+
+    // 1) Monta a lista: adiciona ARROZ SEM preço (item planejado).
+    await page.getByRole('button', { name: '+', exact: true }).click();
+    await page.getByPlaceholder('Buscar produto…').fill('ARROZ');
+    await page.getByRole('button', { name: /ARROZ TIO JOAO 5KG/ }).click();
+    await page.getByRole('button', { name: /Adicionar à lista/ }).click();
+
+    // Aparece na lista como "a comprar", e o total ainda é zero (só fecha ao riscar).
+    await expect(page.getByText('ARROZ TIO JOAO 5KG')).toBeVisible();
+    await expect(page.getByText(/A comprar/)).toBeVisible();
+    await expect(page.getByText(/Risque os itens que você pegou/)).toBeVisible();
+
+    // 2) Risca o item: informa o preço pago (R$ 5,99) e confirma.
+    await page.getByRole('button', { name: 'Marcar como comprado' }).click();
+    await expect(page.getByText('Peguei este item 🛒')).toBeVisible();
+    await page.getByPlaceholder('Preço R$').fill('599');
+    await page.getByRole('button', { name: /Riscar/ }).click();
+
+    // Agora o item mostra o preço e o botão de finalizar aparece (algo comprado).
+    await expect(page.getByText(/R\$\s?5,99 × 1/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Finalizar compra/ })).toBeVisible();
   });
 });

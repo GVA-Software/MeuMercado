@@ -14,11 +14,13 @@ import { z } from 'zod';
 import {
   AddCartItemSchema,
   CartMercadoSchema,
+  MarcarCompradoSchema,
   SetLimiteSchema,
   type AddCartItemInput,
   type CartDTO,
   type CartMercadoDTO,
   type CompraDTO,
+  type MarcarCompradoInput,
   type SetLimiteInput,
 } from '@meumercado/contracts';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
@@ -76,6 +78,27 @@ export class CartController {
   @HttpCode(201)
   finalizar(@Param('id') id: string, @CurrentUser() user: AuthedUser): Promise<CompraDTO> {
     return this.service.finalizar(id, user.id);
+  }
+
+  /** Risca um item da lista (comprei): grava preço + qtd e alimenta a base. */
+  @Post(':id/items/:lineId/comprado')
+  marcarComprado(
+    @Param('id') id: string,
+    @Param('lineId') lineId: string,
+    @Body(new ZodValidationPipe(MarcarCompradoSchema)) body: MarcarCompradoInput,
+    @CurrentUser() user: AuthedUser,
+  ): Promise<CartDTO> {
+    return this.service.marcarComprado(id, user.id, lineId, body.precoCents, body.quantity);
+  }
+
+  /** Desmarca um item (volta a planejado). */
+  @Delete(':id/items/:lineId/comprado')
+  desmarcar(
+    @Param('id') id: string,
+    @Param('lineId') lineId: string,
+    @CurrentUser() user: AuthedUser,
+  ): Promise<CartDTO> {
+    return this.service.desmarcar(id, user.id, lineId);
   }
 
   @Patch(':id/items/:lineId')

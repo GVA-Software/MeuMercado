@@ -51,18 +51,18 @@ export class ComprasService {
     return compra;
   }
 
-  /** Fecha uma compra a partir do carrinho. */
+  /** Fecha uma compra a partir do carrinho — só os itens COMPRADOS (riscados). */
   criarDeCarrinho(cart: Cart, userId: string): Promise<CompraDTO> {
     const m = cart.mercado;
     return this.registrar(userId, {
       mercadoId: m?.id ?? null,
       mercadoNome: m?.nome ?? null,
       mercadoEndereco: m?.endereco ?? null,
-      itens: cart.items.map((i) => ({
+      itens: cart.comprados.map((i) => ({
         produtoId: i.produtoId,
         nome: i.nome,
         ...(i.emoji !== undefined ? { emoji: i.emoji } : {}),
-        unitPriceCents: i.unitPrice.cents,
+        unitPriceCents: i.unitPrice?.cents ?? 0,
         quantity: i.quantity,
       })),
     });
