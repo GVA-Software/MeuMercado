@@ -110,8 +110,9 @@ export class MarketsService {
   private readonly osmCache = new Map<string, { elements: OverpassElement[]; at: number }>();
   private readonly osmRefreshing = new Set<string>();
   private static readonly OSM_TTL_MS = 30 * 60 * 1000;
-  // Espera máxima pelo Overpass na 1ª busca de uma área (o resto vira cache p/ o próximo load).
-  private static readonly OSM_SOFT_DEADLINE_MS = 6000;
+  // Espera curta pelo Overpass na 1ª busca de uma área — só pra pegar respostas rápidas;
+  // se demorar mais, o mapa abre com os nossos mercados e o OSM entra no cache p/ o próximo.
+  private static readonly OSM_SOFT_DEADLINE_MS = 2500;
 
   /**
    * Mercados com preço, garantindo coordenada: os que têm endereço mas entraram sem
@@ -293,17 +294,22 @@ export class MarketsService {
       }
       return cache.elements;
     }
-    // 1ª vez nesta área (sem cache): dispara a busca — mas ESPERA no máximo ~6s.
-    // O Overpass público é lento (às vezes ~15s); em vez de travar o mapa esse tempo
-    // todo (o que lia como "não carrega"), o mapa abre já com os NOSSOS mercados e o
-    // OSM entra no cache pro próximo load. A busca continua e cacheia ao terminar.
-    const busca = this.buscarECachearOsm(chave, lat, lng, raioMetros, false).catch(
-      () => [] as OverpassElement[],
+    // 1ª vez nesta área (sem cache): dispara a busca (que cacheia ao terminar), mas NÃO
+    // trava esperando o Overpass público (lento, às vezes ~15s). Corre a busca contra um
+    // deadline curto: se o Overpass responder rápido, já entra; senão o mapa abre com os
+    // NOSSOS mercados e o OSM aparece no próximo load. Não duplica busca p/ a mesma área.
+    const busca: Promise<OverpassElement[]> = this.osmRefreshing.has(chave)
+      ? new Promise(() => {}) // já há uma busca em andamento: só aguarda até o deadline
+      : this.buscarECachearOsm(chave, lat, lng, raioMetros, true).catch(
+          () => [] as OverpassElement[],
+        );
+    const deadline = new Promise<OverpassElement[]>((r) =>
+      setTimeout(
+        () => r(this.osmCache.get(chave)?.elements ?? []),
+        MarketsService.OSM_SOFT_DEADLINE_MS,
+      ),
     );
-    const limite = new Promise<OverpassElement[]>((r) =>
-      setTimeout(() => r([]), MarketsService.OSM_SOFT_DEADLINE_MS),
-    );
-    return Promise.race([busca, limite]);
+    return Promise.race([busca, deadline]);
   }
 
   private async buscarECachearOsm(
