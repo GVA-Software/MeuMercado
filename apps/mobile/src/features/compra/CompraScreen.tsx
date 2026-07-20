@@ -65,6 +65,10 @@ export function CompraScreen() {
   const [mutando, setMutando] = useState(false);
   // Item que o usuário está riscando (abre o modal de preço + quantidade).
   const [riscando, setRiscando] = useState<CartItemDTO | null>(null);
+  // Tentou riscar SEM mercado → mostra o aviso (mercado é obrigatório pra riscar).
+  const [avisoMercado, setAvisoMercado] = useState<CartItemDTO | null>(null);
+  // Item que abre o modal de riscar automaticamente assim que o mercado for confirmado.
+  const [pendenteRisca, setPendenteRisca] = useState<CartItemDTO | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -103,12 +107,33 @@ export function CompraScreen() {
     setAddOpen(false);
   }
 
+  /**
+   * Abre o modal de riscar — mas SÓ com mercado confirmado. Sem mercado, o preço
+   * não entra na base da comunidade nem ajuda a Nina; por isso é obrigatório.
+   * Nesse caso mostramos o aviso e, ao confirmar o mercado, o modal abre sozinho.
+   */
+  function tentarRiscar(item: CartItemDTO) {
+    if (!cart) return;
+    if (cart.mercado) setRiscando(item);
+    else setAvisoMercado(item);
+  }
+
   /** Risca um item da lista: grava o preço pago + qtd (e alimenta a base). */
   async function confirmarCompra(precoCents: number, quantity: number) {
     if (!cart || !riscando) return;
     const updated = await api.marcarComprado(cart.id, riscando.lineId, { precoCents, quantity });
     setCart(updated);
     setRiscando(null);
+  }
+
+  /** Recebe o carrinho atualizado do seletor de mercado; se havia um item pendente
+   *  (o usuário tentou riscar sem mercado), abre o modal de riscar na sequência. */
+  function aoDefinirMercado(c: CartDTO) {
+    setCart(c);
+    if (c.mercado && pendenteRisca) {
+      setRiscando(pendenteRisca);
+      setPendenteRisca(null);
+    }
   }
 
   /** Desmarca um item (volta a planejado). O preço já reportado fica na base. */
@@ -349,7 +374,7 @@ export function CompraScreen() {
         {cart && cart.items.length > 0 && (
           <MercadoDaCompra
             cart={cart}
-            onCart={setCart}
+            onCart={aoDefinirMercado}
             open={mercadoOpen}
             setOpen={setMercadoOpen}
           />
@@ -476,56 +501,69 @@ export function CompraScreen() {
                         checked={item.comprado}
                         disabled={mutando}
                         onClick={() =>
-                          item.comprado ? void desmarcar(item.lineId) : setRiscando(item)
+                          item.comprado ? void desmarcar(item.lineId) : tentarRiscar(item)
                         }
                       />
                       <div
+                        onClick={item.comprado ? undefined : () => tentarRiscar(item)}
                         style={{
-                          width: 42,
-                          height: 42,
-                          borderRadius: 12,
-                          background: T.primaryBg,
+                          flex: 1,
+                          minWidth: 0,
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 22,
-                          opacity: item.comprado ? 0.55 : 1,
+                          gap: 10,
+                          cursor: item.comprado ? 'default' : 'pointer',
                         }}
                       >
-                        {emojiDe(item)}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p
+                        <div
                           style={{
-                            color: item.comprado ? T.muted : T.text,
-                            fontSize: 14,
-                            fontWeight: 700,
-                            margin: 0,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            textDecoration: item.comprado ? 'line-through' : 'none',
+                            flexShrink: 0,
+                            width: 42,
+                            height: 42,
+                            borderRadius: 12,
+                            background: T.primaryBg,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 22,
+                            opacity: item.comprado ? 0.55 : 1,
                           }}
                         >
-                          {item.nome}
-                        </p>
-                        {comprado ? (
+                          {emojiDe(item)}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <p
                             style={{
-                              color: T.green,
-                              fontSize: 13,
-                              fontWeight: 600,
-                              margin: '2px 0 0',
+                              color: item.comprado ? T.muted : T.text,
+                              fontSize: 14,
+                              fontWeight: 700,
+                              margin: 0,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              textDecoration: item.comprado ? 'line-through' : 'none',
                             }}
                           >
-                            {formatBRL(item.unitPrice!.cents)} × {item.quantity} ={' '}
-                            {formatBRL(item.subtotal.cents)}
+                            {item.nome}
                           </p>
-                        ) : (
-                          <p style={{ color: T.muted, fontSize: 12, margin: '2px 0 0' }}>
-                            A comprar · toque em ○ ao pegar
-                          </p>
-                        )}
+                          {comprado ? (
+                            <p
+                              style={{
+                                color: T.green,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                margin: '2px 0 0',
+                              }}
+                            >
+                              {formatBRL(item.unitPrice!.cents)} × {item.quantity} ={' '}
+                              {formatBRL(item.subtotal.cents)}
+                            </p>
+                          ) : (
+                            <p style={{ color: T.primary, fontSize: 12, margin: '2px 0 0' }}>
+                              Toque para riscar quando pegar
+                            </p>
+                          )}
+                        </div>
                       </div>
                       {item.comprado ? (
                         <button
@@ -612,7 +650,7 @@ export function CompraScreen() {
 
                 {riscados === 0 ? (
                   <p style={{ color: T.muted, fontSize: 13, margin: 0, textAlign: 'center' }}>
-                    Risque os itens que você pegou (toque no ○) para fechar a compra.
+                    Toque em cada item que você pegou pra riscar e informar o preço.
                   </p>
                 ) : (
                   <Btn full disabled={finalizando} onClick={() => void finalizar()}>
@@ -646,6 +684,22 @@ export function CompraScreen() {
             setMercadoOpen(true);
           }}
           onCancelar={() => void finalizarDeFato()}
+        />
+      )}
+
+      {avisoMercado && (
+        <ConfirmDialog
+          emoji="📍"
+          titulo="Confirme o mercado primeiro"
+          mensagem="Pra riscar os itens, confirme onde você está comprando. Assim o preço que você digitar entra na base da comunidade e faz a Nina IA te dar comparações e dicas melhores — é o que faz o app crescer e economizar pra você. 🧡"
+          confirmarLabel="📍 Confirmar mercado"
+          cancelarLabel="Agora não"
+          onConfirmar={() => {
+            setPendenteRisca(avisoMercado);
+            setAvisoMercado(null);
+            setMercadoOpen(true);
+          }}
+          onCancelar={() => setAvisoMercado(null)}
         />
       )}
 
@@ -728,33 +782,31 @@ function RiscarSheet({
   }
 
   return createPortal(
+    // Modal CENTRAL e obrigatório: não fecha ao tocar fora — só riscando ou cancelando.
     <div
-      onClick={onClose}
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.55)',
+        background: 'rgba(0,0,0,0.62)',
         zIndex: 1000,
         display: 'flex',
-        alignItems: 'flex-end',
+        alignItems: 'center',
         justifyContent: 'center',
+        padding: 20,
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: 430,
+          maxWidth: 400,
           background: T.surface,
-          borderRadius: '24px 24px 0 0',
-          padding: '18px 20px calc(24px + env(safe-area-inset-bottom))',
+          borderRadius: 20,
+          padding: 22,
           maxHeight: '86vh',
           overflowY: 'auto',
+          boxShadow: '0 16px 48px rgba(0,0,0,0.45)',
         }}
       >
-        <div
-          style={{ width: 40, height: 4, background: T.border, borderRadius: 99, margin: '0 auto 16px' }}
-        />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <span style={{ fontSize: 26 }}>{emojiDe(item)}</span>
           <div style={{ minWidth: 0 }}>

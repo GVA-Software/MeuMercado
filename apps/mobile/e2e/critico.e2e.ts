@@ -380,12 +380,33 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await expect(page.getByText('A Nina IA é um recurso Pro')).toBeVisible();
   });
 
-  test('Lista de compras: adiciona planejado → risca com preço → alimenta o total', async ({
+  test('Lista de compras: planejar → riscar EXIGE mercado → check-in → preço alimenta a base', async ({
     page,
   }) => {
     await installApiMocks(page, { pro: true });
+    await page.context().grantPermissions(['geolocation']);
+    await page.context().setGeolocation({ latitude: -23.55, longitude: -46.63 });
 
-    // Carrinho COM ESTADO: reflete add/riscar (o mock base é estático).
+    // Mercado por perto (check-in por GPS).
+    await page.route(
+      (url) => url.pathname.includes('/markets/nearby'),
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: { 'access-control-allow-origin': '*' },
+          body: JSON.stringify([
+            {
+              id: 'm-teste',
+              nome: 'Mercado Teste',
+              endereco: 'Rua X, 1',
+              localizacao: { lat: -23.55, lng: -46.63 },
+            },
+          ]),
+        }),
+    );
+
+    // Carrinho COM ESTADO: reflete add/riscar/mercado (o mock base é estático).
     interface Item {
       lineId: string;
       produtoId: string;
@@ -396,6 +417,7 @@ test.describe('Meu Mercado — jornada crítica', () => {
       comprado: boolean;
     }
     const items: Item[] = [];
+    let mercado: unknown = null;
     const sub = (i: Item) => (i.comprado && i.unitPrice ? i.unitPrice.cents * i.quantity : 0);
     const toDTO = () => ({
       id: 'cart-e2e',
@@ -405,7 +427,7 @@ test.describe('Meu Mercado — jornada crítica', () => {
       remaining: null,
       progressPercent: 0,
       status: 'sem-limite',
-      mercado: null,
+      mercado,
     });
 
     await page.route(
@@ -425,6 +447,10 @@ test.describe('Meu Mercado — jornada crítica', () => {
             body: JSON.stringify(body),
           });
 
+        if (path.endsWith('/mercado')) {
+          mercado = method === 'DELETE' ? null : JSON.parse(req.postData() ?? '{}');
+          return done(toDTO());
+        }
         const risca = path.match(/\/items\/([^/]+)\/comprado$/);
         if (risca) {
           const it = items.find((i) => i.lineId === risca[1]);
@@ -463,18 +489,24 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await page.getByRole('button', { name: /ARROZ TIO JOAO 5KG/ }).click();
     await page.getByRole('button', { name: /Adicionar à lista/ }).click();
 
-    // Aparece na lista como "a comprar", e o total ainda é zero (só fecha ao riscar).
     await expect(page.getByText('ARROZ TIO JOAO 5KG')).toBeVisible();
-    await expect(page.getByText(/A comprar/)).toBeVisible();
-    await expect(page.getByText(/Risque os itens que você pegou/)).toBeVisible();
+    await expect(page.getByText(/Toque para riscar quando pegar/)).toBeVisible();
 
-    // 2) Risca o item: informa o preço pago (R$ 5,99) e confirma.
+    // 2) Tenta riscar SEM mercado → é OBRIGATÓRIO confirmar o mercado antes.
     await page.getByRole('button', { name: 'Marcar como comprado' }).click();
+    await expect(page.getByText('Confirme o mercado primeiro')).toBeVisible();
+    await page.getByRole('button', { name: /Confirmar mercado/ }).click();
+
+    // 3) Check-in por GPS → escolhe o mercado mais próximo.
+    await expect(page.getByText('Mercado Teste')).toBeVisible();
+    await page.getByRole('button', { name: /Sim, é aqui/ }).click();
+
+    // 4) Com o mercado confirmado, o modal de riscar abre SOZINHO. Informa o preço.
     await expect(page.getByText('Peguei este item 🛒')).toBeVisible();
     await page.getByPlaceholder('Preço R$').fill('599');
     await page.getByRole('button', { name: /Riscar/ }).click();
 
-    // Agora o item mostra o preço e o botão de finalizar aparece (algo comprado).
+    // Item riscado com preço + botão de finalizar aparece (algo comprado).
     await expect(page.getByText(/R\$\s?5,99 × 1/)).toBeVisible();
     await expect(page.getByRole('button', { name: /Finalizar compra/ })).toBeVisible();
   });
