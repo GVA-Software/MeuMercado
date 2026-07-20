@@ -84,6 +84,30 @@ describe('CartService — lista de compras (planejar → riscar → base)', () =
     expect(voltou.total.cents).toBe(0);
     expect(reportado).toHaveLength(1);
   });
+
+  it('trava o mercado depois de riscar: não remove nem troca (reconfirmar o mesmo é ok)', async () => {
+    const { service } = make();
+    const cart = await service.criar('userA');
+    await service.definirMercado(cart.id, 'userA', { id: 'm-1', nome: 'Mercado A' });
+    const comItem = await service.adicionarItem(
+      cart.id,
+      { produtoId: 'p', nome: 'Arroz', quantity: 1 },
+      'userA',
+    );
+    await service.marcarComprado(cart.id, 'userA', comItem.items[0]!.lineId, 500, 1);
+
+    // Remover → bloqueado.
+    await expect(service.definirMercado(cart.id, 'userA', null)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    // Trocar por outro → bloqueado.
+    await expect(
+      service.definirMercado(cart.id, 'userA', { id: 'm-2', nome: 'Mercado B' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    // Reconfirmar o MESMO mercado → permitido (idempotente).
+    const ok = await service.definirMercado(cart.id, 'userA', { id: 'm-1', nome: 'Mercado A' });
+    expect(ok.mercado?.id).toBe('m-1');
+  });
 });
 
 describe('CartService — repetir última compra', () => {

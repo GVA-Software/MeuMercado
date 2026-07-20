@@ -511,6 +511,11 @@ test.describe('Meu Mercado — jornada crítica', () => {
     // Item riscado com preço + botão de finalizar aparece (algo comprado).
     await expect(page.getByText(/R\$\s?5,99 × 1/)).toBeVisible();
     await expect(page.getByRole('button', { name: /Finalizar compra/ })).toBeVisible();
+
+    // Com item riscado, o mercado TRAVA (não dá pra remover/trocar).
+    await expect(page.getByText(/🔒 travado/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'remover', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'trocar', exact: true })).toHaveCount(0);
   });
 
   test('Lista: "repetir última compra" traz os itens da compra anterior', async ({ page }) => {

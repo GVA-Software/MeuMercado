@@ -136,6 +136,13 @@ export class CartService {
     mercado: CartMercadoDTO | null,
   ): Promise<CartDTO> {
     const cart = await this.requireCart(id, userId);
+    // Integridade: itens já riscados tiveram o preço reportado ATRIBUÍDO a este
+    // mercado. Não deixa remover nem trocar depois disso (só reconfirmar o mesmo).
+    if (cart.comprados.length > 0 && (mercado?.id ?? null) !== (cart.mercado?.id ?? null)) {
+      throw new BadRequestException(
+        'Você já riscou itens neste mercado. Desmarque-os ou finalize a compra antes de trocar ou remover o mercado.',
+      );
+    }
     cart.setMercado(
       mercado
         ? {

@@ -1537,36 +1537,46 @@ function MercadoDaCompra({
             <p style={{ color: T.muted, fontSize: 11, margin: '0 0 4px' }}>Comprando em</p>
             <MarketTag nome={m.nome} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-            <button
-              onClick={() => setOpen(true)}
-              disabled={removendo}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: T.primary,
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
+          {cart.items.some((i) => i.comprado) ? (
+            // Já riscou aqui → o mercado trava (os preços foram atribuídos a ele).
+            <span
+              title="Você já riscou itens neste mercado"
+              style={{ color: T.muted, fontSize: 11, fontWeight: 700, flexShrink: 0 }}
             >
-              trocar
-            </button>
-            <button
-              onClick={() => void remover()}
-              disabled={removendo}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: T.muted,
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              {removendo ? '…' : 'remover'}
-            </button>
-          </div>
+              🔒 travado
+            </span>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+              <button
+                onClick={() => setOpen(true)}
+                disabled={removendo}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: T.primary,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                trocar
+              </button>
+              <button
+                onClick={() => void remover()}
+                disabled={removendo}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: T.muted,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {removendo ? '…' : 'remover'}
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <button
