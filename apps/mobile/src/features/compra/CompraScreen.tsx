@@ -69,6 +69,8 @@ export function CompraScreen() {
   const [avisoMercado, setAvisoMercado] = useState<CartItemDTO | null>(null);
   // Item que abre o modal de riscar automaticamente assim que o mercado for confirmado.
   const [pendenteRisca, setPendenteRisca] = useState<CartItemDTO | null>(null);
+  // Tentou finalizar com itens ainda não riscados → modal "faltou pegar".
+  const [faltando, setFaltando] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -190,11 +192,13 @@ export function CompraScreen() {
     );
   }
 
-  // Incentivo: sem mercado informado, a compra não enriquece a base. Pede antes.
+  // Ao finalizar: se ainda houver itens não riscados, pergunta o que fazer com eles
+  // (esqueci → volta pra pegar / não vou levar → fecha e descarta os planejados).
   function finalizar() {
-    if (!cart || cart.items.every((i) => !i.comprado)) return;
-    if (!cart.mercado) {
-      setMercadoNudge(true);
+    if (!cart) return;
+    if (cart.items.every((i) => !i.comprado)) return; // nada riscado ainda
+    if (cart.items.some((i) => !i.comprado)) {
+      setFaltando(true);
       return;
     }
     void finalizarDeFato();
@@ -214,6 +218,149 @@ export function CompraScreen() {
     } finally {
       setFinalizando(false);
     }
+  }
+
+  /** Uma linha da lista (planejado ou riscado). Extraída p/ agrupar planejados no
+   *  topo e riscados embaixo, sem duplicar o JSX. */
+  function linhaItem(item: CartItemDTO) {
+    const comprado = item.comprado && item.unitPrice;
+    return (
+      <div
+        key={item.lineId}
+        style={{
+          background: comprado ? T.card : T.surface,
+          borderRadius: 16,
+          padding: 13,
+          border: `1px solid ${T.border}`,
+          display: 'flex',
+          gap: 10,
+          alignItems: 'center',
+          boxShadow: comprado ? 'none' : `0 1px 4px ${T.shadow}`,
+        }}
+      >
+        <CheckBox
+          checked={item.comprado}
+          disabled={mutando}
+          onClick={() => (item.comprado ? void desmarcar(item.lineId) : tentarRiscar(item))}
+        />
+        <div
+          onClick={item.comprado ? undefined : () => tentarRiscar(item)}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            cursor: item.comprado ? 'default' : 'pointer',
+          }}
+        >
+          <div
+            style={{
+              flexShrink: 0,
+              width: 42,
+              height: 42,
+              borderRadius: 12,
+              background: T.primaryBg,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 22,
+              opacity: item.comprado ? 0.55 : 1,
+            }}
+          >
+            {emojiDe(item)}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p
+              style={{
+                color: item.comprado ? T.muted : T.text,
+                fontSize: 14,
+                fontWeight: 700,
+                margin: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                textDecoration: item.comprado ? 'line-through' : 'none',
+              }}
+            >
+              {item.nome}
+            </p>
+            {comprado ? (
+              <p style={{ color: T.green, fontSize: 13, fontWeight: 600, margin: '2px 0 0' }}>
+                {formatBRL(item.unitPrice!.cents)} × {item.quantity} ={' '}
+                {formatBRL(item.subtotal.cents)}
+              </p>
+            ) : (
+              <p style={{ color: T.primary, fontSize: 12, margin: '2px 0 0' }}>
+                Toque para riscar quando pegar
+              </p>
+            )}
+          </div>
+        </div>
+        {item.comprado ? (
+          <button
+            onClick={() => void removerLinha(item.lineId)}
+            disabled={mutando}
+            aria-label="Remover item"
+            title="Remover item"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: T.muted,
+              fontSize: 16,
+              padding: '4px 2px',
+            }}
+          >
+            🗑️
+          </button>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <QtyBtn
+                label="−"
+                disabled={mutando}
+                onClick={() => void mudarQtd(item.lineId, item.quantity - 1)}
+              />
+              <span
+                style={{
+                  color: T.text,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  minWidth: 16,
+                  textAlign: 'center',
+                }}
+              >
+                {item.quantity}
+              </span>
+              <QtyBtn
+                label="+"
+                color={T.primary}
+                disabled={mutando}
+                onClick={() => void mudarQtd(item.lineId, item.quantity + 1)}
+              />
+            </div>
+            <button
+              onClick={() => void removerLinha(item.lineId)}
+              disabled={mutando}
+              aria-label="Remover item"
+              title="Remover item"
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: T.muted,
+                fontSize: 16,
+                padding: '4px 2px',
+                marginLeft: 2,
+              }}
+            >
+              🗑️
+            </button>
+          </>
+        )}
+      </div>
+    );
   }
 
   if (error) {
@@ -481,155 +628,21 @@ export function CompraScreen() {
                     </span>
                   )}
                 </div>
-                {cart.items.map((item) => {
-                  const comprado = item.comprado && item.unitPrice;
-                  return (
-                    <div
-                      key={item.lineId}
-                      style={{
-                        background: comprado ? T.card : T.surface,
-                        borderRadius: 16,
-                        padding: 13,
-                        border: `1px solid ${T.border}`,
-                        display: 'flex',
-                        gap: 10,
-                        alignItems: 'center',
-                        boxShadow: comprado ? 'none' : `0 1px 4px ${T.shadow}`,
-                      }}
+                {/* Planejados (a comprar) no topo… */}
+                {cart.items.filter((i) => !i.comprado).map((item) => linhaItem(item))}
+                {/* …e os já riscados agrupados embaixo, sob um divisor. */}
+                {riscados > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 2px 0' }}>
+                    <span
+                      style={{ color: T.green, fontSize: 11, fontWeight: 800, letterSpacing: 1 }}
                     >
-                      <CheckBox
-                        checked={item.comprado}
-                        disabled={mutando}
-                        onClick={() =>
-                          item.comprado ? void desmarcar(item.lineId) : tentarRiscar(item)
-                        }
-                      />
-                      <div
-                        onClick={item.comprado ? undefined : () => tentarRiscar(item)}
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 10,
-                          cursor: item.comprado ? 'default' : 'pointer',
-                        }}
-                      >
-                        <div
-                          style={{
-                            flexShrink: 0,
-                            width: 42,
-                            height: 42,
-                            borderRadius: 12,
-                            background: T.primaryBg,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 22,
-                            opacity: item.comprado ? 0.55 : 1,
-                          }}
-                        >
-                          {emojiDe(item)}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p
-                            style={{
-                              color: item.comprado ? T.muted : T.text,
-                              fontSize: 14,
-                              fontWeight: 700,
-                              margin: 0,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              textDecoration: item.comprado ? 'line-through' : 'none',
-                            }}
-                          >
-                            {item.nome}
-                          </p>
-                          {comprado ? (
-                            <p
-                              style={{
-                                color: T.green,
-                                fontSize: 13,
-                                fontWeight: 600,
-                                margin: '2px 0 0',
-                              }}
-                            >
-                              {formatBRL(item.unitPrice!.cents)} × {item.quantity} ={' '}
-                              {formatBRL(item.subtotal.cents)}
-                            </p>
-                          ) : (
-                            <p style={{ color: T.primary, fontSize: 12, margin: '2px 0 0' }}>
-                              Toque para riscar quando pegar
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {item.comprado ? (
-                        <button
-                          onClick={() => void removerLinha(item.lineId)}
-                          disabled={mutando}
-                          aria-label="Remover item"
-                          title="Remover item"
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: T.muted,
-                            fontSize: 16,
-                            padding: '4px 2px',
-                          }}
-                        >
-                          🗑️
-                        </button>
-                      ) : (
-                        <>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <QtyBtn
-                              label="−"
-                              disabled={mutando}
-                              onClick={() => void mudarQtd(item.lineId, item.quantity - 1)}
-                            />
-                            <span
-                              style={{
-                                color: T.text,
-                                fontWeight: 700,
-                                fontSize: 13,
-                                minWidth: 16,
-                                textAlign: 'center',
-                              }}
-                            >
-                              {item.quantity}
-                            </span>
-                            <QtyBtn
-                              label="+"
-                              color={T.primary}
-                              disabled={mutando}
-                              onClick={() => void mudarQtd(item.lineId, item.quantity + 1)}
-                            />
-                          </div>
-                          <button
-                            onClick={() => void removerLinha(item.lineId)}
-                            disabled={mutando}
-                            aria-label="Remover item"
-                            title="Remover item"
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              color: T.muted,
-                              fontSize: 16,
-                              padding: '4px 2px',
-                              marginLeft: 2,
-                            }}
-                          >
-                            🗑️
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
+                      🛒 NO CARRINHO
+                    </span>
+                    <div style={{ flex: 1, height: 1, background: T.border }} />
+                    <span style={{ color: T.muted, fontSize: 11, fontWeight: 700 }}>{riscados}</span>
+                  </div>
+                )}
+                {cart.items.filter((i) => i.comprado).map((item) => linhaItem(item))}
                 <div
                   style={{
                     background: T.primaryBg,
@@ -700,6 +713,24 @@ export function CompraScreen() {
             setMercadoOpen(true);
           }}
           onCancelar={() => setAvisoMercado(null)}
+        />
+      )}
+
+      {faltando && cart && (
+        <ConfirmDialog
+          emoji="🛒"
+          titulo="Faltou pegar alguns itens"
+          mensagem={`Você ainda não riscou: ${cart.items
+            .filter((i) => !i.comprado)
+            .map((i) => i.nome)
+            .join(', ')}. Se não vai levar, eles saem da lista ao fechar a compra.`}
+          confirmarLabel="Voltar e pegar"
+          cancelarLabel="Fechar assim mesmo"
+          onConfirmar={() => setFaltando(false)}
+          onCancelar={() => {
+            setFaltando(false);
+            void finalizarDeFato();
+          }}
         />
       )}
 
@@ -1051,7 +1082,6 @@ function AddPanel({
   const { T } = useTheme();
   const [busca, setBusca] = useState('');
   const [sel, setSel] = useState<ProdutoDTO | null>(null);
-  const [precoCents, setPrecoCents] = useState(0);
   const [qty, setQty] = useState(1);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -1065,7 +1095,7 @@ function AddPanel({
     setEnviando(true);
     setErro(null);
     try {
-      await onAdd(sel, precoCents, qty);
+      await onAdd(sel, 0, qty); // sempre planejado (sem preço) ao montar a lista
       // Sucesso: o pai fecha o painel; não precisa reabilitar.
     } catch (e) {
       setErro(mensagemDeErro(e));
@@ -1242,22 +1272,25 @@ function AddPanel({
         ))}
       {sel && (
         <>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <CurrencyInput
-              cents={precoCents}
-              onCents={setPrecoCents}
-              placeholder="Preço R$"
-              style={{ flex: 1 }}
-            />
+          {/* Montando a lista: só nome + quantidade. O PREÇO vem ao riscar no mercado. */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10,
+            }}
+          >
+            <span style={{ color: T.text, fontSize: 14, fontWeight: 700 }}>Quantidade</span>
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 8,
+                gap: 10,
                 background: T.card,
                 border: `1.5px solid ${T.border}`,
                 borderRadius: 12,
-                padding: '0 12px',
+                padding: '4px 14px',
               }}
             >
               <button
@@ -1266,22 +1299,30 @@ function AddPanel({
                   background: 'none',
                   border: 'none',
                   color: T.text,
-                  fontSize: 20,
+                  fontSize: 22,
                   cursor: 'pointer',
                 }}
               >
                 −
               </button>
-              <span style={{ color: T.text, fontWeight: 700, minWidth: 18, textAlign: 'center' }}>
+              <span
+                style={{
+                  color: T.text,
+                  fontWeight: 800,
+                  minWidth: 20,
+                  textAlign: 'center',
+                  fontSize: 16,
+                }}
+              >
                 {qty}
               </span>
               <button
-                onClick={() => setQty((q) => q + 1)}
+                onClick={() => setQty((q) => Math.min(999, q + 1))}
                 style={{
                   background: 'none',
                   border: 'none',
                   color: T.primary,
-                  fontSize: 20,
+                  fontSize: 22,
                   cursor: 'pointer',
                 }}
               >
@@ -1290,17 +1331,13 @@ function AddPanel({
             </div>
           </div>
           <p style={{ color: T.muted, fontSize: 11, margin: 0 }}>
-            💡 Sem preço, o item entra na lista — você risca e informa o valor no mercado.
+            💡 O preço você informa ao riscar o item no mercado.
           </p>
           {erro && (
             <p style={{ color: T.danger, fontSize: 13, margin: 0, textAlign: 'center' }}>{erro}</p>
           )}
           <Btn full disabled={enviando} onClick={() => void adicionar()}>
-            {enviando
-              ? 'Adicionando…'
-              : precoCents > 0
-                ? `Adicionar · ${formatBRL(precoCents * qty)}`
-                : '＋ Adicionar à lista'}
+            {enviando ? 'Adicionando…' : '＋ Adicionar à lista'}
           </Btn>
         </>
       )}

@@ -291,9 +291,9 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await page.getByPlaceholder(/7891000315507/).fill('7891000315507');
     await page.getByRole('button', { name: 'Usar' }).click();
 
-    // Produto veio preenchido: o campo mostra o nome e aparece o preço.
+    // Produto veio preenchido: o campo mostra o nome e já dá pra adicionar à lista.
     await expect(page.getByPlaceholder('Buscar produto…')).toHaveValue('LEITE MOÇA 395G');
-    await expect(page.getByPlaceholder('Preço R$')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Adicionar à lista/ })).toBeVisible();
   });
 
   test('bipar produto NOVO cai direto no preço (auto-cadastra, sem passo extra)', async ({
@@ -341,9 +341,9 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await page.getByPlaceholder(/7891000315507/).fill('7891000315507');
     await page.getByRole('button', { name: 'Usar' }).click();
 
-    // Cai DIRETO no preço+qtd com o nome preenchido — sem passo "Criar".
+    // Cai DIRETO na quantidade com o nome preenchido — sem passo "Criar".
     await expect(page.getByPlaceholder('Buscar produto…')).toHaveValue('Leite Shefa Integral 1 L');
-    await expect(page.getByPlaceholder('Preço R$')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Adicionar à lista/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Criar/ })).toHaveCount(0);
   });
 
