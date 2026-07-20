@@ -7,6 +7,7 @@ import type {
   ComprasResponse,
   CreateProdutoInput,
   EanLookupDTO,
+  EstimativaListaResponse,
   EventName,
   FeedbackTipo,
   InsightsResponse,
@@ -229,6 +230,16 @@ export class ApiClient {
   }
   finalizarCompra(id: string): Promise<CompraDTO> {
     return this.request(`/carts/${id}/finalizar`, { method: 'POST' });
+  }
+  /** Semeia a lista com os itens da última compra (como planejados). */
+  repetirUltimaCompra(id: string): Promise<CartDTO> {
+    return this.request(`/carts/${id}/repetir-ultima`, { method: 'POST' });
+  }
+  /** Prévia do gasto da lista pela média da base (+ produtos sem preço). */
+  estimarLista(
+    itens: Array<{ produtoId: string; quantity: number }>,
+  ): Promise<EstimativaListaResponse> {
+    return this.request('/prices/estimativa', { method: 'POST', body: JSON.stringify({ itens }) });
   }
 
   // ---- Minhas compras (histórico) ----

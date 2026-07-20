@@ -1,7 +1,8 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Cart } from '@meumercado/domain';
+import type { CompraDTO } from '@meumercado/contracts';
 import type { PricingService } from '../pricing/pricing.service.js';
 import type { ComprasService } from '../compras/compras.service.js';
 import { InMemoryCartStore } from './cart.store.js';
@@ -82,5 +83,47 @@ describe('CartService — lista de compras (planejar → riscar → base)', () =
     expect(voltou.items[0]!.comprado).toBe(false);
     expect(voltou.total.cents).toBe(0);
     expect(reportado).toHaveLength(1);
+  });
+});
+
+describe('CartService — repetir última compra', () => {
+  function makeCom(ultima: CompraDTO | null) {
+    const store = new InMemoryCartStore();
+    const pricing = { reportar: () => Promise.resolve() } as unknown as PricingService;
+    const compras = { ultimaDe: () => Promise.resolve(ultima) } as unknown as ComprasService;
+    return new CartService(store, pricing, compras);
+  }
+
+  it('semeia a lista (planejados) com os itens da última compra, sem duplicar', async () => {
+    const ultima = {
+      itens: [
+        { produtoId: 'p-arroz', nome: 'Arroz', unitPriceCents: 500, quantity: 2 },
+        { produtoId: 'p-feijao', nome: 'Feijão', unitPriceCents: 800, quantity: 1 },
+      ],
+    } as unknown as CompraDTO;
+    const service = makeCom(ultima);
+    const cart = await service.criar('userA');
+    // Já tem arroz na lista → não pode duplicar ao repetir.
+    await service.adicionarItem(
+      cart.id,
+      { produtoId: 'p-arroz', nome: 'Arroz', quantity: 1 },
+      'userA',
+    );
+
+    const r = await service.repetirUltima(cart.id, 'userA');
+    expect(r.items.map((i) => i.produtoId).sort()).toEqual(['p-arroz', 'p-feijao']);
+    expect(r.items.every((i) => !i.comprado)).toBe(true); // tudo planejado (sem preço)
+    const feijao = r.items.find((i) => i.produtoId === 'p-feijao')!;
+    expect(feijao.unitPrice).toBeNull();
+    expect(feijao.quantity).toBe(1);
+    expect(r.total.cents).toBe(0);
+  });
+
+  it('sem compra anterior → erro amigável (BadRequest)', async () => {
+    const service = makeCom(null);
+    const cart = await service.criar('userA');
+    await expect(service.repetirUltima(cart.id, 'userA')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 });

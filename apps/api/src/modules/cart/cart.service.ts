@@ -68,6 +68,32 @@ export class CartService {
     return this.toDTO(cart);
   }
 
+  /** Semeia a lista com os itens da última compra do usuário (como PLANEJADOS). */
+  async repetirUltima(id: string, userId: string): Promise<CartDTO> {
+    const cart = await this.requireCart(id, userId);
+    const ultima = await this.compras.ultimaDe(userId);
+    if (!ultima || ultima.itens.length === 0) {
+      throw new BadRequestException('Você ainda não tem uma compra anterior pra repetir.');
+    }
+    const existentes = new Set(cart.items.map((i) => i.produtoId));
+    for (const it of ultima.itens) {
+      if (existentes.has(it.produtoId)) continue; // não duplica o que já está na lista
+      cart.addItem(
+        new CartItem({
+          lineId: randomUUID(),
+          produtoId: it.produtoId,
+          nome: it.nome,
+          // Lista é por unidade inteira; compra por peso vira ao menos 1.
+          quantity: Math.min(999, Math.max(1, Math.round(it.quantity))),
+          ...(it.emoji !== undefined ? { emoji: it.emoji } : {}),
+        }),
+      );
+      existentes.add(it.produtoId);
+    }
+    await this.store.save(cart);
+    return this.toDTO(cart);
+  }
+
   /** Desmarca um item (volta a planejado; o preço já reportado permanece na base). */
   async desmarcar(id: string, userId: string, lineId: string): Promise<CartDTO> {
     const cart = await this.requireCart(id, userId);

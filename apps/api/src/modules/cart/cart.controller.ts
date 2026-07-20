@@ -73,6 +73,13 @@ export class CartController {
     return this.service.definirMercado(id, user.id, null);
   }
 
+  /** Semeia a lista com os itens da última compra (planejados). */
+  @Post(':id/repetir-ultima')
+  @HttpCode(201)
+  repetirUltima(@Param('id') id: string, @CurrentUser() user: AuthedUser): Promise<CartDTO> {
+    return this.service.repetirUltima(id, user.id);
+  }
+
   /** Fecha a compra: guarda no histórico e esvazia o carrinho. */
   @Post(':id/finalizar')
   @HttpCode(201)

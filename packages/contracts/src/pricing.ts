@@ -90,6 +90,41 @@ export const MercadoResumoSchema = z.object({
 export type MercadoResumoDTO = z.infer<typeof MercadoResumoSchema>;
 
 /**
+ * Estimativa da lista: dado os itens (produto + quantidade) que o usuário está
+ * planejando, devolve uma prévia do gasto usando a MÉDIA da base colaborativa,
+ * e diz quais produtos ainda não têm preço (cobertura). Ajuda a planejar antes
+ * de ir ao mercado. Autenticado, mas NÃO é recurso Pro.
+ */
+export const EstimativaListaSchema = z.object({
+  itens: z
+    .array(
+      z.object({
+        produtoId: IdSchema,
+        quantity: z.number().int().min(1).max(999),
+      }),
+    )
+    .min(1)
+    .max(200),
+});
+export type EstimativaListaInput = z.infer<typeof EstimativaListaSchema>;
+
+export const EstimativaItemSchema = z.object({
+  produtoId: IdSchema,
+  /** Média da base (em centavos) ou null se ainda não há preço deste produto. */
+  mediaCents: z.number().int().nonnegative().nullable(),
+});
+export type EstimativaItemDTO = z.infer<typeof EstimativaItemSchema>;
+
+export const EstimativaListaResponseSchema = z.object({
+  itens: z.array(EstimativaItemSchema),
+  /** Soma de média × quantidade, só dos itens que TÊM preço na base. */
+  totalEstimadoCents: z.number().int().nonnegative(),
+  /** IDs dos produtos sem preço na base (o front mostra os nomes). */
+  semPreco: z.array(IdSchema),
+});
+export type EstimativaListaResponse = z.infer<typeof EstimativaListaResponseSchema>;
+
+/**
  * Produto que a comunidade só tem preço em UM mercado — ainda não dá pra
  * comparar. É o alvo do mutirão "complete a comparação": um 2º mercado já
  * habilita a Nina a dizer onde compensa. Aprofunda a base (cobertura).

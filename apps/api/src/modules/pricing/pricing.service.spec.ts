@@ -122,6 +122,30 @@ describe('PricingService.paraCompletar — mutirão de cobertura', () => {
   });
 });
 
+describe('PricingService.estimativa — prévia da lista', () => {
+  it('soma média × quantidade e lista os produtos sem preço', async () => {
+    const service = makeService(
+      [obs('p1', 'm1', 1000, 5), obs('p1', 'm2', 2000, 5)], // média p1 = 1500
+      [produto('p1', 'Arroz'), produto('p2', 'Feijão')],
+    );
+    const r = await service.estimativa([
+      { produtoId: 'p1', quantity: 2 }, // 1500 × 2 = 3000
+      { produtoId: 'p2', quantity: 1 }, // sem preço na base
+    ]);
+    expect(r.totalEstimadoCents).toBe(3000);
+    expect(r.semPreco).toEqual(['p2']);
+    expect(r.itens.find((i) => i.produtoId === 'p1')!.mediaCents).toBe(1500);
+    expect(r.itens.find((i) => i.produtoId === 'p2')!.mediaCents).toBeNull();
+  });
+
+  it('ignora o seed no cálculo (conta como sem preço)', async () => {
+    const service = makeService([obs('p1', 'm1', 1000, 5, 'seed')], [produto('p1', 'Arroz')]);
+    const r = await service.estimativa([{ produtoId: 'p1', quantity: 3 }]);
+    expect(r.totalEstimadoCents).toBe(0);
+    expect(r.semPreco).toEqual(['p1']);
+  });
+});
+
 describe('PricingService.mercados', () => {
   it('conta observações por mercado, mais reportados primeiro', async () => {
     const service = makeService(

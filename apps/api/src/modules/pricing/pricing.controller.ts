@@ -1,6 +1,9 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
 import {
+  EstimativaListaSchema,
   ReportPriceSchema,
+  type EstimativaListaInput,
+  type EstimativaListaResponse,
   type MercadoResumoDTO,
   type PriceHistoryDTO,
   type PriceSummaryDTO,
@@ -38,6 +41,16 @@ export class PricingController {
   @Get('mercados')
   mercados(): Promise<MercadoResumoDTO[]> {
     return this.service.mercados();
+  }
+
+  /** Prévia do gasto da lista pela média da base (+ produtos sem preço). */
+  @Post('estimativa')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  estimativa(
+    @Body(new ZodValidationPipe(EstimativaListaSchema)) body: EstimativaListaInput,
+  ): Promise<EstimativaListaResponse> {
+    return this.service.estimativa(body.itens);
   }
 
   /** Produtos que só têm preço em 1 mercado — mutirão "complete a comparação". */

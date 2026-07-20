@@ -72,6 +72,12 @@ export class ComprasService {
     return this.repo.listarPorUsuario(userId);
   }
 
+  /** A compra mais recente do usuário (ou null). Base do "repetir última compra". */
+  async ultimaDe(userId: string): Promise<CompraDTO | null> {
+    const todas = await this.repo.listarPorUsuario(userId); // já vem da mais recente
+    return todas[0] ?? null;
+  }
+
   excluir(userId: string, compraId: string): Promise<void> {
     return this.repo.excluir(userId, compraId);
   }

@@ -221,6 +221,9 @@ export async function installApiMocks(page: Page, opts: MockOpts = {}): Promise<
       // ---- Preços ----
       if (path.includes('/prices/table')) return json([TABLE_ROW]);
       if (path.endsWith('/prices/mercados')) return json([{ nome: 'Atacadao', count: 3 }]);
+      // Estimativa da lista: default vazio (testes dedicados sobrescrevem).
+      if (path.endsWith('/prices/estimativa'))
+        return json({ itens: [], totalEstimadoCents: 0, semPreco: [] });
       // Mutirão "complete a comparação": vazio por padrão (testes dedicados
       // sobrescrevem esta rota). Precisa ser ARRAY — o fallback genérico devolve
       // {} e quebraria a tela de Preços.

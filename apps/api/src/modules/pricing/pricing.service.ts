@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { Money, PriceObservation, PriceStatistics } from '@meumercado/domain';
 import type {
+  EstimativaListaResponse,
   MercadoResumoDTO,
   PriceHistoryDTO,
   PriceSummaryDTO,
@@ -69,6 +70,32 @@ export class PricingService {
       trendPct: stats.trendPercentAdaptativo(asOf, TREND_WINDOW_DAYS),
       amostras: stats.count,
     };
+  }
+
+  /**
+   * Prévia do gasto de uma lista pela MÉDIA da base (uma leitura só, agrupada em
+   * memória). Retorna a média por produto, o total estimado (só dos que têm
+   * preço) e a lista de produtos ainda sem preço na base.
+   */
+  async estimativa(
+    itens: readonly { produtoId: string; quantity: number }[],
+  ): Promise<EstimativaListaResponse> {
+    const porProduto = new Map<string, PriceObservation[]>();
+    for (const o of this.reais(await this.repo.all())) {
+      const arr = porProduto.get(o.produtoId);
+      if (arr) arr.push(o);
+      else porProduto.set(o.produtoId, [o]);
+    }
+    let totalEstimadoCents = 0;
+    const semPreco: string[] = [];
+    const linhas = itens.map((it) => {
+      const obs = porProduto.get(it.produtoId);
+      const mediaCents = obs && obs.length > 0 ? (new PriceStatistics(obs).average()?.cents ?? null) : null;
+      if (mediaCents === null) semPreco.push(it.produtoId);
+      else totalEstimadoCents += Math.round(mediaCents * it.quantity);
+      return { produtoId: it.produtoId, mediaCents };
+    });
+    return { itens: linhas, totalEstimadoCents, semPreco };
   }
 
   /**

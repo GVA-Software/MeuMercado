@@ -4,6 +4,7 @@ import type {
   CartDTO,
   CartItemDTO,
   CartMercadoDTO,
+  EstimativaListaResponse,
   MercadoDTO,
   ProdutoDTO,
 } from '@meumercado/contracts';
@@ -71,6 +72,13 @@ export function CompraScreen() {
   const [pendenteRisca, setPendenteRisca] = useState<CartItemDTO | null>(null);
   // Tentou finalizar com itens ainda não riscados → modal "faltou pegar".
   const [faltando, setFaltando] = useState(false);
+  // Tem compra anterior? → habilita "repetir última compra" na lista vazia.
+  const [temHistorico, setTemHistorico] = useState(false);
+  const [repetindo, setRepetindo] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  // Estimativa da lista pela base (prévia de gasto + produtos sem preço).
+  const [estimativa, setEstimativa] = useState<EstimativaListaResponse | null>(null);
+  const [verSemPreco, setVerSemPreco] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -85,15 +93,54 @@ export function CompraScreen() {
         localStorage.setItem('mm-cart', c.id);
         setCart(c);
         setProdutos(await api.listarProdutos());
+        // Sabe se há compra anterior (habilita "repetir última compra").
+        api
+          .listarCompras()
+          .then((r) => setTemHistorico(r.compras.length > 0))
+          .catch(() => {});
       } catch (e) {
         setError(mensagemDeErro(e));
       }
     })();
   }, []);
 
+  // Estimativa da lista: recalcula quando os itens (produto/quantidade) mudam.
+  const itensChave = cart?.items.map((i) => `${i.produtoId}:${i.quantity}`).join('|') ?? '';
+  useEffect(() => {
+    const itens = cart?.items.map((i) => ({ produtoId: i.produtoId, quantity: i.quantity })) ?? [];
+    if (itens.length === 0) {
+      setEstimativa(null);
+      return;
+    }
+    let vivo = true;
+    api
+      .estimarLista(itens)
+      .then((e) => vivo && setEstimativa(e))
+      .catch(() => vivo && setEstimativa(null));
+    return () => {
+      vivo = false;
+    };
+    // itensChave resume a lista; cart.id garante recomputo ao trocar de carrinho.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itensChave, cart?.id]);
+
   const status = cart?.status ?? 'sem-limite';
   const barColor = status === 'estourado' ? T.danger : status === 'alerta' ? T.yellow : T.green;
   const progress = cart?.progressPercent ?? 0;
+
+  /** Semeia a lista com os itens da última compra (planejados). */
+  async function repetirUltima() {
+    if (!cart || repetindo) return;
+    setRepetindo(true);
+    try {
+      setCart(await api.repetirUltimaCompra(cart.id));
+      setAddOpen(false);
+    } catch (e) {
+      setAviso(mensagemDeErro(e));
+    } finally {
+      setRepetindo(false);
+    }
+  }
 
   async function adicionar(p: ProdutoDTO, precoCents: number, qty: number) {
     if (!cart) return;
@@ -596,10 +643,36 @@ export function CompraScreen() {
                 </div>
               ))}
             </div>
-            <div style={{ textAlign: 'center' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 10,
+              }}
+            >
               <Btn small onClick={() => setAddOpen(true)}>
                 ＋ Adicionar à lista
               </Btn>
+              {temHistorico && (
+                <button
+                  onClick={() => void repetirUltima()}
+                  disabled={repetindo}
+                  style={{
+                    background: 'none',
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 99,
+                    padding: '9px 16px',
+                    color: T.text,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: repetindo ? 'default' : 'pointer',
+                    opacity: repetindo ? 0.6 : 1,
+                  }}
+                >
+                  {repetindo ? 'Trazendo…' : '🔁 Repetir última compra'}
+                </button>
+              )}
             </div>
           </Card>
         ) : (
@@ -628,6 +701,71 @@ export function CompraScreen() {
                     </span>
                   )}
                 </div>
+                {/* Prévia do gasto pela base + produtos ainda sem preço. */}
+                {estimativa && !tudoRiscado && (
+                  <div
+                    style={{
+                      background: T.card,
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 14,
+                      padding: '12px 14px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'baseline',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                      }}
+                    >
+                      <span style={{ color: T.text, fontSize: 13, fontWeight: 700 }}>
+                        🔮 Prévia da lista
+                      </span>
+                      <span style={{ color: T.primary, fontSize: 18, fontWeight: 800 }}>
+                        {estimativa.totalEstimadoCents > 0
+                          ? `~ ${formatBRL(estimativa.totalEstimadoCents)}`
+                          : '—'}
+                      </span>
+                    </div>
+                    <p style={{ color: T.muted, fontSize: 11, margin: '4px 0 0', lineHeight: 1.4 }}>
+                      Estimativa pela média da comunidade — o valor real você confirma ao riscar.
+                    </p>
+                    {estimativa.semPreco.length > 0 && (
+                      <>
+                        <button
+                          onClick={() => setVerSemPreco((v) => !v)}
+                          style={{
+                            marginTop: 8,
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            color: T.primary,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                          }}
+                        >
+                          {estimativa.semPreco.length}{' '}
+                          {estimativa.semPreco.length === 1 ? 'item ainda sem' : 'itens ainda sem'}{' '}
+                          preço na base · {verSemPreco ? 'ocultar' : 'ver quais'}
+                        </button>
+                        {verSemPreco && (
+                          <p style={{ color: T.sub, fontSize: 12, margin: '6px 0 0', lineHeight: 1.5 }}>
+                            {estimativa.semPreco
+                              .map(
+                                (id) =>
+                                  cart.items.find((i) => i.produtoId === id)?.nome ?? 'produto',
+                              )
+                              .join(', ')}
+                            . Riscando esses, você já ajuda a base a ter o preço deles. 🧡
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
                 {/* Planejados (a comprar) no topo… */}
                 {cart.items.filter((i) => !i.comprado).map((item) => linhaItem(item))}
                 {/* …e os já riscados agrupados embaixo, sob um divisor. */}
@@ -684,6 +822,8 @@ export function CompraScreen() {
       {comprasOpen && <MinhasCompras onClose={() => setComprasOpen(false)} />}
 
       {limiteMsg && <AvisoDialog emoji="🎯" titulo={limiteMsg} onOk={() => setLimiteMsg(null)} />}
+
+      {aviso && <AvisoDialog emoji="🔁" titulo={aviso} onOk={() => setAviso(null)} />}
 
       {mercadoNudge && (
         <ConfirmDialog

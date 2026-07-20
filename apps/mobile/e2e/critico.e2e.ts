@@ -491,6 +491,8 @@ test.describe('Meu Mercado — jornada crítica', () => {
 
     await expect(page.getByText('ARROZ TIO JOAO 5KG')).toBeVisible();
     await expect(page.getByText(/Toque para riscar quando pegar/)).toBeVisible();
+    // Prévia da lista pela base aparece enquanto há item a comprar.
+    await expect(page.getByText(/Prévia da lista/)).toBeVisible();
 
     // 2) Tenta riscar SEM mercado → é OBRIGATÓRIO confirmar o mercado antes.
     await page.getByRole('button', { name: 'Marcar como comprado' }).click();
@@ -509,5 +511,83 @@ test.describe('Meu Mercado — jornada crítica', () => {
     // Item riscado com preço + botão de finalizar aparece (algo comprado).
     await expect(page.getByText(/R\$\s?5,99 × 1/)).toBeVisible();
     await expect(page.getByRole('button', { name: /Finalizar compra/ })).toBeVisible();
+  });
+
+  test('Lista: "repetir última compra" traz os itens da compra anterior', async ({ page }) => {
+    await installApiMocks(page, { pro: true });
+
+    // Tem uma compra anterior → habilita o botão na lista vazia.
+    await page.route(
+      (url) => url.pathname.endsWith('/compras'),
+      (route) => {
+        if (route.request().method() !== 'GET') return route.fallback();
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: { 'access-control-allow-origin': '*' },
+          body: JSON.stringify({
+            compras: [
+              {
+                id: 'c1',
+                mercadoId: null,
+                mercadoNome: 'Atacadão',
+                mercadoEndereco: null,
+                totalCents: 1000,
+                economiaCents: 0,
+                criadaEm: '2026-07-10T12:00:00.000Z',
+                itens: [
+                  { produtoId: 'p-arroz', nome: 'Arroz Camil', unitPriceCents: 500, quantity: 2 },
+                ],
+              },
+            ],
+          }),
+        });
+      },
+    );
+
+    // Carrinho com estado: "repetir-ultima" semeia o item (planejado).
+    const items: Array<Record<string, unknown>> = [];
+    const toDTO = () => ({
+      id: 'cart-e2e',
+      items: items.map((i) => ({ ...i, subtotal: { cents: 0 } })),
+      total: { cents: 0 },
+      limite: null,
+      remaining: null,
+      progressPercent: 0,
+      status: 'sem-limite',
+      mercado: null,
+    });
+    await page.route(
+      (url) => url.pathname.includes('/carts'),
+      (route) => {
+        const path = new URL(route.request().url()).pathname;
+        const done = (b: unknown) =>
+          route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: { 'access-control-allow-origin': '*' },
+            body: JSON.stringify(b),
+          });
+        if (path.endsWith('/repetir-ultima')) {
+          items.push({
+            lineId: 'l1',
+            produtoId: 'p-arroz',
+            nome: 'Arroz Camil',
+            emoji: '🍚',
+            unitPrice: null,
+            quantity: 2,
+            comprado: false,
+          });
+        }
+        return done(toDTO());
+      },
+    );
+
+    await page.goto('/');
+
+    // Lista vazia mostra o atalho → traz os itens da última compra.
+    await page.getByRole('button', { name: /Repetir última compra/ }).click();
+    await expect(page.getByText('Arroz Camil')).toBeVisible();
+    await expect(page.getByText(/Toque para riscar quando pegar/)).toBeVisible();
   });
 });
