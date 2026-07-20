@@ -53,6 +53,8 @@ export function CompraScreen() {
   const [cart, setCart] = useState<CartDTO | null>(null);
   const [produtos, setProdutos] = useState<ProdutoDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Só revela a tela quando TODO o boot terminou (tela inteira de uma vez).
+  const [pronto, setPronto] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [comprasOpen, setComprasOpen] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
@@ -97,18 +99,21 @@ export function CompraScreen() {
         }
         localStorage.setItem('mm-cart', c.id);
         setCart(c);
-        setProdutos(await api.listarProdutos());
-        // Sabe se há compra anterior (habilita "repetir última compra").
-        api
-          .listarCompras()
-          .then((r) => setTemHistorico(r.compras.length > 0))
-          .catch(() => {});
-        api
-          .listarListas()
-          .then((r) => setListasSalvas(r.listas ?? []))
-          .catch(() => {});
+        // Carrega TUDO antes de revelar a tela (evita botões "pipocando" depois):
+        // produtos + se há compra anterior + listas salvas, em paralelo.
+        const [prods, compras, listas] = await Promise.allSettled([
+          api.listarProdutos(),
+          api.listarCompras(),
+          api.listarListas(),
+        ]);
+        if (prods.status === 'fulfilled') setProdutos(prods.value ?? []);
+        if (compras.status === 'fulfilled')
+          setTemHistorico((compras.value.compras ?? []).length > 0);
+        if (listas.status === 'fulfilled') setListasSalvas(listas.value.listas ?? []);
       } catch (e) {
         setError(mensagemDeErro(e));
+      } finally {
+        setPronto(true);
       }
     })();
   }, []);
@@ -476,9 +481,9 @@ export function CompraScreen() {
     );
   }
 
-  // Enquanto o carrinho carrega, mostra o loader do carrinho (evita o "flash" de
-  // tracinhos "—" no preço antes dos dados chegarem).
-  if (!cart) {
+  // Enquanto o boot não termina, mostra o loader — assim a tela aparece INTEIRA de
+  // uma vez (sem os botões "repetir"/"minhas listas" pipocando depois do render).
+  if (!cart || !pronto) {
     return <CartLoader label="Preparando seu carrinho…" center />;
   }
 

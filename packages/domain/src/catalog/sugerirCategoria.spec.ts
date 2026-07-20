@@ -58,6 +58,29 @@ describe('sugerirCategoria', () => {
     ['ENX PLAX 250ML', 'Higiene'],
     ['WRAP RAP 10 INTEG', 'Padaria'],
     ['ALECRIN KITANO 6G', 'Basicos'],
+    // Abreviações da Onda 2 (Assaí/Atacadão/Armarinhos) — antes caíam em "Outros".
+    ['SACOLINHA BIOP 48X55', 'Utilidades'],
+    ['AC ORG ITAJA 1kg', 'Basicos'],
+    ['ALC TUPI 46 ZERO 1L', 'Limpeza'],
+    ['ARR CAMIL LF T1 5kg', 'Graos'],
+    ['C ARISCO 114G GAL', 'Basicos'],
+    ['COCO SECO kg', 'Basicos'],
+    ['CORTADOR DE UNHA MUNDIA', 'Utilidades'],
+    ['DEL VALLE FRUT 1.5L', 'Bebidas'],
+    ['EMBL.ALUM.D6 WYDA', 'Utilidades'],
+    ['JABA EM MANTA', 'Carnes'],
+    ['LAMP.12WS.LED OUROL', 'Utilidades'],
+    ['LAMP.50W OUROLUX', 'Utilidades'],
+    ['MANT TOUR PT CS 500G', 'Laticinios'],
+    ['MAS.PASTEL MASSA LEV 2kg', 'Massas'],
+    ['MASSA DE TAPIOCA', 'Basicos'],
+    ['MOST CEPERA 200G AMA', 'Basicos'],
+    ['P AL BOMPACK 30X7,5M', 'Utilidades'],
+    ['P O RUSTICO TRADICIO', 'Padaria'],
+    ['PEITO FGO S OSSO KG', 'Carnes'],
+    // Guards de falso-positivo das abreviações novas:
+    ['ALCATRA BOV RESF KG', 'Carnes'], // ALC\b não rouba alcatra pra Limpeza
+    ['MANTA DE JABA', 'Carnes'], // MANT\b não pega "MANTA" (segue Carnes por JABA)
   ];
   it.each(casos)('classifica "%s" como %s', (nome, esperado) => {
     expect(sugerirCategoria(nome)).toBe(esperado);

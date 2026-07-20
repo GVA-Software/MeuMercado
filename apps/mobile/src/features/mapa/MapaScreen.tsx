@@ -188,6 +188,13 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
       .then((near) => {
         setTodosMercados(near);
         setBuscou(true);
+        // Se o raio atual não tem nenhum mercado (bairro residencial), sobe pro
+        // MENOR raio que tem — assim o mapa nunca abre "vazio" quando há mercados
+        // um pouco além. (Só ajusta pra cima; não encolhe a escolha do usuário.)
+        setRaioMetros((atual) => {
+          if (near.some((m) => (m.distanciaMetros ?? 0) <= atual)) return atual;
+          return RAIOS.find((r) => near.some((m) => (m.distanciaMetros ?? 0) <= r)) ?? atual;
+        });
       })
       .catch((e: unknown) => setErro(e instanceof Error ? e.message : String(e)))
       .finally(() => setBuscando(false));
@@ -313,13 +320,38 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
           </p>
         )}
 
-        {buscou && mercados.length === 0 && !erro && (
-          <EmptyState
-            emoji="🔍"
-            titulo="Nenhum mercado por perto"
-            sub={`Nenhum mercado num raio de ${raioMetros / 1000} km. Tente aumentar o raio acima.`}
-          />
-        )}
+        {buscou &&
+          mercados.length === 0 &&
+          !erro &&
+          (() => {
+            // Tem mercado num raio MAIOR? Oferece um atalho pra ver os mais próximos.
+            const maior = RAIOS.find(
+              (r) => r > raioMetros && todosMercados.some((m) => (m.distanciaMetros ?? 0) <= r),
+            );
+            const qtd = maior
+              ? todosMercados.filter((m) => (m.distanciaMetros ?? 0) <= maior).length
+              : 0;
+            return (
+              <>
+                <EmptyState
+                  emoji="🔍"
+                  titulo="Nenhum mercado neste raio"
+                  sub={
+                    maior
+                      ? `Nada a ${raioMetros / 1000} km — o mais perto está um pouco além.`
+                      : `Nenhum mercado num raio de ${raioMetros / 1000} km por aqui.`
+                  }
+                />
+                {maior && (
+                  <div style={{ textAlign: 'center' }}>
+                    <Btn small onClick={() => setRaioMetros(maior)}>
+                      Ver {qtd} {qtd === 1 ? 'mercado' : 'mercados'} em {maior / 1000} km
+                    </Btn>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
         {mercados.map((m) => {
           const dist = formatDist(m.distanciaMetros);
