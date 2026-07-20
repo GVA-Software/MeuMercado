@@ -110,6 +110,8 @@ export class MarketsService {
   private readonly osmCache = new Map<string, { elements: OverpassElement[]; at: number }>();
   private readonly osmRefreshing = new Set<string>();
   private static readonly OSM_TTL_MS = 30 * 60 * 1000;
+  // Espera máxima pelo Overpass na 1ª busca de uma área (o resto vira cache p/ o próximo load).
+  private static readonly OSM_SOFT_DEADLINE_MS = 6000;
 
   /**
    * Mercados com preço, garantindo coordenada: os que têm endereço mas entraram sem
@@ -291,7 +293,17 @@ export class MarketsService {
       }
       return cache.elements;
     }
-    return this.buscarECachearOsm(chave, lat, lng, raioMetros, false); // 1ª vez: bloqueia
+    // 1ª vez nesta área (sem cache): dispara a busca — mas ESPERA no máximo ~6s.
+    // O Overpass público é lento (às vezes ~15s); em vez de travar o mapa esse tempo
+    // todo (o que lia como "não carrega"), o mapa abre já com os NOSSOS mercados e o
+    // OSM entra no cache pro próximo load. A busca continua e cacheia ao terminar.
+    const busca = this.buscarECachearOsm(chave, lat, lng, raioMetros, false).catch(
+      () => [] as OverpassElement[],
+    );
+    const limite = new Promise<OverpassElement[]>((r) =>
+      setTimeout(() => r([]), MarketsService.OSM_SOFT_DEADLINE_MS),
+    );
+    return Promise.race([busca, limite]);
   }
 
   private async buscarECachearOsm(
