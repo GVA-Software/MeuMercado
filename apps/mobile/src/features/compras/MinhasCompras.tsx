@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CompraDTO } from '@meumercado/contracts';
 import { api, formatBRL, mensagemDeErro } from '../../api/client';
@@ -91,6 +91,14 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
   }, [compras]);
 
   const maxMes = Math.max(1, ...resumo.meses.map((m) => m.cents));
+  // Gráfico rola na horizontal: já abre no mês MAIS RECENTE (à direita), que é o
+  // que mais importa, e isso também deixa claro que dá pra deslizar.
+  const chartRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = chartRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [resumo.meses]);
+  const chartRolavel = resumo.meses.length > 4;
 
   return createPortal(
     <div
@@ -218,28 +226,45 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
                   marginBottom: 16,
                 }}
               >
-                <p
+                <div
                   style={{
-                    color: T.muted,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: 1,
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                    gap: 8,
                     margin: '0 0 12px',
                   }}
                 >
-                  GASTO POR MÊS
-                </p>
-                <div
-                  className="no-scrollbar"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-end',
-                    gap: 10,
-                    height: 116,
-                    overflowX: 'auto',
-                  }}
-                >
-                  {resumo.meses.map((m) => {
+                  <p
+                    style={{
+                      color: T.muted,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: 1,
+                      margin: 0,
+                    }}
+                  >
+                    GASTO POR MÊS
+                  </p>
+                  {chartRolavel && (
+                    <span style={{ color: T.primary, fontSize: 10, fontWeight: 700 }}>
+                      ↔ deslize
+                    </span>
+                  )}
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <div
+                    ref={chartRef}
+                    className="no-scrollbar"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      gap: 10,
+                      height: 116,
+                      overflowX: 'auto',
+                    }}
+                  >
+                    {resumo.meses.map((m) => {
                     const sel = mesFiltro === m.ord;
                     return (
                       <button
@@ -289,7 +314,21 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
                         </span>
                       </button>
                     );
-                  })}
+                    })}
+                  </div>
+                  {chartRolavel && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: 26,
+                        background: `linear-gradient(to right, ${T.surface}, ${T.surface}00)`,
+                        pointerEvents: 'none',
+                      }}
+                    />
+                  )}
                 </div>
                 {mesFiltro && (
                   <button

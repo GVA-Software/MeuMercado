@@ -345,7 +345,8 @@ export function CompraScreen() {
       </div>
 
       <div style={{ padding: '14px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {cart && (
+        {/* "Iniciar compra" (check-in) só faz sentido DEPOIS de montar a lista. */}
+        {cart && cart.items.length > 0 && (
           <MercadoDaCompra
             cart={cart}
             onCart={setCart}
@@ -382,10 +383,50 @@ export function CompraScreen() {
 
         {cart && cart.items.length === 0 && !addOpen ? (
           <Card>
-            <EmptyState emoji="🛒" titulo="Carrinho vazio" sub="Toque em + para adicionar itens." />
+            <EmptyState
+              emoji="📝"
+              titulo="Monte sua lista de compras"
+              sub="Adicione o que você precisa — mesmo sem saber o preço ainda."
+            />
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                margin: '0 auto 16px',
+                maxWidth: 300,
+              }}
+            >
+              {[
+                { n: '1', t: 'Monte a lista aqui, em casa ou na fila' },
+                { n: '2', t: 'No mercado, toque em ▶️ Iniciar compra' },
+                { n: '3', t: 'Vá riscando o que pegar e informe o preço' },
+              ].map((p) => (
+                <div key={p.n} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span
+                    style={{
+                      flexShrink: 0,
+                      width: 22,
+                      height: 22,
+                      borderRadius: 99,
+                      background: T.primaryBg,
+                      color: T.primary,
+                      fontSize: 12,
+                      fontWeight: 800,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {p.n}
+                  </span>
+                  <span style={{ color: T.sub, fontSize: 13 }}>{p.t}</span>
+                </div>
+              ))}
+            </div>
             <div style={{ textAlign: 'center' }}>
               <Btn small onClick={() => setAddOpen(true)}>
-                Adicionar primeiro item
+                ＋ Adicionar à lista
               </Btn>
             </div>
           </Card>
