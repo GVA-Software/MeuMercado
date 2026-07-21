@@ -158,14 +158,20 @@
       .cov-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px; }
       @media (min-width: 720px) { .cov-grid { grid-template-columns: 1fr 1fr; } .cov-grid > :first-child { grid-column: 1 / -1; } }
       .cov-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; min-width: 0; }
-      .cov-card-t { font-size: 13px; font-weight: 800; color: var(--sub); margin: 0 0 12px; }
+      .cov-card-t { font-size: 13px; font-weight: 800; color: var(--sub); margin: 0 0 4px; }
+      .cov-card-sub { font-size: 12.5px; color: var(--muted); margin: 0 0 10px; line-height: 1.4; }
+      .cov-card-sub b { font-weight: 800; }
       .cov-ins { list-style: none; margin: 0; padding: 0; }
       .cov-ins li { font-size: 13px; color: var(--sub); padding: 7px 0 7px 22px; position: relative; line-height: 1.4; border-bottom: 1px solid var(--border); }
       .cov-ins li:last-child { border-bottom: none; }
       .cov-ins li::before { content: '›'; position: absolute; left: 6px; color: var(--primary); font-weight: 800; }
       .cov-ins b { color: var(--text); }
-      .donut-wrap { display: flex; justify-content: center; margin: 4px 0 12px; }
-      .linechart { display: block; }
+      .donut-wrap { display: flex; justify-content: center; margin: 8px 0 14px; }
+      .ring { overflow: visible; }
+      .linechart { display: block; width: 100%; height: auto; }
+      .legend-inline { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; }
+      .leg-i { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--sub); }
+      .leg-i b { color: var(--text); font-weight: 800; }
       .legend { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
       .leg { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
       .leg-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }

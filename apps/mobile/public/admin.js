@@ -176,61 +176,124 @@
           '<p class="kpi-l">' + esc(label) + '</p>' +
           (sub ? '<p class="kpi-s">' + sub + '</p>' : '') + '</div></div>';
       }
-      // Anel de progresso (saúde/cobertura %).
+      // Utilitários de cor (clarear/escurecer um hex) — dão volume/profundidade aos gráficos.
+      function _hex(hex) {
+        var m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+        return m ? parseInt(m[1], 16) : null;
+      }
+      function clarear(hex, amt) {
+        var n = _hex(hex);
+        if (n == null) return hex;
+        amt = amt == null ? 0.3 : amt;
+        var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+        r = Math.round(r + (255 - r) * amt); g = Math.round(g + (255 - g) * amt); b = Math.round(b + (255 - b) * amt);
+        return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+      }
+      function escurecer(hex, amt) {
+        var n = _hex(hex);
+        if (n == null) return hex;
+        amt = amt == null ? 0.3 : amt;
+        var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+        r = Math.round(r * (1 - amt)); g = Math.round(g * (1 - amt)); b = Math.round(b * (1 - amt));
+        return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+      }
+      var svgUid = 0;
+      // Anel de progresso (saúde/cobertura %) — gradiente + brilho por trás dão profundidade.
       function svgRing(p, cor, sub) {
         p = Math.max(0, Math.min(100, p || 0));
-        var circ = 2 * Math.PI * 52, off = circ * (1 - p / 100);
+        var circ = 2 * Math.PI * 50, off = circ * (1 - p / 100);
+        var id = 'r' + (++svgUid);
         return '<svg class="ring" viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">' +
-          '<circle cx="60" cy="60" r="52" fill="none" stroke="#2a2f3c" stroke-width="12"/>' +
-          '<circle cx="60" cy="60" r="52" fill="none" stroke="' + cor + '" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 60 60)"/>' +
+          '<defs>' +
+            '<linearGradient id="' + id + 'g" x1="0" y1="0" x2="0.35" y2="1">' +
+              '<stop offset="0" stop-color="' + clarear(cor, 0.35) + '"/>' +
+              '<stop offset="1" stop-color="' + escurecer(cor, 0.12) + '"/>' +
+            '</linearGradient>' +
+            '<filter id="' + id + 'b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4.5"/></filter>' +
+          '</defs>' +
+          '<circle cx="60" cy="60" r="50" fill="none" stroke="#252b38" stroke-width="13"/>' +
+          '<circle cx="60" cy="60" r="50" fill="none" stroke="' + cor + '" stroke-width="13" stroke-linecap="round" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 60 60)" filter="url(#' + id + 'b)" opacity="0.6"/>' +
+          '<circle cx="60" cy="60" r="50" fill="none" stroke="url(#' + id + 'g)" stroke-width="13" stroke-linecap="round" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 60 60)"/>' +
           '<text x="60" y="57" text-anchor="middle" font-size="27" font-weight="800" fill="#eef1f6">' + Math.round(p) + '%</text>' +
           (sub ? '<text x="60" y="78" text-anchor="middle" font-size="11" fill="#8a93a3">' + esc(sub) + '</text>' : '') +
           '</svg>';
       }
-      // Rosca multi-segmento. segs = [{value, color}]; centerTop/centerBot no meio.
+      // Rosca multi-segmento com volume: gradiente por fatia + sombra (relevo) + brilho no topo.
       function svgDonut(segs, centerTop, centerBot) {
         var total = segs.reduce(function (s, x) { return s + x.value; }, 0) || 1;
-        var circ = 2 * Math.PI * 52, acc = 0;
-        var arcs = segs.map(function (seg) {
+        var circ = 2 * Math.PI * 50, acc = 0;
+        var id = 'd' + (++svgUid);
+        var grads = '';
+        var arcs = segs.map(function (seg, i) {
           var frac = seg.value / total, dash = circ * frac, off = -acc * circ;
           acc += frac;
           if (seg.value <= 0) return '';
-          return '<circle cx="60" cy="60" r="52" fill="none" stroke="' + seg.color + '" stroke-width="15" stroke-dasharray="' + dash.toFixed(1) + ' ' + (circ - dash).toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 60 60)"/>';
+          var gid = id + 'c' + i;
+          grads += '<linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
+            '<stop offset="0" stop-color="' + clarear(seg.color, 0.28) + '"/>' +
+            '<stop offset="1" stop-color="' + escurecer(seg.color, 0.2) + '"/></linearGradient>';
+          return '<circle cx="60" cy="60" r="50" fill="none" stroke="url(#' + gid + ')" stroke-width="16" stroke-dasharray="' + dash.toFixed(1) + ' ' + (circ - dash).toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 60 60)"/>';
         }).join('');
         return '<svg class="ring" viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">' +
-          '<circle cx="60" cy="60" r="52" fill="none" stroke="#2a2f3c" stroke-width="15"/>' + arcs +
+          '<defs>' + grads +
+            '<filter id="' + id + 's" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="3" stdDeviation="3.5" flood-color="#000" flood-opacity="0.55"/></filter>' +
+            '<linearGradient id="' + id + 'gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.4"/><stop offset="0.55" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
+          '</defs>' +
+          '<g filter="url(#' + id + 's)">' +
+            '<circle cx="60" cy="60" r="50" fill="none" stroke="#252b38" stroke-width="16"/>' + arcs +
+          '</g>' +
+          '<circle cx="60" cy="60" r="50" fill="none" stroke="url(#' + id + 'gl)" stroke-width="16"/>' +
           '<text x="60" y="55" text-anchor="middle" font-size="23" font-weight="800" fill="#eef1f6">' + esc(String(centerTop)) + '</text>' +
           '<text x="60" y="75" text-anchor="middle" font-size="10.5" fill="#8a93a3">' + esc(centerBot || '') + '</text>' +
           '</svg>';
       }
-      // Linha (uma ou mais séries). labels = eixo X; series = [{values, color, nome}].
+      // Linha (uma ou mais séries) — escala UNIFORME (texto/pontos nítidos, sem esticar),
+      // com área em degradê, ponto marcado na ponta e rótulo de máximo pra dar escala.
       function svgLineChart(labels, series) {
-        var W = 600, H = 200, pl = 6, pr = 6, ptop = 12, pb = 24;
+        var W = 900, H = 210, pl = 12, pr = 14, ptop = 20, pb = 26;
         var todos = series.reduce(function (a, s) { return a.concat(s.values); }, [0]);
         var maxV = Math.max.apply(null, todos) || 1;
         var n = labels.length;
         var X = function (i) { return pl + (W - pl - pr) * (n <= 1 ? 0 : i / (n - 1)); };
         var Y = function (v) { return ptop + (H - ptop - pb) * (1 - v / maxV); };
+        var id = 'l' + (++svgUid);
         var grid = '';
         for (var g = 0; g <= 3; g++) {
           var gy = ptop + (H - ptop - pb) * (g / 3);
-          grid += '<line x1="' + pl + '" y1="' + gy.toFixed(1) + '" x2="' + (W - pr) + '" y2="' + gy.toFixed(1) + '" stroke="#2a2f3c" stroke-width="1"/>';
+          grid += '<line x1="' + pl + '" y1="' + gy.toFixed(1) + '" x2="' + (W - pr) + '" y2="' + gy.toFixed(1) + '" stroke="#252b38" stroke-width="1"/>';
         }
-        var paths = series.map(function (s) {
+        var defs = '<defs><filter id="' + id + 'sh" x="-5%" y="-25%" width="110%" height="150%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.35"/></filter>';
+        var body = series.map(function (s, si) {
           if (!s.values.length) return '';
+          var gid = id + 'a' + si;
+          defs += '<linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
+            '<stop offset="0" stop-color="' + s.color + '" stop-opacity="0.3"/>' +
+            '<stop offset="1" stop-color="' + s.color + '" stop-opacity="0"/></linearGradient>';
           var d = s.values.map(function (v, i) { return (i === 0 ? 'M' : 'L') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1); }).join(' ');
           var area = d + ' L' + X(n - 1).toFixed(1) + ' ' + Y(0).toFixed(1) + ' L' + X(0).toFixed(1) + ' ' + Y(0).toFixed(1) + ' Z';
-          return '<path d="' + area + '" fill="' + s.color + '" opacity="0.08"/>' +
-            '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+          var lx = X(n - 1), ly = Y(s.values[n - 1]);
+          return '<path d="' + area + '" fill="url(#' + gid + ')"/>' +
+            '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" filter="url(#' + id + 'sh)"/>' +
+            '<circle cx="' + lx.toFixed(1) + '" cy="' + ly.toFixed(1) + '" r="4.5" fill="' + s.color + '" stroke="#fff" stroke-opacity="0.9" stroke-width="2"/>';
         }).join('');
+        defs += '</defs>';
         var xl = '';
         var passos = Math.min(5, n);
         for (var k = 0; k < passos; k++) {
           var idx = Math.round((n - 1) * (passos <= 1 ? 0 : k / (passos - 1)));
-          xl += '<text x="' + X(idx).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="10" fill="#8a93a3">' + esc(labels[idx] || '') + '</text>';
+          var anchor = k === 0 ? 'start' : k === passos - 1 ? 'end' : 'middle';
+          xl += '<text x="' + X(idx).toFixed(1) + '" y="' + (H - 7) + '" text-anchor="' + anchor + '" font-size="11" fill="#8a93a3">' + esc(labels[idx] || '') + '</text>';
         }
-        return '<svg class="linechart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" width="100%" height="' + H + '">' +
-          grid + paths + xl + '</svg>';
+        var maxlbl = '<text x="' + pl + '" y="13" font-size="11" fill="#6b7280">máx ' + maxV.toLocaleString('pt-BR') + '</text>';
+        return '<svg class="linechart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">' +
+          defs + grid + body + maxlbl + xl + '</svg>';
+      }
+      // Legenda compacta em linha (rótulo + valor juntos) — não estica o número na largura.
+      function legendaInline(items) {
+        return '<div class="legend-inline">' + items.map(function (it) {
+          return '<span class="leg-i"><span class="leg-dot" style="background:' + it.color + '"></span>' +
+            esc(it.label) + ' <b>' + esc(String(it.value)) + '</b></span>';
+        }).join('') + '</div>';
       }
       function legendaHtml(items) {
         return '<div class="legend">' + items.map(function (it) {
@@ -364,14 +427,22 @@
 
         // Evolução (gráfico de linha)
         var ev = state.covEvolucao && state.covEvolucao.pontos;
-        var evoBox = '<div class="cov-card"><p class="cov-card-t">📈 Evolução de preços cadastrados</p>' +
+        var evoSub = '';
+        if (ev && ev.length) {
+          var d0 = ev[0], dN = ev[ev.length - 1];
+          var dP = dN.precos - d0.precos, dPr = dN.produtos - d0.produtos;
+          evoSub = '<p class="cov-card-sub">Total acumulado, dia a dia — no período a base cresceu ' +
+            '<b style="color:#a78bfa">+' + dP + ' preços</b> e <b style="color:#ff6b2b">+' + dPr + ' produtos com preço</b>.</p>';
+        }
+        var evoBox = '<div class="cov-card"><p class="cov-card-t">📈 Evolução da cobertura</p>' +
           (ev && ev.length
-            ? svgLineChart(ev.map(function (p) { return formatDiaCurto(p.dia); }), [
+            ? evoSub +
+              svgLineChart(ev.map(function (p) { return formatDiaCurto(p.dia); }), [
                 { values: ev.map(function (p) { return p.precos; }), color: '#a78bfa', nome: 'Preços' },
                 { values: ev.map(function (p) { return p.produtos; }), color: '#ff6b2b', nome: 'Produtos' },
-              ]) + legendaHtml([
-                { color: '#a78bfa', label: 'Preços', value: ev[ev.length - 1].precos },
-                { color: '#ff6b2b', label: 'Produtos', value: ev[ev.length - 1].produtos },
+              ]) + legendaInline([
+                { color: '#a78bfa', label: 'Preços cadastrados', value: dN.precos },
+                { color: '#ff6b2b', label: 'Produtos com preço', value: dN.produtos },
               ])
             : '<p class="fnote">Sem série de evolução ainda — os preços novos vão desenhando a curva.</p>') +
           '</div>';
