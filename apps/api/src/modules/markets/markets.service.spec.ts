@@ -194,14 +194,14 @@ describe('MarketsService.proximos', () => {
     expect(body).toContain('marketplace');
   });
 
-  it('Overpass em paralelo: fica com a resposta MAIS COMPLETA dos endpoints', async () => {
+  it('Overpass em paralelo: resolve com o 1º mirror que traz DADOS (pula o vazio/lento)', async () => {
     const { svc } = make([], []);
+    // 1º mirror devolve VAZIO; o 2º tem dados → não esperamos o lento, pegamos os dados.
     const respostas = [
-      [osmNode(1, { shop: 'supermarket', name: 'A' }, LAT, LNG)],
+      [],
       [
         osmNode(1, { shop: 'supermarket', name: 'A' }, LAT, LNG),
         osmNode(2, { shop: 'supermarket', name: 'B' }, LAT + 0.001, LNG),
-        osmNode(3, { shop: 'supermarket', name: 'C' }, LAT + 0.002, LNG),
       ],
       [],
     ];
@@ -217,7 +217,8 @@ describe('MarketsService.proximos', () => {
       }),
     );
     const r = await svc.proximos(LAT, LNG, 3000, 20);
-    expect(r.length).toBe(3); // pegou a resposta com 3, não a com 1 nem a vazia
+    expect(r.find((m) => m.id === 'osm-node-1')).toBeTruthy();
+    expect(r.find((m) => m.id === 'osm-node-2')).toBeTruthy();
   });
 
   it('cacheia por área: a 2ª busca no mesmo lugar não refaz o Overpass', async () => {

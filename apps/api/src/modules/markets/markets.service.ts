@@ -374,12 +374,13 @@ export class MarketsService {
   }
 
   /**
-   * Consulta os mirrors do Overpass EM PARALELO e fica com a resposta MAIS COMPLETA
-   * (cada mirror varia; um pode devolver dados parciais). O timeout é FOLGADO porque
-   * isto roda em 2º PLANO — o público às vezes leva ~60s e, com timeout curto (15s),
-   * a query abortava antes de responder e o OSM NUNCA entrava no cache.
+   * Consulta os mirrors do Overpass EM PARALELO e resolve com o PRIMEIRO que trouxer
+   * dados — NÃO espera o mais lento/quebrado. Crítico: um mirror pode responder em 6s
+   * e outro travar em 74s (504); com `allSettled` a gente esperava o pior de todos e,
+   * num minuto ruim, estourava o timeout e o OSM nunca entrava no cache. Os mirrors
+   * devolvem ~os mesmos dados, então o 1º não-vazio serve. Timeout FOLGADO (2º plano).
    */
-  private async overpass(query: string): Promise<OverpassElement[]> {
+  private overpass(query: string): Promise<OverpassElement[]> {
     const body = `data=${encodeURIComponent(query)}`;
     const tentar = (ep: string): Promise<OverpassElement[]> =>
       fetch(ep, {
@@ -396,15 +397,25 @@ export class MarketsService {
         return data.elements ?? [];
       });
 
-    const resultados = await Promise.allSettled(MarketsService.OVERPASS_ENDPOINTS.map(tentar));
-    let melhor: OverpassElement[] = [];
-    for (const r of resultados) {
-      if (r.status === 'fulfilled' && r.value.length > melhor.length) melhor = r.value;
-    }
-    if (melhor.length === 0) {
-      this.logger.warn('Overpass: nenhum endpoint retornou dados');
-    }
-    return melhor;
+    return new Promise<OverpassElement[]>((resolve) => {
+      let pendentes = MarketsService.OVERPASS_ENDPOINTS.length;
+      let melhor: OverpassElement[] = [];
+      for (const ep of MarketsService.OVERPASS_ENDPOINTS) {
+        tentar(ep)
+          .then((els) => {
+            if (els.length > melhor.length) melhor = els;
+            if (els.length > 0) resolve(els); // 1º com dados ganha (resolve é idempotente)
+          })
+          .catch(() => {})
+          .finally(() => {
+            pendentes -= 1;
+            if (pendentes === 0) {
+              if (melhor.length === 0) this.logger.warn('Overpass: nenhum endpoint retornou dados');
+              resolve(melhor); // todos terminaram → melhor parcial (ou [])
+            }
+          });
+      }
+    });
   }
 
   private buildEndereco(t: Record<string, string>): string | undefined {
