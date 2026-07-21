@@ -49,6 +49,9 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const focusMarkerRef = useRef<maplibregl.Marker | null>(null);
   const posRef = useRef<{ lat: number; lng: number } | null>(null);
+  // Geração da busca: invalida enriquecimentos/retries de uma busca antiga (o usuário
+  // trocou de lugar/raio) — evita aplicar resultado velho por cima do novo.
+  const buscaGenRef = useRef(0);
   const [ready, setReady] = useState(false);
   const [todosMercados, setTodosMercados] = useState<MercadoDTO[]>([]);
   const [buscando, setBuscando] = useState(false);
@@ -167,6 +170,7 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
   }, [ready, focus]);
 
   function buscarMercados(lat: number, lng: number) {
+    const gen = ++buscaGenRef.current; // invalida buscas/enriquecimentos anteriores
     setBuscando(true);
     setErro(null);
     // Nova busca: some o pin dourado de foco e fecha o cartão — o mapa volta ao
@@ -186,19 +190,21 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
       userMarkerRef.current = um;
       map.flyTo({ center: [lng, lat], zoom: 12 });
     }
-    void buscarComRetry(lat, lng);
+    void buscarComRetry(lat, lng, gen);
   }
+
+  const temOsm = (ms: MercadoDTO[]) => ms.some((m) => m.id.startsWith('osm-'));
 
   /**
    * Busca no raio MÁXIMO uma vez; a régua filtra no cliente. Com RETRY: uma resposta
    * VAZIA ou um erro de "servidor frio" (status 0 / rede / 5xx) NÃO viram "Nenhum
    * mercado" na hora — o Render e o Neon dormem e o 1º acesso pode vir vazio/lento.
-   * Re-tenta com backoff mostrando "acordando"; só desiste depois de esgotar. Espelha
-   * o AuthContext (a única tela sem essa blindagem era o Mapa).
+   * Re-tenta com backoff mostrando "acordando"; só desiste depois de esgotar.
    */
-  async function buscarComRetry(lat: number, lng: number) {
+  async function buscarComRetry(lat: number, lng: number, gen: number) {
     const MAX = 6;
     for (let tentativa = 0; tentativa < MAX; tentativa++) {
+      if (gen !== buscaGenRef.current) return; // busca substituída por outra
       try {
         const near = await api.mercadosProximos(lat, lng, Math.max(...RAIOS));
         if (near.length === 0 && tentativa < MAX - 1) {
@@ -207,6 +213,7 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
           await esperar(Math.min(1500 + tentativa * 800, 5000));
           continue;
         }
+        if (gen !== buscaGenRef.current) return;
         setTodosMercados(near);
         setBuscou(true);
         setAcordando(false);
@@ -216,6 +223,10 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
           return RAIOS.find((r) => near.some((m) => (m.distanciaMetros ?? 0) <= r)) ?? atual;
         });
         setBuscando(false);
+        // Veio só os NOSSOS (verdes) e nenhum supermercado do OSM (laranja)? O cache
+        // daquela área ainda está frio no servidor — enriquece em 2º plano (o Overpass
+        // é lento e cacheia depois; re-buscar pega os pinos laranjas sem travar a tela).
+        if (!temOsm(near)) void enriquecerComOsm(lat, lng, gen);
         return;
       } catch (e) {
         const status = e instanceof ApiError ? e.status : 0;
@@ -226,17 +237,41 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
           await esperar(Math.min(1500 + tentativa * 800, 5000));
           continue;
         }
+        if (gen !== buscaGenRef.current) return;
         setErro(mensagemDeErro(e));
         setAcordando(false);
         setBuscando(false);
         return;
       }
     }
+    if (gen !== buscaGenRef.current) return;
     // Esgotou tudo vazio: aí sim é "nenhum mercado" de verdade.
     setTodosMercados([]);
     setBuscou(true);
     setAcordando(false);
     setBuscando(false);
+  }
+
+  /**
+   * Enriquece o mapa com os supermercados do OSM (pins laranjas) em 2º plano, sem loader.
+   * Cada re-busca também re-dispara a busca do OSM no servidor pra aquela área; quando ela
+   * cacheia (Overpass é lento), os pins laranjas aparecem sozinhos. Silencioso e cancelável.
+   */
+  async function enriquecerComOsm(lat: number, lng: number, gen: number) {
+    for (let tentativa = 0; tentativa < 5; tentativa++) {
+      await esperar(tentativa === 0 ? 6000 : 7000);
+      if (gen !== buscaGenRef.current) return; // usuário trocou de busca
+      try {
+        const near = await api.mercadosProximos(lat, lng, Math.max(...RAIOS));
+        if (gen !== buscaGenRef.current) return;
+        if (temOsm(near)) {
+          setTodosMercados(near); // agora com os pins laranjas do OSM
+          return;
+        }
+      } catch {
+        /* ignora — tenta de novo na próxima volta */
+      }
+    }
   }
 
   function buscarPerto() {
