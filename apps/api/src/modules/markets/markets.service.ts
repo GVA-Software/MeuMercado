@@ -9,6 +9,7 @@ import {
   type MercadoComPreco,
   type PriceObservationRepository,
 } from '../pricing/price-observation.repository.js';
+import { OSM_CACHE_REPOSITORY, type OsmCacheRepository } from './osm-cache.repository.js';
 
 interface OverpassElement {
   type: string;
@@ -98,6 +99,7 @@ export class MarketsService {
     @Inject(SEED_DATA) private readonly seed: SeedData,
     @Inject(PRICE_OBSERVATION_REPOSITORY) private readonly obs: PriceObservationRepository,
     private readonly geocode: GeocodeService,
+    @Inject(OSM_CACHE_REPOSITORY) private readonly osmCacheDb: OsmCacheRepository,
   ) {}
 
   // Backfill de geocode (em 2º plano): no máx. quantos endereços por rodada.
@@ -301,13 +303,19 @@ export class MarketsService {
   ): Promise<OverpassElement[]> {
     // Chave por área (~1km): abrir o mapa do mesmo lugar reaproveita o resultado.
     const chave = `${lat.toFixed(2)},${lng.toFixed(2)},${raioMetros}`;
+    // L1: cache em memória (rapidíssimo).
     const cache = this.osmCache.get(chave);
     if (cache) {
-      const vencido = Date.now() - cache.at >= MarketsService.OSM_TTL_MS;
-      if (vencido && !this.osmRefreshing.has(chave)) {
-        void this.buscarECachearOsm(chave, lat, lng, raioMetros, true); // atualiza em 2º plano
-      }
+      this.revalidarSeVencido(chave, cache.at, lat, lng, raioMetros);
       return cache.elements;
+    }
+    // L2: cache no BANCO (sobrevive ao cold start do Render). Promove pra L1.
+    const doBanco = await this.osmCacheDb.get(chave).catch(() => null);
+    if (doBanco && doBanco.elements.length > 0) {
+      const at = doBanco.atualizadoEm.getTime();
+      this.osmCache.set(chave, { elements: doBanco.elements as OverpassElement[], at });
+      this.revalidarSeVencido(chave, at, lat, lng, raioMetros);
+      return doBanco.elements as OverpassElement[];
     }
     // 1ª vez nesta área (sem cache): dispara a busca (que cacheia ao terminar), mas NÃO
     // trava esperando o Overpass público (lento, às vezes ~15s). Corre a busca contra um
@@ -327,6 +335,19 @@ export class MarketsService {
     return Promise.race([busca, deadline]);
   }
 
+  /** Cache vencido (>TTL) → atualiza em 2º plano (stale-while-revalidate). */
+  private revalidarSeVencido(
+    chave: string,
+    at: number,
+    lat: number,
+    lng: number,
+    raioMetros: number,
+  ): void {
+    if (Date.now() - at >= MarketsService.OSM_TTL_MS && !this.osmRefreshing.has(chave)) {
+      void this.buscarECachearOsm(chave, lat, lng, raioMetros, true);
+    }
+  }
+
   private async buscarECachearOsm(
     chave: string,
     lat: number,
@@ -338,7 +359,11 @@ export class MarketsService {
     try {
       const elements = await this.overpass(this.montarQueryOsm(lat, lng, raioMetros));
       if (elements.length > 0) {
-        this.osmCache.set(chave, { elements, at: Date.now() });
+        this.osmCache.set(chave, { elements, at: Date.now() }); // L1 (memória)
+        // L2 (banco): persiste pra sobreviver ao cold start — best-effort.
+        void this.osmCacheDb
+          .set(chave, elements)
+          .catch((e) => this.logger.warn(`Persistir cache OSM falhou: ${String(e)}`));
         return elements;
       }
       // Overpass falhou/veio vazio: mantém o último resultado bom (não sobrescreve).

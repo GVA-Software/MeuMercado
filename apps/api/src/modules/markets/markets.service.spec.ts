@@ -5,6 +5,7 @@ import type {
   MercadoComPreco,
   PriceObservationRepository,
 } from '../pricing/price-observation.repository.js';
+import { InMemoryOsmCacheRepository } from './osm-cache.repository.js';
 
 // Ponto de referência (centro de SP) e um mercado nosso ~15m ao lado.
 const LAT = -23.5505;
@@ -35,7 +36,8 @@ function make(
     } as unknown as Response),
   );
   vi.stubGlobal('fetch', fetchMock);
-  return { svc: new MarketsService(seed, repo, geocode), fetchMock, salvos };
+  const osmCache = new InMemoryOsmCacheRepository();
+  return { svc: new MarketsService(seed, repo, geocode, osmCache), fetchMock, salvos, osmCache };
 }
 
 const nosso = (over: Partial<MercadoComPreco>): MercadoComPreco => ({
@@ -170,6 +172,18 @@ describe('MarketsService.proximos', () => {
     const r = await svc.proximos(LAT, LNG, 2000, 20);
     expect(r.find((m) => m.id === 'nfce:sem-tudo')).toBeUndefined();
     expect(salvos).toEqual([]);
+  });
+
+  it('cache do OSM no BANCO (L2) sobrevive ao cold start: serve sem re-bater no Overpass', async () => {
+    const { svc, osmCache, fetchMock } = make([], []); // Overpass "vazio"
+    // Área já cacheada no banco (de um acesso anterior, antes do restart do Render).
+    await osmCache.set('-23.55,-46.63,5000', [
+      osmNode(9, { shop: 'supermarket', name: 'Extra' }, LAT + 0.001, LNG),
+    ]);
+    const r = await svc.proximos(LAT, LNG, 5000, 20);
+    // Veio do banco (L2), sem depender do Overpass (que está vazio/fora do ar).
+    expect(r.find((m) => m.id === 'osm-node-9')?.nome).toBe('Extra');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('a query do Overpass busca tipos amplos (mercadinho/feira)', async () => {

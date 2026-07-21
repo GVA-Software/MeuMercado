@@ -43,6 +43,10 @@ import {
   LISTA_REPOSITORY,
 } from '../../modules/listas/lista.repository.js';
 import {
+  InMemoryOsmCacheRepository,
+  OSM_CACHE_REPOSITORY,
+} from '../../modules/markets/osm-cache.repository.js';
+import {
   ANALYTICS_REPOSITORY,
   InMemoryAnalyticsRepository,
 } from '../../modules/analytics/analytics.repository.js';
@@ -70,6 +74,7 @@ import { FeedbackEntity } from './entities/feedback.entity.js';
 import { CartEntity, CartItemEntity } from './entities/cart.entity.js';
 import { CompraEntity } from './entities/compra.entity.js';
 import { ListaEntity } from './entities/lista.entity.js';
+import { OsmCacheEntity } from './entities/osm-cache.entity.js';
 import { NameChangeEntity } from './entities/name-change.entity.js';
 import { RefreshSessionEntity } from './entities/refresh-session.entity.js';
 import { PasswordResetEntity } from './entities/password-reset.entity.js';
@@ -82,6 +87,7 @@ import { UserEntity } from './entities/user.entity.js';
 import { TypeOrmCartRepository } from './repositories/typeorm-cart.repository.js';
 import { TypeOrmCompraRepository } from './repositories/typeorm-compra.repository.js';
 import { TypeOrmListaRepository } from './repositories/typeorm-lista.repository.js';
+import { TypeOrmOsmCacheRepository } from './repositories/typeorm-osm-cache.repository.js';
 import { TypeOrmNfceImportRepository } from './repositories/typeorm-nfce-import.repository.js';
 import { TypeOrmPriceObservationRepository } from './repositories/typeorm-price-observation.repository.js';
 import { TypeOrmProdutoRepository } from './repositories/typeorm-produto.repository.js';
@@ -111,6 +117,7 @@ const ENTITIES = [
   NfceImportEntity,
   CompraEntity,
   ListaEntity,
+  OsmCacheEntity,
   AnalyticsEventEntity,
   FeedbackEntity,
   AccessLogEntity,
@@ -130,6 +137,7 @@ const TOKENS = [
   NFCE_IMPORT_REPOSITORY,
   COMPRA_REPOSITORY,
   LISTA_REPOSITORY,
+  OSM_CACHE_REPOSITORY,
   ANALYTICS_REPOSITORY,
   FEEDBACK_REPOSITORY,
   ACCESS_LOG_REPOSITORY,
@@ -165,6 +173,7 @@ export class PersistenceModule {
           { provide: NFCE_IMPORT_REPOSITORY, useClass: InMemoryNfceImportRepository },
           { provide: COMPRA_REPOSITORY, useClass: InMemoryCompraRepository },
           { provide: LISTA_REPOSITORY, useClass: InMemoryListaRepository },
+          { provide: OSM_CACHE_REPOSITORY, useClass: InMemoryOsmCacheRepository },
           { provide: ANALYTICS_REPOSITORY, useClass: InMemoryAnalyticsRepository },
           { provide: FEEDBACK_REPOSITORY, useClass: InMemoryFeedbackRepository },
           { provide: ACCESS_LOG_REPOSITORY, useClass: InMemoryAccessLogRepository },
@@ -210,6 +219,7 @@ export class PersistenceModule {
         { provide: NFCE_IMPORT_REPOSITORY, useClass: TypeOrmNfceImportRepository },
         { provide: COMPRA_REPOSITORY, useClass: TypeOrmCompraRepository },
         { provide: LISTA_REPOSITORY, useClass: TypeOrmListaRepository },
+        { provide: OSM_CACHE_REPOSITORY, useClass: TypeOrmOsmCacheRepository },
         { provide: ANALYTICS_REPOSITORY, useClass: TypeOrmAnalyticsRepository },
         { provide: FEEDBACK_REPOSITORY, useClass: TypeOrmFeedbackRepository },
         { provide: ACCESS_LOG_REPOSITORY, useClass: TypeOrmAccessLogRepository },
