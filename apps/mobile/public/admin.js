@@ -1,7 +1,7 @@
       'use strict';
       var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
       var token = null;
-      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', covProdPag: 1, covProdSize: 20, covMercPag: 1, covMercSize: 20, covSel: {}, covMercSel: {}, covProdBusca: '', covMercBusca: '', covProdCat: '', users: [], busca: '', userView: 'ativos', aberto: null, agindo: null, erro: '' };
+      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, fbTab: 'todos', fbStatus: '', fbSel: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', covProdPag: 1, covProdSize: 20, covMercPag: 1, covMercSize: 20, covSel: {}, covMercSel: {}, covProdBusca: '', covMercBusca: '', covProdCat: '', users: [], busca: '', userView: 'ativos', aberto: null, agindo: null, erro: '' };
       var FB_TIPO = { bug: '🐛 Bug', sugestao: '💡 Sugestão', elogio: '❤️ Elogio', outro: '💬 Outro' };
 
       function esc(s) {
@@ -1326,6 +1326,12 @@
         var fbBtn = ev.target.closest ? ev.target.closest('.fb-resp') : null;
         if (fbBtn) { responderFeedback(fbBtn.getAttribute('data-id')); return; }
         if (ev.target.closest && ev.target.closest('.test-email')) { testarEmail(); return; }
+        var fbT = ev.target.closest ? ev.target.closest('[data-fbtab]') : null;
+        if (fbT) { state.fbTab = fbT.getAttribute('data-fbtab'); state.fbSel = null; renderDashboard(); return; }
+        var fbS = ev.target.closest ? ev.target.closest('[data-fbstatus]') : null;
+        if (fbS) { state.fbStatus = fbS.getAttribute('data-fbstatus'); state.fbSel = null; renderDashboard(); return; }
+        var fbC = ev.target.closest ? ev.target.closest('[data-fbsel]') : null;
+        if (fbC) { var fid = fbC.getAttribute('data-fbsel'); state.fbSel = (state.fbSel === fid ? null : fid); renderDashboard(); return; }
         var a = ev.target.closest ? ev.target.closest('.act') : null;
         if (a && !a.disabled) executarAcao(a.getAttribute('data-id'), a.getAttribute('data-act'));
       });
@@ -1360,28 +1366,210 @@
         try { state.stats = await apiFetch('/admin/stats'); } catch (e) {}
       }
 
+      // ---------- Feedbacks: dashboard (KPIs + gráficos + abas + detalhe) ----------
+      // Tudo derivado de GET /admin/feedbacks (lista inteira + abertos). Zero backend novo.
+      var FB_COR = { bug: '#ef4444', sugestao: '#a78bfa', elogio: '#22c55e', outro: '#38bdf8' };
+      function fbDiaKey(dt) {
+        return dt.getFullYear() + '-' + ('0' + (dt.getMonth() + 1)).slice(-2) + '-' + ('0' + dt.getDate()).slice(-2);
+      }
+      // Duração humana curta (min/h/d). null → '—'.
+      function fmtDur(ms) {
+        if (ms == null || isNaN(ms)) return '—';
+        var min = Math.round(ms / 60000);
+        if (min < 1) return 'agora';
+        if (min < 60) return min + 'min';
+        var h = min / 60;
+        if (h < 48) return Math.round(h) + 'h';
+        return Math.round(h / 24) + 'd';
+      }
+      function tempoRel(iso) {
+        if (!iso) return '';
+        var dt = new Date() - new Date(iso);
+        return dt >= 0 ? 'há ' + fmtDur(dt) : '';
+      }
+      // Estatísticas determinísticas (pendentes vem do backend p/ bater com o sininho).
+      function fbStats(list) {
+        var respondidos = 0, bugs = 0, bugsAbertos = 0, elogios = 0, somaMs = 0, nResp = 0;
+        list.forEach(function (f) {
+          if (f.status === 'respondido') {
+            respondidos++;
+            if (f.respondidoEm && f.criadoEm) {
+              var dt = new Date(f.respondidoEm) - new Date(f.criadoEm);
+              if (dt >= 0) { somaMs += dt; nResp++; }
+            }
+          }
+          if (f.tipo === 'bug') { bugs++; if (f.status === 'aberto') bugsAbertos++; }
+          if (f.tipo === 'elogio') elogios++;
+        });
+        return {
+          total: list.length,
+          respondidos: respondidos,
+          pendentes: state.feedbacks ? state.feedbacks.abertos : (list.length - respondidos),
+          bugs: bugs, bugsAbertos: bugsAbertos,
+          tempoMedioMs: nResp ? somaMs / nResp : null,
+          pctElogio: list.length ? Math.round((elogios / list.length) * 100) : 0,
+        };
+      }
+      // Série CUMULATIVA por dia (últimos N): recebidos (criadoEm) × respondidos (respondidoEm).
+      // A distância entre as curvas = fila esperando resposta. Semeia com os anteriores à janela.
+      function fbSeriePorDia(list, dias) {
+        dias = dias || 30;
+        var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+        var inicio = new Date(hoje); inicio.setDate(hoje.getDate() - (dias - 1));
+        var labels = [], rec = [], resp = [], idx = {};
+        for (var i = 0; i < dias; i++) {
+          var dd = new Date(inicio); dd.setDate(inicio.getDate() + i);
+          var k = fbDiaKey(dd);
+          idx[k] = i; labels.push(formatDiaCurto(k)); rec.push(0); resp.push(0);
+        }
+        var recBase = 0, respBase = 0;
+        list.forEach(function (f) {
+          if (f.criadoEm) {
+            var c = new Date(f.criadoEm);
+            if (!isNaN(c)) { if (c < inicio) recBase++; else { var kc = fbDiaKey(c); if (kc in idx) rec[idx[kc]]++; } }
+          }
+          if (f.respondidoEm) {
+            var r = new Date(f.respondidoEm);
+            if (!isNaN(r)) { if (r < inicio) respBase++; else { var kr = fbDiaKey(r); if (kr in idx) resp[idx[kr]]++; } }
+          }
+        });
+        rec[0] += recBase; resp[0] += respBase;
+        for (var j = 1; j < dias; j++) { rec[j] += rec[j - 1]; resp[j] += resp[j - 1]; }
+        return { labels: labels, rec: rec, resp: resp };
+      }
+      function fbPorTipo(list) {
+        var ordem = ['bug', 'sugestao', 'elogio', 'outro'];
+        var cont = { bug: 0, sugestao: 0, elogio: 0, outro: 0 };
+        list.forEach(function (f) { if (cont[f.tipo] != null) cont[f.tipo]++; else cont.outro++; });
+        var segs = ordem.map(function (t) { return { value: cont[t], color: FB_COR[t] }; });
+        var itens = ordem.map(function (t) {
+          return { color: FB_COR[t], label: FB_TIPO[t], value: cont[t], pct: list.length ? Math.round((cont[t] / list.length) * 100) : 0 };
+        });
+        return { segs: segs, itens: itens, cont: cont };
+      }
+      function fbFiltrada(list) {
+        var t = state.fbTab || 'todos', st = state.fbStatus || '';
+        return list.filter(function (f) {
+          if (t !== 'todos' && f.tipo !== t) return false;
+          if (st && f.status !== st) return false;
+          return true;
+        });
+      }
+      // Resumo inteligente = agregação determinística (sem LLM, sem API paga).
+      function fbResumo(st, cont) {
+        var out = [];
+        out.push(st.pendentes > 0
+          ? '<b>' + st.pendentes + '</b> feedback(s) aguardando sua resposta.'
+          : 'Tudo respondido. 🎉');
+        if (st.tempoMedioMs != null) out.push('Responde em média em <b>' + fmtDur(st.tempoMedioMs) + '</b>.');
+        if (cont.bug > 0) out.push('<b>' + cont.bug + '</b> bug(s) reportado(s)' + (st.bugsAbertos ? ' — <b>' + st.bugsAbertos + '</b> em aberto' : '') + '.');
+        if (cont.sugestao > 0) out.push('<b>' + cont.sugestao + '</b> ideia(s)/sugestão(ões) dos usuários.');
+        if (st.total > 0) out.push('<b>' + st.pctElogio + '%</b> dos feedbacks são elogios. ❤️');
+        return out;
+      }
+      function fbTabBtn(id, label, n) {
+        var on = (state.fbTab || 'todos') === id;
+        return '<button class="fb-aba' + (on ? ' on' : '') + '" data-fbtab="' + id + '">' + label +
+          ' <span class="fb-aba-n">' + n + '</span></button>';
+      }
+      function fbStatusBtn(id, label) {
+        var on = (state.fbStatus || '') === id;
+        return '<button class="fb-st' + (on ? ' on' : '') + '" data-fbstatus="' + id + '">' + label + '</button>';
+      }
+      // Timeline determinística: 2 marcos reais (enviado → respondido/aguardando).
+      function fbDetalheHtml(f) {
+        var delta = (f.status === 'respondido' && f.respondidoEm && f.criadoEm)
+          ? fmtDur(new Date(f.respondidoEm) - new Date(f.criadoEm)) : null;
+        var timeline = '<div class="fb-tl">' +
+          '<div class="fb-tl-i"><span class="fb-tl-dot" style="background:#38bdf8"></span>' +
+            '<div class="fb-tl-b"><b>Enviado</b><i>' + dataHora(f.criadoEm) + '</i></div></div>' +
+          (f.status === 'respondido'
+            ? '<div class="fb-tl-i"><span class="fb-tl-dot" style="background:#22c55e"></span>' +
+              '<div class="fb-tl-b"><b>Respondido</b><i>' + dataHora(f.respondidoEm) + (delta ? ' · em ' + delta : '') + '</i></div></div>'
+            : '<div class="fb-tl-i"><span class="fb-tl-dot" style="background:#f59e0b"></span>' +
+              '<div class="fb-tl-b"><b>Aguardando resposta</b><i>' + tempoRel(f.criadoEm) + '</i></div></div>') +
+          '</div>';
+        var corpo = f.status === 'respondido'
+          ? '<div class="fb-answered">✓ Você respondeu: ' + esc(f.resposta) + '</div>'
+          : '<div class="fb-reply"><textarea id="resp-' + f.id + '" placeholder="Escreva a resposta…"></textarea>' +
+            '<button class="fb-resp" data-id="' + f.id + '">Responder</button></div>';
+        return '<p class="fb-msg-full">' + esc(f.mensagem) + '</p>' + timeline + corpo;
+      }
+      function fbCard(f) {
+        var sel = state.fbSel === f.id;
+        var badge = '<span class="fb-badge ' + (f.status === 'aberto' ? 'op' : 'ok') + '">' +
+          (f.status === 'aberto' ? 'Aberto' : 'Respondido') + '</span>';
+        var head = '<div class="fb-head"><span class="fb-tipo">' + (FB_TIPO[f.tipo] || esc(f.tipo)) + '</span>' +
+          '<span class="fb-user">' + esc(f.usuarioNome) + ' · ' + esc(f.usuarioEmail) + '</span>' +
+          '<span class="fb-when">' + tempoRel(f.criadoEm) + '</span>' + badge + '</div>';
+        if (!sel) {
+          return '<div class="fb fb-clik' + (f.status === 'aberto' ? ' fb-open' : '') + '" data-fbsel="' + f.id + '">' +
+            head + '<p class="fb-msg fb-clamp">' + esc(f.mensagem) + '</p></div>';
+        }
+        return '<div class="fb fb-sel' + (f.status === 'aberto' ? ' fb-open' : '') + '">' +
+          '<div class="fb-clik" data-fbsel="' + f.id + '">' + head + '</div>' + fbDetalheHtml(f) + '</div>';
+      }
       function feedbacksHtml() {
         var d = state.feedbacks;
-        var topo = '<div class="email-test">' +
+        if (!d) return '<p class="fnote">Carregando os feedbacks…</p>';
+        var list = d.feedbacks;
+        var st = fbStats(list);
+        var header = '<div class="fb-topbar"><div class="fb-hl">' +
+          '<h2 class="fb-h2">Feedbacks dos usuários</h2>' +
+          '<span class="fb-hsub">' + st.total + ' no total · ' + st.pendentes + ' aguardando</span></div>' +
           '<button class="test-email"' + (state.emailTesting ? ' disabled' : '') + '>' +
-          (state.emailTesting ? 'Enviando…' : '✉️ Testar envio de e-mail') + '</button>' +
-          (state.emailMsg ? '<p class="email-msg' + (state.emailErro ? ' err' : ' ok') + '">' +
-            esc(state.emailMsg) + '</p>' : '') +
+          (state.emailTesting ? 'Enviando…' : '✉️ Testar e-mail') + '</button></div>' +
+          (state.emailMsg ? '<p class="email-msg ' + (state.emailErro ? 'err' : 'ok') + '">' + esc(state.emailMsg) + '</p>' : '');
+
+        if (!list.length) return header + '<p class="fnote">Nenhum feedback ainda — quando alguém enviar, aparece aqui.</p>';
+
+        var kpis = '<div class="kpis3">' +
+          kpiCard('💬', st.total, 'Feedbacks', '#ff6b2b') +
+          kpiCard('⏳', st.pendentes, 'Pendentes', '#f59e0b') +
+          kpiCard('✅', st.respondidos, 'Respondidos', '#22c55e') +
+          kpiCard('🐛', st.bugs, 'Bugs', '#ef4444', st.bugsAbertos ? st.bugsAbertos + ' em aberto' : 'nenhum aberto') +
+          kpiCard('⏱️', fmtDur(st.tempoMedioMs), 'Resposta média', '#38bdf8', st.respondidos ? 'de ' + st.respondidos + ' resp.' : 'sem resposta ainda') +
+          kpiCard('❤️', st.pctElogio + '%', 'Elogios', '#ec4899') +
           '</div>';
-        var lista;
-        if (!d) lista = '<p class="fnote">Carregando os feedbacks…</p>';
-        else if (!d.feedbacks.length) lista = '<p class="fnote">Nenhum feedback ainda.</p>';
-        else lista = d.feedbacks.map(function (f) {
-          var corpo = f.status === 'respondido'
-            ? '<div class="fb-answered">✓ Você respondeu: ' + esc(f.resposta) + '</div>'
-            : '<div class="fb-reply"><textarea id="resp-' + f.id + '" placeholder="Escreva a resposta…"></textarea>' +
-              '<button class="fb-resp" data-id="' + f.id + '">Responder</button></div>';
-          return '<div class="fb' + (f.status === 'aberto' ? ' fb-open' : '') + '">' +
-            '<div class="fb-head"><span class="fb-tipo">' + (FB_TIPO[f.tipo] || f.tipo) + '</span>' +
-            '<span class="fb-user">' + esc(f.usuarioNome) + ' · ' + esc(f.usuarioEmail) + '</span></div>' +
-            '<p class="fb-msg">' + esc(f.mensagem) + '</p>' + corpo + '</div>';
-        }).join('');
-        return topo + lista;
+
+        var serie = fbSeriePorDia(list, 30);
+        var evoBox = '<div class="cov-card"><p class="cov-card-t">📈 Feedbacks ao longo do tempo</p>' +
+          '<p class="cov-card-sub">Acumulado nos últimos 30 dias — a distância entre as curvas é a fila esperando resposta.</p>' +
+          svgLineChart(serie.labels, [
+            { values: serie.rec, color: '#ff6b2b', nome: 'Recebidos' },
+            { values: serie.resp, color: '#22c55e', nome: 'Respondidos' },
+          ]) + legendaInline([
+            { color: '#ff6b2b', label: 'Recebidos', value: st.total },
+            { color: '#22c55e', label: 'Respondidos', value: st.respondidos },
+          ]) + '</div>';
+
+        var pt = fbPorTipo(list);
+        var insBox = '<div class="cov-card"><p class="cov-card-t">💡 Resumo</p>' +
+          '<ul class="cov-ins">' + fbResumo(st, pt.cont).map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>';
+        var donutBox = '<div class="cov-card"><p class="cov-card-t">🍩 Distribuição por tipo</p>' +
+          '<div class="donut-wrap">' + svgDonut(pt.segs, st.total, 'feedbacks') + '</div>' +
+          legendaHtml(pt.itens) + '</div>';
+        var grid = '<div class="cov-grid">' + evoBox + insBox + donutBox + '</div>';
+
+        var abas = '<div class="fb-abas">' +
+          fbTabBtn('todos', 'Todos', list.length) +
+          fbTabBtn('bug', FB_TIPO.bug, pt.cont.bug) +
+          fbTabBtn('sugestao', FB_TIPO.sugestao, pt.cont.sugestao) +
+          fbTabBtn('elogio', FB_TIPO.elogio, pt.cont.elogio) +
+          fbTabBtn('outro', FB_TIPO.outro, pt.cont.outro) +
+          '</div>';
+        var statusBar = '<div class="fb-status">' +
+          fbStatusBtn('', 'Todos') + fbStatusBtn('aberto', 'Abertos') + fbStatusBtn('respondido', 'Respondidos') +
+          '</div>';
+
+        var filtrada = fbFiltrada(list);
+        var listaHtml = filtrada.length
+          ? filtrada.map(fbCard).join('')
+          : '<p class="fnote">Nenhum feedback neste filtro.</p>';
+
+        return header + kpis + grid +
+          '<div class="fb-filtros">' + abas + statusBar + '</div>' +
+          '<div class="fb-lista">' + listaHtml + '</div>';
       }
       async function testarEmail() {
         state.emailTesting = true;

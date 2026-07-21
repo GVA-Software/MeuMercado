@@ -91,6 +91,37 @@
       .email-msg { font-size: 13px; margin: 10px 0 0; line-height: 1.5; }
       .email-msg.ok { color: var(--green); }
       .email-msg.err { color: var(--danger); }
+      /* Feedbacks — dashboard (redesign) */
+      .kpis3 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; }
+      @media (min-width: 720px) { .kpis3 { grid-template-columns: repeat(3, 1fr); } }
+      .fb-topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+      .fb-hl { min-width: 0; }
+      .fb-h2 { font-size: 20px; font-weight: 800; margin: 0; color: var(--text); }
+      .fb-hsub { font-size: 13px; color: var(--muted); font-weight: 600; }
+      .fb-topbar .test-email { flex-shrink: 0; background: var(--surface); color: var(--sub); border: 1px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
+      .fb-filtros { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 20px 0 12px; }
+      .fb-abas { display: flex; gap: 6px; flex-wrap: wrap; }
+      .fb-aba { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 99px; border: 1px solid var(--border); background: transparent; color: var(--sub); font-size: 13px; font-weight: 700; cursor: pointer; }
+      .fb-aba.on { border-color: var(--primary); background: rgba(255,107,43,.14); color: var(--primary); }
+      .fb-aba-n { font-size: 11px; font-weight: 800; background: rgba(255,255,255,.08); border-radius: 99px; padding: 1px 7px; }
+      .fb-status { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+      .fb-st { padding: 7px 13px; border: none; background: transparent; color: var(--sub); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+      .fb-st.on { background: var(--primary); color: #fff; }
+      .fb-lista { margin-top: 4px; }
+      .fb-clik { cursor: pointer; }
+      .fb-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 0; }
+      .fb-when { font-size: 11px; color: var(--muted); margin-left: auto; }
+      .fb-badge { font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 99px; }
+      .fb-badge.op { color: #f59e0b; background: rgba(245,158,11,.15); }
+      .fb-badge.ok { color: var(--green); background: rgba(34,197,94,.15); }
+      .fb-sel { border-left: 3px solid var(--primary); }
+      .fb-msg-full { font-size: 14.5px; color: var(--text); margin: 4px 0 16px; line-height: 1.55; white-space: pre-wrap; }
+      .fb-tl { border-left: 2px solid var(--border); margin: 0 0 16px; padding-left: 2px; }
+      .fb-tl-i { position: relative; padding: 0 0 14px 18px; }
+      .fb-tl-i:last-child { padding-bottom: 0; }
+      .fb-tl-dot { position: absolute; left: -6px; top: 2px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--surface); }
+      .fb-tl-b b { display: block; font-size: 13px; color: var(--text); font-weight: 700; }
+      .fb-tl-b i { font-size: 12px; color: var(--muted); font-style: normal; }
 
       /* Cobertura */
       .cov-mini-btn { float: right; background: transparent; border: 1px solid var(--border); color: var(--sub); border-radius: 8px; font-size: 11px; font-weight: 700; padding: 3px 8px; cursor: pointer; }
