@@ -113,6 +113,9 @@ export class MarketsService {
   // Espera curta pelo Overpass na 1ª busca de uma área — só pra pegar respostas rápidas;
   // se demorar mais, o mapa abre com os nossos mercados e o OSM entra no cache p/ o próximo.
   private static readonly OSM_SOFT_DEADLINE_MS = 2500;
+  // Timeout da chamada ao Overpass. Roda em 2º PLANO (o usuário nunca espera isso — é
+  // capado pelo soft-deadline acima), então damos folga: o público às vezes leva ~60s.
+  private static readonly OVERPASS_TIMEOUT_MS = 75000;
 
   /**
    * Mercados com preço, do BANCO — leitura pura e rápida. Devolve na hora quem já
@@ -346,9 +349,10 @@ export class MarketsService {
   }
 
   /**
-   * Consulta os endpoints do Overpass EM PARALELO e fica com a resposta MAIS COMPLETA
-   * (o público é lento e às vezes devolve dados parciais). Antes era em sequência (até
-   * 25s cada) — o que fazia o mapa levar "uma eternidade" e às vezes vir quase vazio.
+   * Consulta os mirrors do Overpass EM PARALELO e fica com a resposta MAIS COMPLETA
+   * (cada mirror varia; um pode devolver dados parciais). O timeout é FOLGADO porque
+   * isto roda em 2º PLANO — o público às vezes leva ~60s e, com timeout curto (15s),
+   * a query abortava antes de responder e o OSM NUNCA entrava no cache.
    */
   private async overpass(query: string): Promise<OverpassElement[]> {
     const body = `data=${encodeURIComponent(query)}`;
@@ -360,7 +364,7 @@ export class MarketsService {
           'User-Agent': 'MeuMercado/1.0 (app de compras)',
         },
         body,
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(MarketsService.OVERPASS_TIMEOUT_MS),
       }).then(async (res) => {
         if (!res.ok) throw new Error(`${ep} HTTP ${res.status}`);
         const data = JSON.parse(await res.text()) as { elements?: OverpassElement[] };
