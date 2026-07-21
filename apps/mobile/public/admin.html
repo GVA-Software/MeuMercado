@@ -140,6 +140,39 @@
       .cov-pg:disabled { opacity: .35; cursor: default; }
       .cov-pgn { color: var(--sub); }
 
+      /* Cobertura — dashboard (redesign) */
+      .cov-hero { display: flex; align-items: center; gap: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 18px 20px; margin-bottom: 14px; flex-wrap: wrap; }
+      .cov-hero .ring { flex-shrink: 0; }
+      .hero-info { flex: 1; min-width: 200px; }
+      .hero-t { font-size: 20px; font-weight: 800; margin: 0; color: var(--text); }
+      .hero-sub { font-size: 14px; font-weight: 700; color: var(--green); margin: 2px 0 12px; }
+      .cov-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+      .cov-chip { font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 99px; border: 1px solid; }
+      .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; }
+      @media (min-width: 720px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+      .kpi { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 15px 16px; }
+      .kpi-ico { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+      .kpi-n { font-size: 26px; font-weight: 800; margin: 0; color: var(--text); line-height: 1; }
+      .kpi-l { font-size: 12px; color: var(--muted); margin: 4px 0 0; font-weight: 700; }
+      .kpi-s { font-size: 11px; color: var(--sub); margin: 2px 0 0; }
+      .cov-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px; }
+      @media (min-width: 720px) { .cov-grid { grid-template-columns: 1fr 1fr; } .cov-grid > :first-child { grid-column: 1 / -1; } }
+      .cov-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; min-width: 0; }
+      .cov-card-t { font-size: 13px; font-weight: 800; color: var(--sub); margin: 0 0 12px; }
+      .cov-ins { list-style: none; margin: 0; padding: 0; }
+      .cov-ins li { font-size: 13px; color: var(--sub); padding: 7px 0 7px 22px; position: relative; line-height: 1.4; border-bottom: 1px solid var(--border); }
+      .cov-ins li:last-child { border-bottom: none; }
+      .cov-ins li::before { content: '›'; position: absolute; left: 6px; color: var(--primary); font-weight: 800; }
+      .cov-ins b { color: var(--text); }
+      .donut-wrap { display: flex; justify-content: center; margin: 4px 0 12px; }
+      .linechart { display: block; }
+      .legend { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+      .leg { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+      .leg-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+      .leg-l { flex: 1; color: var(--sub); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .leg-v { color: var(--text); font-weight: 700; }
+      .leg-v i { color: var(--muted); font-weight: 600; font-style: normal; }
+
       /* Toast */
       /* z-index acima dos modais (mm-modal-ov = 10000) para o toast aparecer SEMPRE na frente. */
       .mm-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 12px 20px; font-size: 14px; font-weight: 700; box-shadow: 0 10px 30px rgba(0,0,0,.5); z-index: 100000; opacity: 1; transition: opacity .35s; }

@@ -167,6 +167,79 @@
       }
       function mini(n, l) { return '<div><p class="n">' + n + '</p><p class="l">' + l + '</p></div>'; }
 
+      // ---------- Gráficos SVG (na mão, sem lib) — reusáveis nos dashboards ----------
+      // KPI card do redesign: ícone colorido + número grande + rótulo + delta opcional.
+      function kpiCard(icon, n, label, cor, sub) {
+        return '<div class="kpi" style="border-color:' + cor + '33">' +
+          '<div class="kpi-ico" style="background:' + cor + '22">' + icon + '</div>' +
+          '<div class="kpi-body"><p class="kpi-n">' + esc(String(n)) + '</p>' +
+          '<p class="kpi-l">' + esc(label) + '</p>' +
+          (sub ? '<p class="kpi-s">' + sub + '</p>' : '') + '</div></div>';
+      }
+      // Anel de progresso (saúde/cobertura %).
+      function svgRing(p, cor, sub) {
+        p = Math.max(0, Math.min(100, p || 0));
+        var circ = 2 * Math.PI * 52, off = circ * (1 - p / 100);
+        return '<svg class="ring" viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">' +
+          '<circle cx="60" cy="60" r="52" fill="none" stroke="#2a2f3c" stroke-width="12"/>' +
+          '<circle cx="60" cy="60" r="52" fill="none" stroke="' + cor + '" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 60 60)"/>' +
+          '<text x="60" y="57" text-anchor="middle" font-size="27" font-weight="800" fill="#eef1f6">' + Math.round(p) + '%</text>' +
+          (sub ? '<text x="60" y="78" text-anchor="middle" font-size="11" fill="#8a93a3">' + esc(sub) + '</text>' : '') +
+          '</svg>';
+      }
+      // Rosca multi-segmento. segs = [{value, color}]; centerTop/centerBot no meio.
+      function svgDonut(segs, centerTop, centerBot) {
+        var total = segs.reduce(function (s, x) { return s + x.value; }, 0) || 1;
+        var circ = 2 * Math.PI * 52, acc = 0;
+        var arcs = segs.map(function (seg) {
+          var frac = seg.value / total, dash = circ * frac, off = -acc * circ;
+          acc += frac;
+          if (seg.value <= 0) return '';
+          return '<circle cx="60" cy="60" r="52" fill="none" stroke="' + seg.color + '" stroke-width="15" stroke-dasharray="' + dash.toFixed(1) + ' ' + (circ - dash).toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 60 60)"/>';
+        }).join('');
+        return '<svg class="ring" viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">' +
+          '<circle cx="60" cy="60" r="52" fill="none" stroke="#2a2f3c" stroke-width="15"/>' + arcs +
+          '<text x="60" y="55" text-anchor="middle" font-size="23" font-weight="800" fill="#eef1f6">' + esc(String(centerTop)) + '</text>' +
+          '<text x="60" y="75" text-anchor="middle" font-size="10.5" fill="#8a93a3">' + esc(centerBot || '') + '</text>' +
+          '</svg>';
+      }
+      // Linha (uma ou mais séries). labels = eixo X; series = [{values, color, nome}].
+      function svgLineChart(labels, series) {
+        var W = 600, H = 200, pl = 6, pr = 6, ptop = 12, pb = 24;
+        var todos = series.reduce(function (a, s) { return a.concat(s.values); }, [0]);
+        var maxV = Math.max.apply(null, todos) || 1;
+        var n = labels.length;
+        var X = function (i) { return pl + (W - pl - pr) * (n <= 1 ? 0 : i / (n - 1)); };
+        var Y = function (v) { return ptop + (H - ptop - pb) * (1 - v / maxV); };
+        var grid = '';
+        for (var g = 0; g <= 3; g++) {
+          var gy = ptop + (H - ptop - pb) * (g / 3);
+          grid += '<line x1="' + pl + '" y1="' + gy.toFixed(1) + '" x2="' + (W - pr) + '" y2="' + gy.toFixed(1) + '" stroke="#2a2f3c" stroke-width="1"/>';
+        }
+        var paths = series.map(function (s) {
+          if (!s.values.length) return '';
+          var d = s.values.map(function (v, i) { return (i === 0 ? 'M' : 'L') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1); }).join(' ');
+          var area = d + ' L' + X(n - 1).toFixed(1) + ' ' + Y(0).toFixed(1) + ' L' + X(0).toFixed(1) + ' ' + Y(0).toFixed(1) + ' Z';
+          return '<path d="' + area + '" fill="' + s.color + '" opacity="0.08"/>' +
+            '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+        }).join('');
+        var xl = '';
+        var passos = Math.min(5, n);
+        for (var k = 0; k < passos; k++) {
+          var idx = Math.round((n - 1) * (passos <= 1 ? 0 : k / (passos - 1)));
+          xl += '<text x="' + X(idx).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="10" fill="#8a93a3">' + esc(labels[idx] || '') + '</text>';
+        }
+        return '<svg class="linechart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" width="100%" height="' + H + '">' +
+          grid + paths + xl + '</svg>';
+      }
+      function legendaHtml(items) {
+        return '<div class="legend">' + items.map(function (it) {
+          return '<div class="leg"><span class="leg-dot" style="background:' + it.color + '"></span>' +
+            '<span class="leg-l">' + esc(it.label) + '</span>' +
+            '<span class="leg-v">' + esc(String(it.value)) + (it.pct != null ? ' <i>(' + it.pct + '%)</i>' : '') + '</span></div>';
+        }).join('') + '</div>';
+      }
+
       function pct(n, base) { return base > 0 ? Math.round((n / base) * 100) + '%' : '—'; }
       function funnelHtml(f) {
         var base = f.totalUsuarios || 1;
@@ -231,6 +304,13 @@
           '<b class="cov-pgn">' + info.p + '/' + info.paginas + '</b>' +
           '<button class="cov-pg" id="' + prefix + '-next"' + (info.p >= info.paginas ? ' disabled' : '') + '>›</button></span>';
       }
+      function covChip(txt, cor) {
+        return '<span class="cov-chip" style="color:' + cor + ';background:' + cor + '1c;border-color:' + cor + '44">' + txt + '</span>';
+      }
+      function formatDiaCurto(dia) {
+        var p = String(dia).split('-'); // YYYY-MM-DD
+        return p.length === 3 ? p[2] + '/' + p[1] : dia;
+      }
       function coberturaHtml() {
         if (state.coberturaErro) {
           return '<div class="funnel"><p class="fnote" style="color:#ef4444">' + esc(state.coberturaErro) + '</p>' +
@@ -241,15 +321,75 @@
           return '<div class="funnel"><p class="fnote">Carregando cobertura…</p></div>';
         }
         var t = c.totais;
-        var cards = '<div class="stats">' +
-            statCard(t.produtosCatalogo, 'Produtos', '#ff6b2b') +
-            statCard(t.mercados, 'Mercados', '#38bdf8') +
-            statCard(t.precos, 'Preços', '#a78bfa') +
-            statCard(t.produtosMultiMercado, 'Comparáveis', '#22c55e') +
-          '</div>' +
-          '<div class="mini">' + mini(t.produtosComPreco, 'com preço') +
-            mini(t.produtosCatalogo - t.produtosComPreco, 'sem preço') +
-            mini(t.contribuidores, 'contribuidores') + '</div>';
+        var covPct = t.produtosCatalogo > 0 ? (t.produtosComPreco / t.produtosCatalogo) * 100 : 0;
+        var semPreco = t.produtosCatalogo - t.produtosComPreco;
+        var completa = c.produtos.filter(function (p) { return p.mercados >= 2; }).length;
+        var parcial = c.produtos.filter(function (p) { return p.mercados === 1; }).length;
+        var sem = c.produtos.filter(function (p) { return p.precos === 0; }).length;
+        var outros = c.produtos.filter(function (p) { return p.categoria === 'Outros'; }).length;
+        var top1 = c.topUsuarios[0];
+        var pc = function (n) { return t.produtosCatalogo > 0 ? Math.round((n / t.produtosCatalogo) * 100) : 0; };
+
+        // HERO — saúde da cobertura
+        var hero = '<div class="cov-hero">' +
+          '<div>' + svgRing(covPct, '#22c55e', 'cobertura') + '</div>' +
+          '<div class="hero-info">' +
+            '<p class="hero-t">Saúde da cobertura</p>' +
+            '<p class="hero-sub">' + (covPct >= 90 ? 'Excelente' : covPct >= 60 ? 'Boa' : 'Precisa crescer') + '</p>' +
+            '<div class="cov-chips">' +
+              covChip('✓ ' + t.produtosComPreco + ' com preço', '#22c55e') +
+              (semPreco ? covChip('⚠ ' + semPreco + ' sem preço', '#f59e0b') : covChip('✓ todos com preço', '#22c55e')) +
+              covChip('👥 ' + t.contribuidores + ' contribuidores', '#38bdf8') +
+              (top1 ? covChip('🥇 ' + esc(top1.nome) + ' · ' + top1.cadastros, '#a78bfa') : '') +
+            '</div>' +
+          '</div></div>';
+
+        // KPIs
+        var kpis = '<div class="kpis">' +
+          kpiCard('📦', t.produtosCatalogo, 'Produtos', '#ff6b2b') +
+          kpiCard('🏪', t.mercados, 'Mercados', '#38bdf8') +
+          kpiCard('🏷️', t.precos, 'Preços', '#a78bfa') +
+          kpiCard('⚖️', t.produtosMultiMercado, 'Comparáveis', '#22c55e') +
+        '</div>';
+
+        // Insights (reais)
+        var ins = ['Cobertura geral: <b>' + Math.round(covPct) + '%</b>.'];
+        if (semPreco === 0) ins.push('Todos os produtos têm preço. 🎉');
+        else if (semPreco <= 3) ins.push('Apenas <b>' + semPreco + '</b> produto(s) sem preço.');
+        else ins.push('<b>' + semPreco + '</b> produtos ainda sem preço.');
+        if (outros) ins.push('<b>' + outros + '</b> produtos podem ser classificados automaticamente.');
+        ins.push('<b>' + completa + '</b> produtos já dá pra comparar (2+ mercados).');
+        var insBox = '<div class="cov-card"><p class="cov-card-t">💡 Insights inteligentes</p>' +
+          '<ul class="cov-ins">' + ins.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul></div>';
+
+        // Evolução (gráfico de linha)
+        var ev = state.covEvolucao && state.covEvolucao.pontos;
+        var evoBox = '<div class="cov-card"><p class="cov-card-t">📈 Evolução de preços cadastrados</p>' +
+          (ev && ev.length
+            ? svgLineChart(ev.map(function (p) { return formatDiaCurto(p.dia); }), [
+                { values: ev.map(function (p) { return p.precos; }), color: '#a78bfa', nome: 'Preços' },
+                { values: ev.map(function (p) { return p.produtos; }), color: '#ff6b2b', nome: 'Produtos' },
+              ]) + legendaHtml([
+                { color: '#a78bfa', label: 'Preços', value: ev[ev.length - 1].precos },
+                { color: '#ff6b2b', label: 'Produtos', value: ev[ev.length - 1].produtos },
+              ])
+            : '<p class="fnote">Sem série de evolução ainda — os preços novos vão desenhando a curva.</p>') +
+          '</div>';
+
+        // Rosca — distribuição
+        var donutBox = '<div class="cov-card"><p class="cov-card-t">🍩 Distribuição da cobertura</p>' +
+          '<div class="donut-wrap">' + svgDonut([
+            { value: completa, color: '#22c55e' },
+            { value: parcial, color: '#f59e0b' },
+            { value: sem, color: '#ef4444' },
+          ], t.produtosCatalogo, 'Produtos') + '</div>' +
+          legendaHtml([
+            { color: '#22c55e', label: 'Comparável (2+)', value: completa, pct: pc(completa) },
+            { color: '#f59e0b', label: '1 mercado', value: parcial, pct: pc(parcial) },
+            { color: '#ef4444', label: 'Sem preço', value: sem, pct: pc(sem) },
+          ]) + '</div>';
+
+        var grid = '<div class="cov-grid">' + evoBox + insBox + donutBox + '</div>';
 
         var top = c.topUsuarios.length
           ? '<ol class="cov-top">' + c.topUsuarios.slice(0, 20).map(function (u, i) {
@@ -263,7 +403,7 @@
         // Mercados e Produtos são renderizados em boxes próprios (renderCov*Box) pra
         // permitir filtro/paginação sem re-render total — o input de busca fica FORA
         // do box, então não perde o foco enquanto digita.
-        return cards +
+        return hero + kpis + grid +
           '<div class="funnel"><p class="ftitle">🏆 Quem mais cadastra <button id="cov-refresh" class="cov-mini-btn">↻ atualizar</button></p>' + top + '</div>' +
           '<div class="funnel"><p class="ftitle">🏪 Mercados cadastrados</p>' +
             '<p class="fnote">Marque pra <b>Juntar</b> (2+, unifica a mesma loja) ou <b>Excluir</b>. Filtre por nome/endereço — vários termos separados por vírgula.</p>' +
@@ -465,6 +605,8 @@
         state.coberturaLoading = true; state.coberturaErro = '';
         try {
           state.cobertura = await apiFetch('/admin/cobertura');
+          // Série de evolução (best-effort: se falhar, o gráfico só não aparece).
+          try { state.covEvolucao = await apiFetch('/admin/cobertura/evolucao?dias=30'); } catch (e) {}
           if (comToast) toast('✓ Cobertura atualizada');
         } catch (e) {
           state.coberturaErro = (e && e.message) || 'Falha ao carregar a cobertura.';
