@@ -27,6 +27,7 @@ import {
   ResponderFeedbackSchema,
   type AdminClassificarInput,
   type AdminCoberturaDTO,
+  type AdminCoberturaEvolucaoDTO,
   type AdminDuplicadosDTO,
   type AdminEditarPrecoInput,
   type AdminEditarProdutoInput,
@@ -99,6 +100,13 @@ export class AdminController {
   @Get('cobertura')
   cobertura(): Promise<AdminCoberturaDTO> {
     return this.service.cobertura();
+  }
+
+  /** Série (cumulativa) de preços/produtos por dia — gráfico de evolução da cobertura. */
+  @Get('cobertura/evolucao')
+  coberturaEvolucao(@Query('dias') dias?: string): Promise<AdminCoberturaEvolucaoDTO> {
+    const n = Math.min(Math.max(parseInt(dias ?? '', 10) || 30, 7), 90);
+    return this.service.coberturaEvolucao(n);
   }
 
   /** Exclui produtos em lote (some do catálogo e dos apps; apaga os preços). */

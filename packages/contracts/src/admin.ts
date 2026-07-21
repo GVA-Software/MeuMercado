@@ -116,6 +116,18 @@ export const AdminCoberturaSchema = z.object({
 });
 export type AdminCoberturaDTO = z.infer<typeof AdminCoberturaSchema>;
 
+/** Evolução (cumulativa) de preços e produtos-com-preço por dia — série do gráfico. */
+export const AdminCoberturaEvolucaoSchema = z.object({
+  pontos: z.array(
+    z.object({
+      dia: z.string(), // YYYY-MM-DD
+      precos: z.number().int().nonnegative(), // total acumulado de preços até o dia
+      produtos: z.number().int().nonnegative(), // total acumulado de produtos com preço
+    }),
+  ),
+});
+export type AdminCoberturaEvolucaoDTO = z.infer<typeof AdminCoberturaEvolucaoSchema>;
+
 /** Exclusão de produtos em lote (some do catálogo e dos apps; apaga os preços). */
 export const AdminExcluirProdutosSchema = z.object({
   ids: z.array(IdSchema).min(1).max(200),

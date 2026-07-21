@@ -254,6 +254,42 @@ describe('AdminService — cobertura', () => {
     expect(c.topUsuarios[0]).toMatchObject({ userId: 'u1', cadastros: 2 });
     expect(c.topUsuarios.map((t) => t.userId)).not.toContain('seed');
   });
+
+  it('evolução: conta preços e produtos-com-preço CUMULATIVOS por dia', async () => {
+    const { service } = makeService([user('u1', 'u1@x.com')], {
+      produtos: [
+        { id: 'p1', nome: 'A', categoria: 'X' },
+        { id: 'p2', nome: 'B', categoria: 'X' },
+      ],
+      observacoes: [
+        {
+          reporterId: 'u1',
+          produtoId: 'p1',
+          mercadoId: 'm1',
+          observedAt: new Date('2026-07-10T10:00:00Z'),
+        },
+        {
+          reporterId: 'u1',
+          produtoId: 'p1',
+          mercadoId: 'm2',
+          observedAt: new Date('2026-07-11T10:00:00Z'),
+        },
+        {
+          reporterId: 'u1',
+          produtoId: 'p2',
+          mercadoId: 'm1',
+          observedAt: new Date('2026-07-12T10:00:00Z'),
+        },
+      ],
+    });
+    const r = await service.coberturaEvolucao(5, new Date('2026-07-12T23:59:59Z'));
+    expect(r.pontos).toHaveLength(5); // 08, 09, 10, 11, 12
+    const porDia = Object.fromEntries(r.pontos.map((p) => [p.dia, p]));
+    expect(porDia['2026-07-09']).toMatchObject({ precos: 0, produtos: 0 });
+    expect(porDia['2026-07-10']).toMatchObject({ precos: 1, produtos: 1 });
+    expect(porDia['2026-07-11']).toMatchObject({ precos: 2, produtos: 1 }); // 2 preços, ainda 1 produto
+    expect(porDia['2026-07-12']).toMatchObject({ precos: 3, produtos: 2 }); // entra o p2
+  });
 });
 
 describe('AdminService — excluir produtos', () => {

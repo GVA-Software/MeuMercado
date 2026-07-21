@@ -20,6 +20,7 @@ import {
 import {
   PLANOS,
   type AdminCoberturaDTO,
+  type AdminCoberturaEvolucaoDTO,
   type AdminDuplicadosDTO,
   type AdminFunnelDTO,
   type AdminProdutoEdicaoDTO,
@@ -344,6 +345,49 @@ export class AdminService {
       mercados,
       topUsuarios,
     };
+  }
+
+  /**
+   * Série (cumulativa) de preços e produtos-com-preço por dia, nos últimos `dias`.
+   * Alimenta o gráfico "Evolução de preços cadastrados" do painel de Cobertura.
+   */
+  async coberturaEvolucao(dias = 30, asOf: Date = new Date()): Promise<AdminCoberturaEvolucaoDTO> {
+    const observacoes = await this.prices.all();
+    // Primeira observação de cada produto (para contar produtos-com-preço distintos).
+    const primeiroDoProduto = new Map<string, number>();
+    for (const o of observacoes) {
+      const t = o.observedAt.getTime();
+      const atual = primeiroDoProduto.get(o.produtoId);
+      if (atual === undefined || t < atual) primeiroDoProduto.set(o.produtoId, t);
+    }
+    const primeiros = [...primeiroDoProduto.values()];
+    const tsPrecos = observacoes.map((o) => o.observedAt.getTime()).sort((a, b) => a - b);
+    const primeirosOrd = primeiros.slice().sort((a, b) => a - b);
+    // Conta quantos elementos de um array ORDENADO são <= x (busca binária).
+    const contarAte = (arr: number[], x: number): number => {
+      let lo = 0;
+      let hi = arr.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (arr[mid]! <= x) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
+    };
+
+    const fimDoDia = new Date(asOf);
+    fimDoDia.setUTCHours(23, 59, 59, 999);
+    const pontos = [];
+    for (let i = dias - 1; i >= 0; i -= 1) {
+      const d = new Date(fimDoDia.getTime() - i * 86_400_000);
+      const ate = d.getTime();
+      pontos.push({
+        dia: d.toISOString().slice(0, 10),
+        precos: contarAte(tsPrecos, ate),
+        produtos: contarAte(primeirosOrd, ate),
+      });
+    }
+    return { pontos };
   }
 
   /**
