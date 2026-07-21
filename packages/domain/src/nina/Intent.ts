@@ -236,10 +236,7 @@ function interpretarBase(n: string): Intencao | null {
   return null;
 }
 
-export function interpretar(
-  texto: string,
-  receitas: ReadonlyArray<ReceitaDef> = [],
-): Intencao {
+export function interpretar(texto: string, receitas: ReadonlyArray<ReceitaDef> = []): Intencao {
   const n = norm(texto);
   if (!n) return { tipo: 'buscar', termo: '', raioMetros: null };
   const palavras = n.split(/\s+/);
@@ -257,8 +254,7 @@ export function interpretar(
   const termo = extrairTermo(n);
   // Quer recomendação de MERCADO: menciona "mercado" OU é uma compra genérica
   // (ex.: "minhas compras", "a feira"), com um gatilho de recomendação.
-  const querMercado =
-    (PERGUNTA_MERCADO.test(n) || GENERIC_COMPRA.test(n)) && CUE_RECOMENDA.test(n);
+  const querMercado = (PERGUNTA_MERCADO.test(n) || GENERIC_COMPRA.test(n)) && CUE_RECOMENDA.test(n);
 
   // Histórico PESSOAL ("minha última compra", "quanto gastei"...) — a MENOS que seja
   // claramente uma recomendação de mercado ("qual mercado pra minhas compras hoje").
@@ -276,7 +272,11 @@ export function interpretar(
     if (lista) return { tipo: 'montar-lista', evento: lista.nome, itens: lista.itens };
   }
   // "Liste os produtos" (que NÃO são as minhas compras) → aponta pra aba Preços.
-  if (/\b(list[ae]|liste|mostr\w*|ver todos?)\b/.test(n) && /\bprodutos?\b/.test(n) && !/\bcompr/.test(n)) {
+  if (
+    /\b(list[ae]|liste|mostr\w*|ver todos?)\b/.test(n) &&
+    /\bprodutos?\b/.test(n) &&
+    !/\bcompr/.test(n)
+  ) {
     return { tipo: 'listar-produtos' };
   }
 

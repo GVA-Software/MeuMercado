@@ -90,7 +90,8 @@ export class PricingService {
     const semPreco: string[] = [];
     const linhas = itens.map((it) => {
       const obs = porProduto.get(it.produtoId);
-      const mediaCents = obs && obs.length > 0 ? (new PriceStatistics(obs).average()?.cents ?? null) : null;
+      const mediaCents =
+        obs && obs.length > 0 ? (new PriceStatistics(obs).average()?.cents ?? null) : null;
       if (mediaCents === null) semPreco.push(it.produtoId);
       else totalEstimadoCents += Math.round(mediaCents * it.quantity);
       return { produtoId: it.produtoId, mediaCents };

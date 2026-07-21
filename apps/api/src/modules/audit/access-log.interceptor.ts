@@ -7,10 +7,7 @@ import {
   type NestInterceptor,
 } from '@nestjs/common';
 import type { Observable } from 'rxjs';
-import {
-  ACCESS_LOG_REPOSITORY,
-  type AccessLogRepository,
-} from './access-log.repository.js';
+import { ACCESS_LOG_REPOSITORY, type AccessLogRepository } from './access-log.repository.js';
 
 /** Requisição Express só com o que precisamos (o guard de JWT injeta `user`). */
 interface ReqLike {

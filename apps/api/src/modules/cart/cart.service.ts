@@ -38,9 +38,7 @@ export class CartService {
         nome: input.nome,
         quantity: input.quantity,
         // Sem preço = item PLANEJADO da lista; com preço = "add rápido" já comprado.
-        ...(temPreco
-          ? { unitPrice: Money.fromCents(input.unitPriceCents!), comprado: true }
-          : {}),
+        ...(temPreco ? { unitPrice: Money.fromCents(input.unitPriceCents!), comprado: true } : {}),
         ...(input.emoji !== undefined ? { emoji: input.emoji } : {}),
       }),
     );

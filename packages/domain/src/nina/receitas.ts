@@ -53,17 +53,39 @@ const RECEITAS: Array<{ re: RegExp; nome: string; itens: string[] }> = [
   {
     re: /\bbolo\b/,
     nome: 'bolo',
-    itens: ['farinha de trigo', 'ovos', 'leite', 'açúcar', 'fermento', 'manteiga', 'chocolate em pó'],
+    itens: [
+      'farinha de trigo',
+      'ovos',
+      'leite',
+      'açúcar',
+      'fermento',
+      'manteiga',
+      'chocolate em pó',
+    ],
   },
   {
     re: /lasanh/,
     nome: 'lasanha',
-    itens: ['massa de lasanha', 'molho de tomate', 'queijo mussarela', 'presunto', 'creme de leite'],
+    itens: [
+      'massa de lasanha',
+      'molho de tomate',
+      'queijo mussarela',
+      'presunto',
+      'creme de leite',
+    ],
   },
   {
     re: /strogonoff|estrogonof/,
     nome: 'strogonoff',
-    itens: ['carne (ou frango)', 'creme de leite', 'ketchup', 'mostarda', 'champignon', 'batata palha', 'arroz'],
+    itens: [
+      'carne (ou frango)',
+      'creme de leite',
+      'ketchup',
+      'mostarda',
+      'champignon',
+      'batata palha',
+      'arroz',
+    ],
   },
   {
     re: /macarronad|espaguete|\bmacarrao\b/,
@@ -103,7 +125,10 @@ const RECEITAS: Array<{ re: RegExp; nome: string; itens: string[] }> = [
  */
 export function montarLista(n: string, extras: ReadonlyArray<ReceitaDef> = []): Receita | null {
   for (const r of extras) {
-    if (r.itens.length && r.gatilhos.some((g) => g && n.includes(semAcento(g)) && semAcento(g).length >= 3)) {
+    if (
+      r.itens.length &&
+      r.gatilhos.some((g) => g && n.includes(semAcento(g)) && semAcento(g).length >= 3)
+    ) {
       return { nome: r.nome, itens: r.itens };
     }
   }

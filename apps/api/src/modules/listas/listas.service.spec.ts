@@ -14,7 +14,10 @@ function make() {
 describe('ListasService', () => {
   it('salva, lista, obtém e exclui — tudo escopado ao dono', async () => {
     const service = make();
-    const salva = await service.salvar('userA', '  Compra do mês  ', [item('Arroz'), item('Feijão')]);
+    const salva = await service.salvar('userA', '  Compra do mês  ', [
+      item('Arroz'),
+      item('Feijão'),
+    ]);
     expect(salva.nome).toBe('Compra do mês'); // trim
     expect(salva.itens).toHaveLength(2);
 

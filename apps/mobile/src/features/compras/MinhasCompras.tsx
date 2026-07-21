@@ -265,55 +265,55 @@ export function MinhasCompras({ onClose }: { onClose: () => void }) {
                     }}
                   >
                     {resumo.meses.map((m) => {
-                    const sel = mesFiltro === m.ord;
-                    return (
-                      <button
-                        key={m.ord}
-                        onClick={() => setMesFiltro((f) => (f === m.ord ? null : m.ord))}
-                        style={{
-                          flex: '0 0 auto',
-                          width: 66,
-                          background: 'none',
-                          border: 'none',
-                          padding: 0,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          gap: 6,
-                        }}
-                      >
-                        <span
+                      const sel = mesFiltro === m.ord;
+                      return (
+                        <button
+                          key={m.ord}
+                          onClick={() => setMesFiltro((f) => (f === m.ord ? null : m.ord))}
                           style={{
-                            color: sel ? T.primary : T.sub,
-                            fontSize: 10,
-                            fontWeight: 800,
-                            whiteSpace: 'nowrap',
+                            flex: '0 0 auto',
+                            width: 66,
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: 6,
                           }}
                         >
-                          {formatBRL(m.cents)}
-                        </span>
-                        <div
-                          style={{
-                            width: '100%',
-                            height: `${Math.max(6, (m.cents / maxMes) * 74)}px`,
-                            background: sel ? T.primary : `${T.primary}88`,
-                            border: sel ? `2px solid ${T.primary}` : 'none',
-                            borderRadius: '6px 6px 0 0',
-                            transition: 'background 0.15s',
-                          }}
-                        />
-                        <span
-                          style={{
-                            color: sel ? T.text : T.muted,
-                            fontSize: 10,
-                            fontWeight: sel ? 700 : 400,
-                          }}
-                        >
-                          {m.label}
-                        </span>
-                      </button>
-                    );
+                          <span
+                            style={{
+                              color: sel ? T.primary : T.sub,
+                              fontSize: 10,
+                              fontWeight: 800,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {formatBRL(m.cents)}
+                          </span>
+                          <div
+                            style={{
+                              width: '100%',
+                              height: `${Math.max(6, (m.cents / maxMes) * 74)}px`,
+                              background: sel ? T.primary : `${T.primary}88`,
+                              border: sel ? `2px solid ${T.primary}` : 'none',
+                              borderRadius: '6px 6px 0 0',
+                              transition: 'background 0.15s',
+                            }}
+                          />
+                          <span
+                            style={{
+                              color: sel ? T.text : T.muted,
+                              fontSize: 10,
+                              fontWeight: sel ? 700 : 400,
+                            }}
+                          >
+                            {m.label}
+                          </span>
+                        </button>
+                      );
                     })}
                   </div>
                   {chartRolavel && (

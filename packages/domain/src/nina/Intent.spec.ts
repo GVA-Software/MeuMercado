@@ -210,7 +210,11 @@ describe('interpretar — intenção da conversa da Nina', () => {
 
   it('receita DINÂMICA (ensinada pelo ADM) → montar-lista', () => {
     const receitas = [
-      { nome: 'sushi', gatilhos: ['sushi', 'temaki'], itens: ['arroz', 'alga nori', 'salmão', 'shoyu'] },
+      {
+        nome: 'sushi',
+        gatilhos: ['sushi', 'temaki'],
+        itens: ['arroz', 'alga nori', 'salmão', 'shoyu'],
+      },
     ];
     const r = interpretar('vou fazer sushi hoje', receitas);
     expect(r.tipo).toBe('montar-lista');

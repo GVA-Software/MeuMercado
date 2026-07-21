@@ -135,7 +135,6 @@ export function CompraScreen() {
       vivo = false;
     };
     // itensChave resume a lista; cart.id garante recomputo ao trocar de carrinho.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itensChave, cart?.id]);
 
   const status = cart?.status ?? 'sem-limite';
@@ -845,7 +844,14 @@ export function CompraScreen() {
                           preço na base · {verSemPreco ? 'ocultar' : 'ver quais'}
                         </button>
                         {verSemPreco && (
-                          <p style={{ color: T.sub, fontSize: 12, margin: '6px 0 0', lineHeight: 1.5 }}>
+                          <p
+                            style={{
+                              color: T.sub,
+                              fontSize: 12,
+                              margin: '6px 0 0',
+                              lineHeight: 1.5,
+                            }}
+                          >
                             {estimativa.semPreco
                               .map(
                                 (id) =>
@@ -863,14 +869,18 @@ export function CompraScreen() {
                 {cart.items.filter((i) => !i.comprado).map((item) => linhaItem(item))}
                 {/* …e os já riscados agrupados embaixo, sob um divisor. */}
                 {riscados > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 2px 0' }}>
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 2px 0' }}
+                  >
                     <span
                       style={{ color: T.green, fontSize: 11, fontWeight: 800, letterSpacing: 1 }}
                     >
                       🛒 NO CARRINHO
                     </span>
                     <div style={{ flex: 1, height: 1, background: T.border }} />
-                    <span style={{ color: T.muted, fontSize: 11, fontWeight: 700 }}>{riscados}</span>
+                    <span style={{ color: T.muted, fontSize: 11, fontWeight: 700 }}>
+                      {riscados}
+                    </span>
                   </div>
                 )}
                 {cart.items.filter((i) => i.comprado).map((item) => linhaItem(item))}
@@ -1133,7 +1143,13 @@ function ListasSheet({
         }}
       >
         <div
-          style={{ width: 40, height: 4, background: T.border, borderRadius: 99, margin: '0 auto 16px' }}
+          style={{
+            width: 40,
+            height: 4,
+            background: T.border,
+            borderRadius: 99,
+            margin: '0 auto 16px',
+          }}
         />
         <p style={{ color: T.text, fontSize: 17, fontWeight: 800, margin: '0 0 14px' }}>
           📋 Minhas listas
@@ -1361,16 +1377,36 @@ function RiscarSheet({
         >
           <button
             onClick={() => setQty((q) => Math.max(1, q - 1))}
-            style={{ background: 'none', border: 'none', color: T.text, fontSize: 22, cursor: 'pointer' }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: T.text,
+              fontSize: 22,
+              cursor: 'pointer',
+            }}
           >
             −
           </button>
-          <span style={{ color: T.text, fontWeight: 800, minWidth: 20, textAlign: 'center', fontSize: 16 }}>
+          <span
+            style={{
+              color: T.text,
+              fontWeight: 800,
+              minWidth: 20,
+              textAlign: 'center',
+              fontSize: 16,
+            }}
+          >
             {qty}
           </span>
           <button
             onClick={() => setQty((q) => Math.min(999, q + 1))}
-            style={{ background: 'none', border: 'none', color: T.primary, fontSize: 22, cursor: 'pointer' }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: T.primary,
+              fontSize: 22,
+              cursor: 'pointer',
+            }}
           >
             +
           </button>

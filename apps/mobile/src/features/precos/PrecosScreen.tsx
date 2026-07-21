@@ -123,7 +123,10 @@ export function PrecosScreen({
 
   // Categorias presentes nos preços (pra montar o filtro sem opções vazias).
   const categoriasDisp = useMemo(
-    () => [...new Set((rows ?? []).map((r) => r.produto.categoria))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    () =>
+      [...new Set((rows ?? []).map((r) => r.produto.categoria))].sort((a, b) =>
+        a.localeCompare(b, 'pt-BR'),
+      ),
     [rows],
   );
 
@@ -928,9 +931,7 @@ function DetailSheet({
             {row.amostras} {row.amostras === 1 ? 'preço reportado' : 'preços reportados'}
           </p>
         </div>
-        {row.amostras >= MIN_AMOSTRAS_TREND && (
-          <TrendBadge trend={row.trend} pct={row.trendPct} />
-        )}
+        {row.amostras >= MIN_AMOSTRAS_TREND && <TrendBadge trend={row.trend} pct={row.trendPct} />}
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>

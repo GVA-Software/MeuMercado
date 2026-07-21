@@ -22,14 +22,17 @@ function preco(id: string, reporterId: string): PriceObservation {
   });
 }
 
-function servico(precos: PriceObservationRepository, repos: {
-  users: InMemoryUserRepository;
-  compras: InMemoryCompraRepository;
-  feedbacks: InMemoryFeedbackRepository;
-  assinaturas: InMemorySubscriptionRepository;
-  push: InMemoryPushSubscriptionRepository;
-  acessos: InMemoryAccessLogRepository;
-}) {
+function servico(
+  precos: PriceObservationRepository,
+  repos: {
+    users: InMemoryUserRepository;
+    compras: InMemoryCompraRepository;
+    feedbacks: InMemoryFeedbackRepository;
+    assinaturas: InMemorySubscriptionRepository;
+    push: InMemoryPushSubscriptionRepository;
+    acessos: InMemoryAccessLogRepository;
+  },
+) {
   return new DadosPessoaisService(
     repos.users,
     repos.compras,

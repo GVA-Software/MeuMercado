@@ -650,8 +650,24 @@ test.describe('Meu Mercado — jornada crítica', () => {
           });
         if (path.includes('/usar-lista/')) {
           items.push(
-            { lineId: 'l1', produtoId: 'p-arroz', nome: 'Arroz Camil', emoji: '🍚', unitPrice: null, quantity: 2, comprado: false },
-            { lineId: 'l2', produtoId: 'p-cafe', nome: 'Café Pilão', emoji: '☕', unitPrice: null, quantity: 1, comprado: false },
+            {
+              lineId: 'l1',
+              produtoId: 'p-arroz',
+              nome: 'Arroz Camil',
+              emoji: '🍚',
+              unitPrice: null,
+              quantity: 2,
+              comprado: false,
+            },
+            {
+              lineId: 'l2',
+              produtoId: 'p-cafe',
+              nome: 'Café Pilão',
+              emoji: '☕',
+              unitPrice: null,
+              quantity: 1,
+              comprado: false,
+            },
           );
         }
         return done(toDTO());

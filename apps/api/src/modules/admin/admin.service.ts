@@ -116,8 +116,14 @@ export class AdminService {
   async ensinarReceita(nome: string, gatilhos: string[], itens: string[]): Promise<void> {
     const limpos = gatilhos.map((g) => g.trim()).filter(Boolean);
     const its = itens.map((i) => i.trim()).filter(Boolean);
-    if (!limpos.length || !its.length) throw new BadRequestException('Gatilhos e itens obrigatórios.');
-    await this.receitas.salvar({ nome: nome.trim(), gatilhos: limpos, itens: its, criadoEm: new Date() });
+    if (!limpos.length || !its.length)
+      throw new BadRequestException('Gatilhos e itens obrigatórios.');
+    await this.receitas.salvar({
+      nome: nome.trim(),
+      gatilhos: limpos,
+      itens: its,
+      criadoEm: new Date(),
+    });
   }
 
   /** Remove uma receita ensinada. */

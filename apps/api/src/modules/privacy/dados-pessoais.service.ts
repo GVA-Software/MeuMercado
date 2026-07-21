@@ -14,10 +14,7 @@ import {
   PUSH_SUBSCRIPTION_REPOSITORY,
   type PushSubscriptionRepository,
 } from '../push/push-subscription.repository.js';
-import {
-  ACCESS_LOG_REPOSITORY,
-  type AccessLogRepository,
-} from '../audit/access-log.repository.js';
+import { ACCESS_LOG_REPOSITORY, type AccessLogRepository } from '../audit/access-log.repository.js';
 
 /**
  * Portabilidade (LGPD art. 18, V) — reúne, num JSON, TODOS os dados que o titular
@@ -40,16 +37,15 @@ export class DadosPessoaisService {
     if (!user || user.excluidoEm) throw new NotFoundException('Usuário não encontrado.');
     const agora = new Date();
 
-    const [compras, todosPrecos, todosFeedbacks, assinatura, dispositivos, logs] = await Promise.all(
-      [
+    const [compras, todosPrecos, todosFeedbacks, assinatura, dispositivos, logs] =
+      await Promise.all([
         this.compras.listarPorUsuario(userId),
         this.precos.all(),
         this.feedbacks.listar(),
         this.assinaturas.get(userId),
         this.push.listarPorUsuario(userId),
         this.acessos.listarPorUsuario(userId, 1000),
-      ],
-    );
+      ]);
 
     const meusPrecos = todosPrecos
       .filter((o) => o.reporterId === userId)

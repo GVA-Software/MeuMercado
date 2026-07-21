@@ -4,9 +4,9 @@ Registro obrigatório (LGPD art. 48 + Res. ANPD 15/2024). **Manter mesmo vazio**
 existência do registro já é prova de diligência. Uma linha por incidente, mais recente
 no topo. Ver o [plano de resposta](./plano-resposta-incidente.md).
 
-| # | Detectado em | Ocorrido em | O que aconteceu | Dados / nº titulares | Gravidade | Notificou ANPD? | Notificou titulares? | Ação/remediação | Fechado em |
-|---|--------------|-------------|-----------------|----------------------|-----------|-----------------|----------------------|-----------------|------------|
-| — | — | — | *(nenhum incidente registrado até o momento)* | — | — | — | — | — | — |
+| #   | Detectado em | Ocorrido em | O que aconteceu                               | Dados / nº titulares | Gravidade | Notificou ANPD? | Notificou titulares? | Ação/remediação | Fechado em |
+| --- | ------------ | ----------- | --------------------------------------------- | -------------------- | --------- | --------------- | -------------------- | --------------- | ---------- |
+| —   | —            | —           | _(nenhum incidente registrado até o momento)_ | —                    | —         | —               | —                    | —               | —          |
 
 <!--
 Exemplo de preenchimento (não é um incidente real):

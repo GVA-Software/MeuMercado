@@ -1,10 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type {
-  CompraDTO,
-  InsightDTO,
-  OndeComprarResponse,
-  ProdutoDTO,
-} from '@meumercado/contracts';
+import type { CompraDTO, InsightDTO, OndeComprarResponse, ProdutoDTO } from '@meumercado/contracts';
 import { combinaBusca, interpretar, type ReceitaDef } from '@meumercado/domain';
 import { api, formatBRL } from '../../api/client';
 import { useNav } from '../../app/nav';
@@ -60,8 +55,7 @@ function respostaHistorico(
   if (campo === 'mais-caro') {
     let top: { i: CompraDTO['itens'][number]; c: CompraDTO } | null = null;
     for (const c of compras)
-      for (const i of c.itens)
-        if (!top || i.unitPriceCents > top.i.unitPriceCents) top = { i, c };
+      for (const i of c.itens) if (!top || i.unitPriceCents > top.i.unitPriceCents) top = { i, c };
     if (!top) return 'Ainda não vejo itens nas suas compras registradas.';
     return `O item mais caro que você comprou foi ${top.i.nome}, a ${formatBRL(top.i.unitPriceCents)}${unidadeDe(top.i.unidade)}${nomeMercado(top.c.mercadoNome)} (${fmtDataLonga(top.c.criadaEm)}).`;
   }

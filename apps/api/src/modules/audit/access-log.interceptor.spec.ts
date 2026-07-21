@@ -53,7 +53,12 @@ describe('AccessLogInterceptor', () => {
   it('NÃO registra leitura (GET)', async () => {
     const repo = new InMemoryAccessLogRepository();
     const it = new AccessLogInterceptor(repo);
-    const req: FakeReq = { method: 'GET', originalUrl: '/api/pricing', headers: {}, user: { id: 'u1' } };
+    const req: FakeReq = {
+      method: 'GET',
+      originalUrl: '/api/pricing',
+      headers: {},
+      user: { id: 'u1' },
+    };
     await firstValueFrom(it.intercept(ctx(req), handler));
     await tick();
     expect(await repo.listarPorUsuario('u1')).toHaveLength(0);

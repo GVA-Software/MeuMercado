@@ -9,17 +9,20 @@ Versão 1 · 16/07/2026 · revisar a cada 6 meses.
 > autônoma** — a demora é o que mais pesa na multa. Na dúvida, **notifique**.
 
 ## Papéis
+
 - **Detector**: quem primeiro percebe o incidente (qualquer pessoa da equipe, alerta,
   usuário ou pesquisador de segurança que reportar).
 - **Responsável pela decisão (Encarregado)**: gvasoftware7@gmail.com — decide se
   notifica ANPD/titulares, redige as comunicações e mantém o registro.
 
 ## O que conta como incidente
+
 Acesso não autorizado, vazamento, perda, alteração ou destruição de dados pessoais.
 Exemplos: dump do banco (Neon), credencial/segredo exposto, conta de admin invadida,
 bug que expõe dados de um usuário a outro, e-mail em massa com dados indevidos.
 
 ## Fluxo (assim que houver suspeita)
+
 1. **Conter** (imediato): revogar a credencial/segredo comprometido, encerrar sessões,
    derrubar o vetor (ex.: desligar rota, girar `JWT_*`/`DATABASE_URL`/chaves na Render e
    no Google/Neon). Preservar evidências (logs de acesso — tabela `access_logs`).
@@ -39,6 +42,7 @@ bug que expõe dados de um usuário a outro, e-mail em massa com dados indevidos
    NÃO notificar).
 
 ## Modelo de e-mail ao titular
+
 > **Assunto:** Comunicado de segurança — Meu Mercado
 >
 > Olá, [nome]. Identificamos em [data] um incidente de segurança que pode ter afetado
@@ -47,6 +51,7 @@ bug que expõe dados de um usuário a outro, e-mail em massa com dados indevidos
 > senha por e-mail.** Dúvidas: gvasoftware7@gmail.com. — Equipe Meu Mercado.
 
 ## Checklist de "girar segredos" (na Render → Environment)
+
 `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `DATABASE_URL` (Neon), `CRON_SECRET`,
 `GMAIL_*`, `VAPID_*`, `TURNSTILE_*`. Confirmar cláusula de notificação de breach nos
 contratos (DPA) de **Render, Neon e Google**.
