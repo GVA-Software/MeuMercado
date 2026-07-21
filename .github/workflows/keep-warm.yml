@@ -18,8 +18,11 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Acorda a API (keep-warm)
-        run: curl -fsS --max-time 90 https://meumercado-prod.onrender.com/api/health > /dev/null || true
+      - name: Acorda a API + o BANCO (keep-warm)
+        # /api/health/db faz SELECT 1 → acorda o web service (Render) E o Neon (que
+        # dorme sozinho quando ocioso). Sem tocar o banco aqui, a 1ª query do usuário
+        # pagava ~45s de cold start do Postgres.
+        run: curl -fsS --max-time 90 https://meumercado-prod.onrender.com/api/health/db > /dev/null || true
 
       - name: Varre expirações de plano
         run: |

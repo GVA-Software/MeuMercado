@@ -186,7 +186,9 @@ export class InMemoryPriceObservationRepository implements PriceObservationRepos
         observedAt: o.observedAt,
         mercadoNome: nome,
         ...(endereco !== null ? { mercadoEndereco: endereco } : {}),
-        // lat/lng omitidos de propósito: limpa a coordenada → o mapa re-geocodifica.
+        // PRESERVA a coordenada: zerar fazia o mercado sumir do mapa até re-geocodar.
+        ...(o.mercadoLat !== undefined ? { mercadoLat: o.mercadoLat } : {}),
+        ...(o.mercadoLng !== undefined ? { mercadoLng: o.mercadoLng } : {}),
       });
     }
     return Promise.resolve();

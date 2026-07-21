@@ -107,11 +107,10 @@ export class TypeOrmPriceObservationRepository implements PriceObservationReposi
   }
 
   async atualizarMercado(mercadoId: string, nome: string, endereco: string | null): Promise<void> {
-    // Limpa lat/lng: o mapa re-geocodifica o novo endereço no próximo acesso (backfill).
-    await this.repo.update(
-      { mercadoId },
-      { mercadoNome: nome, mercadoEndereco: endereco, mercadoLat: null, mercadoLng: null },
-    );
+    // NÃO zera lat/lng: zerar fazia o mercado SUMIR do mapa (janela invisível) até o
+    // geocode rodar de novo — foi a causa do "ontem tinha, hoje sumiu". Mantém a
+    // coordenada atual; um pino levemente deslocado é muito melhor que desaparecer.
+    await this.repo.update({ mercadoId }, { mercadoNome: nome, mercadoEndereco: endereco });
     this.invalidar();
   }
 

@@ -142,7 +142,7 @@ describe('MarketsService.proximos', () => {
     expect(r.find((m) => m.id === 'nfce:sem-coord')).toBeUndefined();
   });
 
-  it('backfill: mercado com endereço mas SEM coord é geocodificado, pina e é salvo', async () => {
+  it('backfill do geocode roda em 2º PLANO: não trava/esvazia o read, mas persiste a coord', async () => {
     const semCoord = nosso({
       id: 'nfce:atacadao',
       nome: 'Atacadão',
@@ -154,9 +154,11 @@ describe('MarketsService.proximos', () => {
     const { svc, salvos } = make([semCoord], [], {
       geocode: () => Promise.resolve({ lat: LAT + 0.0005, lng: LNG }),
     });
+    // A LEITURA não espera o geocode: quem entrou sem coord ainda não pina agora…
     const r = await svc.proximos(LAT, LNG, 2000, 20);
-    // Apareceu no mapa (com selo de preços) e a coordenada foi persistida.
-    expect(r.find((m) => m.id === 'nfce:atacadao')?.precos).toBe(200);
+    expect(r.find((m) => m.id === 'nfce:atacadao')).toBeUndefined();
+    // …mas o geocode roda em 2º plano e PERSISTE a coord (aparece no próximo load).
+    await new Promise((res) => setTimeout(res, 30));
     expect(salvos).toEqual([{ id: 'nfce:atacadao', lat: LAT + 0.0005, lng: LNG }]);
   });
 

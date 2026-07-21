@@ -100,10 +100,10 @@ export class MarketsService {
     private readonly geocode: GeocodeService,
   ) {}
 
-  // Backfill: no máx. quantos endereços geocodificar por request e orçamento de tempo
-  // total (o resto fica pro próximo acesso). É one-time — depois de geocodificado, salvo.
+  // Backfill de geocode (em 2º plano): no máx. quantos endereços por rodada.
+  // É one-time — depois de geocodificado, fica salvo no banco.
   private static readonly MAX_GEOCODE = 15;
-  private static readonly GEOCODE_BUDGET_MS = 6000;
+  private backfillGeocodeRodando = false;
 
   // Cache dos resultados do Overpass por área: o serviço público é lento/instável, então
   // repetir a busca fica instantâneo e, se ele falhar, servimos o último resultado bom.
@@ -115,26 +115,38 @@ export class MarketsService {
   private static readonly OSM_SOFT_DEADLINE_MS = 2500;
 
   /**
-   * Mercados com preço, garantindo coordenada: os que têm endereço mas entraram sem
-   * lat/lng (geocode falhou/pulou na importação) são geocodificados AGORA e a coordenada
-   * é salva (backfill). Assim mercado da NF que não pinou passa a pinar — e só uma vez.
+   * Mercados com preço, do BANCO — leitura pura e rápida. Devolve na hora quem já
+   * tem coordenada (o valor real). O geocode de quem entrou sem lat/lng roda em 2º
+   * PLANO (fora desta request): NUNCA travamos nem esvaziamos o mapa esperando o
+   * Nominatim (lento/instável) — os sem-coord aparecem no próximo load, já salvos.
    */
   private async mercadosComCoord(): Promise<MercadoComPreco[]> {
     const mercados = await this.obs.mercadosComPreco();
-    const semCoord = mercados.filter((m) => (m.lat === null || m.lng === null) && m.endereco);
-    const prazo = Date.now() + MarketsService.GEOCODE_BUDGET_MS;
-    let feitos = 0;
-    for (const m of semCoord) {
-      if (feitos >= MarketsService.MAX_GEOCODE || Date.now() > prazo) break;
-      feitos++;
-      const coord = await this.geocode.geocode(m.endereco!);
-      if (coord) {
-        m.lat = coord.lat;
-        m.lng = coord.lng;
-        await this.obs.setMercadoCoords(m.id, coord.lat, coord.lng);
-      }
-    }
+    this.backfillCoordsEmSegundoPlano(mercados);
     return mercados;
+  }
+
+  /** Geocodifica (uma rodada) os mercados sem coordenada, fora do caminho de leitura. */
+  private backfillCoordsEmSegundoPlano(mercados: readonly MercadoComPreco[]): void {
+    if (this.backfillGeocodeRodando) return;
+    const semCoord = mercados.filter((m) => (m.lat === null || m.lng === null) && m.endereco);
+    if (semCoord.length === 0) return;
+    this.backfillGeocodeRodando = true;
+    void (async () => {
+      try {
+        let feitos = 0;
+        for (const m of semCoord) {
+          if (feitos >= MarketsService.MAX_GEOCODE) break;
+          feitos += 1;
+          const coord = await this.geocode.geocode(m.endereco!);
+          if (coord) await this.obs.setMercadoCoords(m.id, coord.lat, coord.lng);
+        }
+      } catch (e) {
+        this.logger.warn(`Backfill de geocode falhou: ${String(e)}`);
+      } finally {
+        this.backfillGeocodeRodando = false;
+      }
+    })();
   }
 
   // Rótulo em PT quando o mercado no OSM não tem `name` (antes esses eram descartados).

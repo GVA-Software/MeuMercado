@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { MercadoDTO } from '@meumercado/contracts';
-import { api } from '../../api/client';
+import { api, ApiError, mensagemDeErro } from '../../api/client';
 import { useTheme } from '../../theme/theme';
 import { AppLogo, Btn, EmptyState } from '../../ui/kit';
 import type { MapFocus } from '../../app/nav';
@@ -26,6 +26,8 @@ const DEFAULT_CENTER: [number, number] = [-46.63, -23.55];
 // Raios disponíveis (metros) — o usuário escolhe; 5 km é o padrão.
 const RAIOS = [1000, 2000, 5000, 7000, 10000];
 const RAIO_PADRAO = 5000;
+
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function formatDist(m?: number): string | null {
   if (m === undefined) return null;
@@ -51,6 +53,8 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
   const [todosMercados, setTodosMercados] = useState<MercadoDTO[]>([]);
   const [buscando, setBuscando] = useState(false);
   const [buscou, setBuscou] = useState(false);
+  // Servidor/banco frios (Render+Neon dormem): mostra "acordando" e re-tenta.
+  const [acordando, setAcordando] = useState(false);
   const [raioMetros, setRaioMetros] = useState(RAIO_PADRAO);
 
   // Busca uma vez no raio máximo e FILTRA no cliente — trocar o raio é instantâneo.
@@ -182,22 +186,57 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
       userMarkerRef.current = um;
       map.flyTo({ center: [lng, lat], zoom: 12 });
     }
-    // Busca no raio MÁXIMO uma vez; a régua filtra no cliente (instantâneo).
-    api
-      .mercadosProximos(lat, lng, Math.max(...RAIOS))
-      .then((near) => {
+    void buscarComRetry(lat, lng);
+  }
+
+  /**
+   * Busca no raio MÁXIMO uma vez; a régua filtra no cliente. Com RETRY: uma resposta
+   * VAZIA ou um erro de "servidor frio" (status 0 / rede / 5xx) NÃO viram "Nenhum
+   * mercado" na hora — o Render e o Neon dormem e o 1º acesso pode vir vazio/lento.
+   * Re-tenta com backoff mostrando "acordando"; só desiste depois de esgotar. Espelha
+   * o AuthContext (a única tela sem essa blindagem era o Mapa).
+   */
+  async function buscarComRetry(lat: number, lng: number) {
+    const MAX = 6;
+    for (let tentativa = 0; tentativa < MAX; tentativa++) {
+      try {
+        const near = await api.mercadosProximos(lat, lng, Math.max(...RAIOS));
+        if (near.length === 0 && tentativa < MAX - 1) {
+          // Vazio pode ser transitório (banco/OSM frio) → espera e re-tenta.
+          setAcordando(true);
+          await esperar(Math.min(1500 + tentativa * 800, 5000));
+          continue;
+        }
         setTodosMercados(near);
         setBuscou(true);
-        // Se o raio atual não tem nenhum mercado (bairro residencial), sobe pro
-        // MENOR raio que tem — assim o mapa nunca abre "vazio" quando há mercados
-        // um pouco além. (Só ajusta pra cima; não encolhe a escolha do usuário.)
+        setAcordando(false);
+        // Sobe pro MENOR raio que tem algum mercado (nunca abre "vazio" à toa).
         setRaioMetros((atual) => {
           if (near.some((m) => (m.distanciaMetros ?? 0) <= atual)) return atual;
           return RAIOS.find((r) => near.some((m) => (m.distanciaMetros ?? 0) <= r)) ?? atual;
         });
-      })
-      .catch((e: unknown) => setErro(e instanceof Error ? e.message : String(e)))
-      .finally(() => setBuscando(false));
+        setBuscando(false);
+        return;
+      } catch (e) {
+        const status = e instanceof ApiError ? e.status : 0;
+        // status 0 (timeout/rede) ou 5xx = servidor frio → re-tenta. Outros = erro real.
+        const frio = status === 0 || status >= 500;
+        if (frio && tentativa < MAX - 1) {
+          setAcordando(true);
+          await esperar(Math.min(1500 + tentativa * 800, 5000));
+          continue;
+        }
+        setErro(mensagemDeErro(e));
+        setAcordando(false);
+        setBuscando(false);
+        return;
+      }
+    }
+    // Esgotou tudo vazio: aí sim é "nenhum mercado" de verdade.
+    setTodosMercados([]);
+    setBuscou(true);
+    setAcordando(false);
+    setBuscando(false);
   }
 
   function buscarPerto() {
@@ -252,7 +291,15 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
 
       <div style={{ position: 'relative' }}>
         <div ref={containerRef} style={{ width: '100%', height: '48vh', background: T.card }} />
-        {buscando && <CartLoading />}
+        {buscando && (
+          <CartLoading
+            label={
+              acordando
+                ? 'Acordando o servidor… a primeira abertura leva uns segundos 🛒'
+                : 'Buscando mercados perto de você…'
+            }
+          />
+        )}
         {mercados.length > 0 && (
           <button
             onClick={fitAll}
@@ -309,10 +356,21 @@ export function MapaScreen({ focus }: { focus?: MapFocus | null }) {
         </div>
 
         <Btn full onClick={buscarPerto} disabled={buscando}>
-          {buscando ? 'Localizando…' : `📍 Mercados num raio de ${raioMetros / 1000} km`}
+          {buscando
+            ? acordando
+              ? 'Acordando o servidor…'
+              : 'Localizando…'
+            : `📍 Mercados num raio de ${raioMetros / 1000} km`}
         </Btn>
 
-        {erro && <p style={{ color: T.danger, fontSize: 13, margin: 0 }}>{erro}</p>}
+        {erro && (
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ color: T.danger, fontSize: 13, margin: '0 0 8px' }}>{erro}</p>
+            <Btn small onClick={buscarPerto}>
+              Tentar de novo
+            </Btn>
+          </div>
+        )}
 
         {!buscou && !erro && (
           <p style={{ color: T.muted, fontSize: 13, textAlign: 'center', margin: '4px 0' }}>
@@ -586,7 +644,7 @@ function LocalSheet({
 }
 
 /** Loading do mapa: nosso logo animado sobre o fundo desfocado. */
-function CartLoading() {
+function CartLoading({ label = 'Buscando mercados perto de você…' }: { label?: string }) {
   return (
     <div
       style={{
@@ -619,9 +677,11 @@ function CartLoading() {
           fontWeight: 800,
           textShadow: '0 1px 6px rgba(0,0,0,0.8)',
           margin: 0,
+          textAlign: 'center',
+          padding: '0 24px',
         }}
       >
-        Buscando mercados perto de você…
+        {label}
       </p>
     </div>
   );
