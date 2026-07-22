@@ -128,6 +128,35 @@ export const AdminCoberturaEvolucaoSchema = z.object({
 });
 export type AdminCoberturaEvolucaoDTO = z.infer<typeof AdminCoberturaEvolucaoSchema>;
 
+/** Acessos por dia separados por plataforma (Web × App instalado) — evento `app_aberto`. */
+export const AdminAcessosSchema = z.object({
+  pontos: z.array(
+    z.object({
+      dia: z.string(), // YYYY-MM-DD
+      web: z.number().int().nonnegative(),
+      pwa: z.number().int().nonnegative(),
+    }),
+  ),
+});
+export type AdminAcessosDTO = z.infer<typeof AdminAcessosSchema>;
+
+/** Engajamento: streak (dias distintos de uso) + tempo de sessão — eventos `app_aberto`/`sessao_fim`. */
+export const AdminEngajamentoSchema = z.object({
+  /** Média de dias distintos ativos por usuário na janela. */
+  streakMedio: z.number().nonnegative(),
+  /** Distribuição de usuários por faixa de dias ativos (1 / 2–6 / 7+). */
+  faixas: z.array(z.object({ label: z.string(), usuarios: z.number().int().nonnegative() })),
+  /** Usuários ativos hoje E ontem (streak vivo). */
+  emStreakHoje: z.number().int().nonnegative(),
+  /** Usuários ativos hoje. */
+  ativosHoje: z.number().int().nonnegative(),
+  /** Duração média de sessão em minutos (null enquanto não há dado). */
+  sessaoMediaMin: z.number().nonnegative().nullable(),
+  /** Duração média por dia (minutos) — série do gráfico. */
+  sessaoPorDia: z.array(z.object({ dia: z.string(), min: z.number().nonnegative() })),
+});
+export type AdminEngajamentoDTO = z.infer<typeof AdminEngajamentoSchema>;
+
 /** Exclusão de produtos em lote (some do catálogo e dos apps; apaga os preços). */
 export const AdminExcluirProdutosSchema = z.object({
   ids: z.array(IdSchema).min(1).max(200),

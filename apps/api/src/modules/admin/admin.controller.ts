@@ -26,8 +26,10 @@ import {
   PageQuerySchema,
   ResponderFeedbackSchema,
   type AdminClassificarInput,
+  type AdminAcessosDTO,
   type AdminCoberturaDTO,
   type AdminCoberturaEvolucaoDTO,
+  type AdminEngajamentoDTO,
   type AdminDuplicadosDTO,
   type AdminEditarPrecoInput,
   type AdminEditarProdutoInput,
@@ -107,6 +109,20 @@ export class AdminController {
   coberturaEvolucao(@Query('dias') dias?: string): Promise<AdminCoberturaEvolucaoDTO> {
     const n = Math.min(Math.max(parseInt(dias ?? '', 10) || 30, 7), 90);
     return this.service.coberturaEvolucao(n);
+  }
+
+  /** Acessos por dia (Web × App instalado) — gráfico da aba Aplicação. */
+  @Get('acessos')
+  acessos(@Query('dias') dias?: string): Promise<AdminAcessosDTO> {
+    const n = Math.min(Math.max(parseInt(dias ?? '', 10) || 30, 7), 90);
+    return this.service.acessos(n);
+  }
+
+  /** Engajamento: streak (dias distintos de uso) + tempo médio de sessão. */
+  @Get('engajamento')
+  engajamento(@Query('dias') dias?: string): Promise<AdminEngajamentoDTO> {
+    const n = Math.min(Math.max(parseInt(dias ?? '', 10) || 30, 7), 90);
+    return this.service.engajamento(n);
   }
 
   /** Exclui produtos em lote (some do catálogo e dos apps; apaga os preços). */

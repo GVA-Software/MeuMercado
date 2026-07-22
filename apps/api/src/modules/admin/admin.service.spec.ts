@@ -30,6 +30,12 @@ function makeService(
   extra: {
     resumo?: Array<{ name: string; usuarios: number; total: number }>;
     vistos?: string[];
+    eventos?: Array<{
+      name: string;
+      userId?: string | null;
+      props?: Record<string, string | number | boolean>;
+      createdAt: Date;
+    }>;
     observacoes?: Array<{
       id?: string;
       reporterId: string;
@@ -90,6 +96,18 @@ function makeService(
     registrar: vi.fn(() => Promise.resolve()),
     resumo: () => Promise.resolve(extra.resumo ?? []),
     usuariosComEvento: () => Promise.resolve(extra.vistos ?? []),
+    listarPorNome: (name: string) =>
+      Promise.resolve(
+        (extra.eventos ?? [])
+          .filter((e) => e.name === name)
+          .map((e) => ({
+            id: 'x',
+            name: e.name,
+            userId: e.userId ?? null,
+            props: e.props ?? null,
+            createdAt: e.createdAt,
+          })),
+      ),
   } as unknown as AnalyticsRepository;
   const precosApagados: string[] = [];
   const produtosApagados: string[] = [];
@@ -289,6 +307,91 @@ describe('AdminService — cobertura', () => {
     expect(porDia['2026-07-10']).toMatchObject({ precos: 1, produtos: 1 });
     expect(porDia['2026-07-11']).toMatchObject({ precos: 2, produtos: 1 }); // 2 preços, ainda 1 produto
     expect(porDia['2026-07-12']).toMatchObject({ precos: 3, produtos: 2 }); // entra o p2
+  });
+});
+
+describe('AdminService — acessos e engajamento', () => {
+  it('acessos: separa Web × App (PWA) por dia; sem plataforma cai em Web', async () => {
+    const { service } = makeService([user('u1', 'u1@x.com')], {
+      eventos: [
+        {
+          name: 'app_aberto',
+          userId: 'u1',
+          props: { plataforma: 'web' },
+          createdAt: new Date('2026-07-12T09:00:00Z'),
+        },
+        {
+          name: 'app_aberto',
+          userId: 'u2',
+          props: { plataforma: 'pwa' },
+          createdAt: new Date('2026-07-12T10:00:00Z'),
+        },
+        {
+          name: 'app_aberto',
+          userId: 'u1',
+          props: { plataforma: 'web' },
+          createdAt: new Date('2026-07-11T09:00:00Z'),
+        },
+        {
+          name: 'app_aberto',
+          userId: 'u2',
+          props: { plataforma: 'web' },
+          createdAt: new Date('2026-07-11T20:00:00Z'),
+        },
+        { name: 'app_aberto', userId: 'u1', createdAt: new Date('2026-07-10T09:00:00Z') }, // sem plataforma → web
+      ],
+    });
+    const r = await service.acessos(5, new Date('2026-07-12T23:59:59Z'));
+    expect(r.pontos).toHaveLength(5);
+    const porDia = Object.fromEntries(r.pontos.map((p) => [p.dia, p]));
+    expect(porDia['2026-07-12']).toMatchObject({ web: 1, pwa: 1 });
+    expect(porDia['2026-07-11']).toMatchObject({ web: 2, pwa: 0 });
+    expect(porDia['2026-07-10']).toMatchObject({ web: 1, pwa: 0 });
+  });
+
+  it('engajamento: streak por dias distintos + faixas + sessão média (com teto anti-outlier)', async () => {
+    const { service } = makeService([user('u1', 'u1@x.com')], {
+      eventos: [
+        // u1: 3 dias distintos (07-10, 07-11, 07-12) — 07-11 duplicado não conta 2x
+        { name: 'app_aberto', userId: 'u1', createdAt: new Date('2026-07-12T09:00:00Z') },
+        { name: 'app_aberto', userId: 'u1', createdAt: new Date('2026-07-11T09:00:00Z') },
+        { name: 'app_aberto', userId: 'u1', createdAt: new Date('2026-07-11T18:00:00Z') },
+        { name: 'app_aberto', userId: 'u1', createdAt: new Date('2026-07-10T09:00:00Z') },
+        // u2: só hoje (1 dia)
+        { name: 'app_aberto', userId: 'u2', createdAt: new Date('2026-07-12T11:00:00Z') },
+        // sessões: 5min e 15min hoje; 1 outlier gigante ontem → cortado em 6h
+        {
+          name: 'sessao_fim',
+          userId: 'u1',
+          props: { durMs: 5 * 60_000 },
+          createdAt: new Date('2026-07-12T09:05:00Z'),
+        },
+        {
+          name: 'sessao_fim',
+          userId: 'u2',
+          props: { durMs: 15 * 60_000 },
+          createdAt: new Date('2026-07-12T11:15:00Z'),
+        },
+        {
+          name: 'sessao_fim',
+          userId: 'u1',
+          props: { durMs: 100 * 60 * 60_000 },
+          createdAt: new Date('2026-07-11T09:30:00Z'),
+        },
+      ],
+    });
+    const r = await service.engajamento(30, new Date('2026-07-12T23:59:59Z'));
+    expect(r.streakMedio).toBe(2); // (3 + 1) / 2
+    const faixa = Object.fromEntries(r.faixas.map((f) => [f.label, f.usuarios]));
+    expect(faixa['1 dia']).toBe(1); // u2
+    expect(faixa['2–6 dias']).toBe(1); // u1
+    expect(faixa['7+ dias']).toBe(0);
+    expect(r.ativosHoje).toBe(2); // u1 e u2 hoje
+    expect(r.emStreakHoje).toBe(1); // só u1 (hoje E ontem)
+    const porDia = Object.fromEntries(r.sessaoPorDia.map((p) => [p.dia, p.min]));
+    expect(porDia['2026-07-12']).toBe(10); // média de 5 e 15
+    expect(porDia['2026-07-11']).toBe(360); // 100h cortado no teto de 6h
+    expect(r.sessaoMediaMin).not.toBeNull();
   });
 });
 

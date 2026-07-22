@@ -11,6 +11,10 @@ export const EVENT_NAMES = [
   'onboarding_dispensado',
   /** A Nina não entendeu / não achou — alimenta o loop de aprendizado (prop `q`). */
   'nina_sem_resposta',
+  /** Abriu o app (logado). prop `plataforma`: 'web' | 'pwa' (instalado na tela inicial). */
+  'app_aberto',
+  /** Fim de um trecho de sessão em foco. prop `durMs` (duração) + `plataforma`. */
+  'sessao_fim',
 ] as const;
 
 export const EventNameSchema = z.enum(EVENT_NAMES);

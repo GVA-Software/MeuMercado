@@ -170,6 +170,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user, refreshSubscription]);
 
+  // Métricas de uso (analytics própria, self-hosted): "abriu o app" (Web × PWA instalado)
+  // e duração de sessão em foco. Só com usuário logado (POST /events exige JWT).
+  // Fire-and-forget: se falhar, não afeta a UI. Debounce de 30min p/ não floodar a tabela.
+  useEffect(() => {
+    if (!user) return;
+    const plataforma =
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      (navigator as unknown as { standalone?: boolean }).standalone === true
+        ? 'pwa'
+        : 'web';
+    let visivelDesde = document.visibilityState === 'visible' ? Date.now() : 0;
+    let ultimaAbertura = 0;
+    const marcarAbertura = () => {
+      const agora = Date.now();
+      if (agora - ultimaAbertura > 30 * 60_000) {
+        ultimaAbertura = agora;
+        api.track('app_aberto', { plataforma });
+      }
+    };
+    const fecharSessao = () => {
+      if (!visivelDesde) return;
+      const dur = Date.now() - visivelDesde;
+      visivelDesde = 0;
+      if (dur > 3000) api.track('sessao_fim', { durMs: dur, plataforma });
+    };
+    marcarAbertura(); // abertura inicial
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        visivelDesde = Date.now();
+        marcarAbertura();
+      } else {
+        fecharSessao();
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pagehide', fecharSessao);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pagehide', fecharSessao);
+      fecharSessao();
+    };
+  }, [user]);
+
   return (
     <Ctx.Provider
       value={{

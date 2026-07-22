@@ -20,6 +20,8 @@ import {
 import {
   PLANOS,
   type AdminCoberturaDTO,
+  type AdminAcessosDTO,
+  type AdminEngajamentoDTO,
   type AdminCoberturaEvolucaoDTO,
   type AdminDuplicadosDTO,
   type AdminFunnelDTO,
@@ -388,6 +390,122 @@ export class AdminService {
       });
     }
     return { pontos };
+  }
+
+  /** Acessos por dia separados por plataforma (Web × App instalado) — evento `app_aberto`. */
+  async acessos(dias = 30, asOf: Date = new Date()): Promise<AdminAcessosDTO> {
+    const eventos = await this.analytics.listarPorNome('app_aberto');
+    const fimDoDia = new Date(asOf);
+    fimDoDia.setUTCHours(23, 59, 59, 999);
+    const idx = new Map<string, number>();
+    const chaves: string[] = [];
+    for (let i = dias - 1; i >= 0; i -= 1) {
+      const k = new Date(fimDoDia.getTime() - i * 86_400_000).toISOString().slice(0, 10);
+      idx.set(k, chaves.length);
+      chaves.push(k);
+    }
+    const web = chaves.map(() => 0);
+    const pwa = chaves.map(() => 0);
+    for (const e of eventos) {
+      const j = idx.get(e.createdAt.toISOString().slice(0, 10));
+      if (j === undefined) continue;
+      if (e.props?.plataforma === 'pwa') pwa[j]! += 1;
+      else web[j]! += 1;
+    }
+    return { pontos: chaves.map((dia, i) => ({ dia, web: web[i]!, pwa: pwa[i]! })) };
+  }
+
+  /**
+   * Engajamento: streak (dias distintos de uso por usuário) + tempo de sessão.
+   * Streak sai de `app_aberto` (dias distintos na janela); sessão sai de `sessao_fim`
+   * (`props.durMs`, com teto anti-outlier de 6h para aba esquecida aberta).
+   */
+  async engajamento(dias = 30, asOf: Date = new Date()): Promise<AdminEngajamentoDTO> {
+    const fimDoDia = new Date(asOf);
+    fimDoDia.setUTCHours(23, 59, 59, 999);
+    const inicio = new Date(fimDoDia.getTime() - (dias - 1) * 86_400_000);
+    inicio.setUTCHours(0, 0, 0, 0);
+    const hojeK = asOf.toISOString().slice(0, 10);
+    const ontemK = new Date(asOf.getTime() - 86_400_000).toISOString().slice(0, 10);
+
+    // Streak: dias distintos de atividade por usuário na janela.
+    const aberturas = await this.analytics.listarPorNome('app_aberto');
+    const porUser = new Map<string, Set<string>>();
+    for (const e of aberturas) {
+      if (!e.userId || e.createdAt < inicio) continue;
+      const k = e.createdAt.toISOString().slice(0, 10);
+      let set = porUser.get(e.userId);
+      if (!set) {
+        set = new Set();
+        porUser.set(e.userId, set);
+      }
+      set.add(k);
+    }
+    let soma = 0;
+    let um = 0;
+    let poucos = 0;
+    let muitos = 0;
+    let ativosHoje = 0;
+    let emStreakHoje = 0;
+    for (const set of porUser.values()) {
+      const n = set.size;
+      soma += n;
+      if (n >= 7) muitos += 1;
+      else if (n >= 2) poucos += 1;
+      else um += 1;
+      if (set.has(hojeK)) {
+        ativosHoje += 1;
+        if (set.has(ontemK)) emStreakHoje += 1;
+      }
+    }
+    const streakMedio = porUser.size ? Math.round((soma / porUser.size) * 10) / 10 : 0;
+
+    // Sessão: duração média a partir de `sessao_fim` (props.durMs), com teto anti-outlier.
+    const TETO_MS = 6 * 60 * 60 * 1000;
+    const sessoes = await this.analytics.listarPorNome('sessao_fim');
+    const idx = new Map<string, number>();
+    const chaves: string[] = [];
+    for (let i = dias - 1; i >= 0; i -= 1) {
+      const k = new Date(fimDoDia.getTime() - i * 86_400_000).toISOString().slice(0, 10);
+      idx.set(k, chaves.length);
+      chaves.push(k);
+    }
+    const somaDia = chaves.map(() => 0);
+    const nDia = chaves.map(() => 0);
+    let somaTotal = 0;
+    let nTotal = 0;
+    for (const e of sessoes) {
+      if (e.createdAt < inicio) continue;
+      const raw = e.props?.durMs;
+      const dur = typeof raw === 'number' ? raw : Number(raw);
+      if (!Number.isFinite(dur) || dur <= 0) continue;
+      const ms = Math.min(dur, TETO_MS);
+      const j = idx.get(e.createdAt.toISOString().slice(0, 10));
+      if (j !== undefined) {
+        somaDia[j]! += ms;
+        nDia[j]! += 1;
+      }
+      somaTotal += ms;
+      nTotal += 1;
+    }
+    const sessaoMediaMin = nTotal ? Math.round((somaTotal / nTotal / 60_000) * 10) / 10 : null;
+    const sessaoPorDia = chaves.map((dia, i) => ({
+      dia,
+      min: nDia[i] ? Math.round((somaDia[i]! / nDia[i]! / 60_000) * 10) / 10 : 0,
+    }));
+
+    return {
+      streakMedio,
+      faixas: [
+        { label: '1 dia', usuarios: um },
+        { label: '2–6 dias', usuarios: poucos },
+        { label: '7+ dias', usuarios: muitos },
+      ],
+      emStreakHoje,
+      ativosHoje,
+      sessaoMediaMin,
+      sessaoPorDia,
+    };
   }
 
   /**
