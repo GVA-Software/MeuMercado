@@ -10,6 +10,26 @@ import { PushToggle } from './PushToggle';
 import { FeedbackCard } from './FeedbackCard';
 import { MinhasCompras } from '../compras/MinhasCompras';
 
+/** Rótulo de seção do Perfil: agrupa as opções por categoria (reduz carga cognitiva
+ *  sem mexer no layout — só um cabeçalho discreto acima de cada grupo). */
+function Secao({ children }: { children: string }) {
+  const { T } = useTheme();
+  return (
+    <p
+      style={{
+        color: T.muted,
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 0.6,
+        textTransform: 'uppercase',
+        margin: '6px 2px 0',
+      }}
+    >
+      {children}
+    </p>
+  );
+}
+
 /**
  * Modal de recorte da foto: o usuário arrasta e dá zoom para enquadrar antes de
  * salvar (evita o corte automático cego). Gera um dataURL JPEG 256×256.
@@ -474,6 +494,7 @@ export function PerfilScreen() {
           <AuthForm />
         ) : (
           <>
+            <Secao>Conta</Secao>
             <Card>
               <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                 <button
@@ -708,9 +729,13 @@ export function PerfilScreen() {
               )}
             </Card>
 
+            <Secao>Aplicativo</Secao>
+
             <PushToggle />
 
             <FeedbackCard />
+
+            <Secao>Histórico</Secao>
 
             <button
               onClick={() => setHistoricoOpen(true)}
@@ -737,6 +762,8 @@ export function PerfilScreen() {
             <Btn variant="ghost" full onClick={() => void logout()}>
               Sair
             </Btn>
+
+            <Secao>Privacidade</Secao>
 
             <Btn variant="ghost" full disabled={baixando} onClick={() => void baixarMeusDados()}>
               {baixando ? 'Preparando…' : '⬇️ Baixar meus dados'}
