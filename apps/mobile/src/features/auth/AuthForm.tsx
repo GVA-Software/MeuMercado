@@ -34,7 +34,7 @@ function GoogleG() {
 /** Formulário de login/cadastro + recuperação de senha (mostrado quando deslogado). */
 export function AuthForm() {
   const { T } = useTheme();
-  const { login, register, loginComGoogle } = useAuth();
+  const { login, register } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [nome, setNome] = useState('');
@@ -58,27 +58,16 @@ export function AuthForm() {
     if (!clientId || mode !== 'login') return;
     let cancelado = false;
 
-    async function entrar(credential: string) {
-      setBusy(true);
-      setErro(null);
-      try {
-        await loginComGoogle(credential, false);
-      } catch (e) {
-        setErro(mensagemDeErro(e));
-      } finally {
-        setBusy(false);
-      }
-    }
-
     function iniciar() {
       const gid = window.google?.accounts?.id;
       if (cancelado || !gid || !googleBtnRef.current) return;
+      // ux_mode 'redirect': a página inteira vai pro Google e volta postando o token
+      // pro nosso callback — funciona no PWA instalado do iOS (o popup não devolvia o
+      // token e dava tela branca). O backend cria a sessão e redireciona pro app.
       gid.initialize({
         client_id: clientId,
-        callback: (resp) => {
-          if (resp.credential) void entrar(resp.credential);
-        },
-        cancel_on_tap_outside: true,
+        ux_mode: 'redirect',
+        login_uri: `${window.location.origin}/api/auth/google/callback`,
       });
       googleBtnRef.current.innerHTML = '';
       // Renderiza o botão real do Google na LARGURA do container: ele fica invisível
@@ -113,7 +102,16 @@ export function AuthForm() {
     return () => {
       cancelado = true;
     };
-  }, [googleClientId, mode, loginComGoogle]);
+  }, [googleClientId, mode]);
+
+  // Se o callback do Google (fluxo redirect) falhou, ele volta com ?login=google_erro.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('login') === 'google_erro') {
+      setErro('Não foi possível entrar com o Google. Tente de novo.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   async function submit() {
     setBusy(true);

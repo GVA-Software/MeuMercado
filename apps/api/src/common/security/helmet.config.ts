@@ -21,7 +21,8 @@ export const helmetOptions: Parameters<typeof helmet>[0] = {
       defaultSrc: ["'self'"],
       baseUri: ["'self'"],
       fontSrc: ["'self'", 'https:', 'data:'],
-      formAction: ["'self'"],
+      // 'self' (nossos forms) + Google (fluxo redirect do Sign-In posta pro nosso callback).
+      formAction: ["'self'", 'https://accounts.google.com'],
       frameAncestors: ["'self'"],
       frameSrc: ["'self'", GIS],
       imgSrc: ["'self'", 'data:', 'blob:', ...OSM_TILES, GOOGLE_AVATARS],

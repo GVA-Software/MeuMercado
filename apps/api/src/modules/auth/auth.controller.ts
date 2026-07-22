@@ -109,6 +109,37 @@ export class AuthController {
     return this.finish(await this.service.loginComGoogle(body), res);
   }
 
+  /**
+   * Callback do fluxo REDIRECT do Google (necessário no PWA instalado do iOS, onde o
+   * popup não devolve o token). O Google faz um POST form-urlencoded com `credential`
+   * (ID token) + `g_csrf_token`. Verifica o double-submit cookie anti-CSRF, cria a
+   * sessão (seta o cookie de refresh) e redireciona pro app — que loga pelo cookie.
+   */
+  @Post('google/callback')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  async googleCallback(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const body = (req.body ?? {}) as { credential?: string; g_csrf_token?: string };
+    const csrfCookie = (req.cookies as Record<string, string> | undefined)?.['g_csrf_token'];
+    // Double-submit cookie: o token do corpo TEM que bater com o do cookie do Google.
+    if (!body.credential || !body.g_csrf_token || !csrfCookie || body.g_csrf_token !== csrfCookie) {
+      res.redirect('/?login=google_erro');
+      return;
+    }
+    try {
+      const result = await this.service.loginComGoogle({ idToken: body.credential });
+      res.cookie(REFRESH_COOKIE, result.refreshToken, {
+        httpOnly: true,
+        secure: this.config.get('COOKIE_SECURE', { infer: true }),
+        sameSite: 'lax',
+        path: REFRESH_PATH,
+        maxAge: this.tokens.refreshTtlMs,
+      });
+      res.redirect('/');
+    } catch {
+      res.redirect('/?login=google_erro');
+    }
+  }
+
   @Post('refresh')
   async refresh(
     @Req() req: Request,

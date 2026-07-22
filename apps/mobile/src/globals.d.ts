@@ -9,7 +9,11 @@ interface Window {
       id: {
         initialize(config: {
           client_id: string;
-          callback: (resp: { credential?: string }) => void;
+          callback?: (resp: { credential?: string }) => void;
+          /** 'popup' (padrão) ou 'redirect' (necessário no PWA instalado do iOS). */
+          ux_mode?: 'popup' | 'redirect';
+          /** No modo redirect, endpoint que recebe o POST com o `credential`. */
+          login_uri?: string;
           auto_select?: boolean;
           cancel_on_tap_outside?: boolean;
           use_fedcm_for_prompt?: boolean;
