@@ -135,25 +135,27 @@ export function Onboarding({
           ))}
         </div>
 
+        {/* Valor primeiro: o CTA primário leva a VER os preços (o "porquê" do app);
+            registrar vira o passo seguinte, depois que a pessoa sentiu o valor. */}
         <Btn
           full
           onClick={() => {
-            api.track('onboarding_cta_registrar');
-            onRegistrar();
+            api.track('onboarding_explorar');
+            onExplorar();
           }}
         >
-          ➕ Registrar meu primeiro preço
+          👀 Ver os preços perto de mim
         </Btn>
         <div style={{ height: 10 }} />
         <Btn
           full
           variant="soft"
           onClick={() => {
-            api.track('onboarding_explorar');
-            onExplorar();
+            api.track('onboarding_cta_registrar');
+            onRegistrar();
           }}
         >
-          👀 Explorar os preços
+          ➕ Registrar meu primeiro preço
         </Btn>
         <button
           onClick={() => {

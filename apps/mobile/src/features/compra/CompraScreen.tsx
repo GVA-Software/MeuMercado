@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type {
   CartDTO,
@@ -210,7 +210,8 @@ export function CompraScreen() {
       ...(p.emoji !== undefined ? { emoji: p.emoji } : {}),
     });
     setCart(updated);
-    setAddOpen(false);
+    // NÃO fecha o painel: o AddPanel se limpa e fica pronto pro próximo item (montar a
+    // lista inteira sem reabrir toda hora). Fecha só no ✕.
   }
 
   /**
@@ -654,7 +655,12 @@ export function CompraScreen() {
         </button>
 
         {addOpen && (
-          <AddPanel produtos={produtos} onAdd={adicionar} onClose={() => setAddOpen(false)} />
+          <AddPanel
+            produtos={produtos}
+            onAdd={adicionar}
+            naLista={cart ? cart.items.length : 0}
+            onClose={() => setAddOpen(false)}
+          />
         )}
 
         {cart && cart.items.length === 0 && !addOpen ? (
@@ -1587,10 +1593,12 @@ function LimiteEditor({
 function AddPanel({
   produtos,
   onAdd,
+  naLista,
   onClose,
 }: {
   produtos: ProdutoDTO[];
   onAdd: (p: ProdutoDTO, precoCents: number, qty: number) => Promise<void>;
+  naLista: number;
   onClose: () => void;
 }) {
   const { T } = useTheme();
@@ -1602,6 +1610,7 @@ function AddPanel({
   const [scanOpen, setScanOpen] = useState(false);
   const [scanEan, setScanEan] = useState<string | null>(null);
   const [criando, setCriando] = useState(false);
+  const buscaRef = useRef<HTMLInputElement>(null);
 
   async function adicionar() {
     // Preço é OPCIONAL: sem preço = item planejado na lista (o preço vem ao riscar).
@@ -1610,7 +1619,12 @@ function AddPanel({
     setErro(null);
     try {
       await onAdd(sel, 0, qty); // sempre planejado (sem preço) ao montar a lista
-      // Sucesso: o pai fecha o painel; não precisa reabilitar.
+      // NÃO fecha: limpa e volta o foco pro campo pra adicionar o próximo item rápido.
+      setSel(null);
+      setBusca('');
+      setQty(1);
+      setEnviando(false);
+      buscaRef.current?.focus();
     } catch (e) {
       setErro(mensagemDeErro(e));
       setEnviando(false);
@@ -1682,7 +1696,14 @@ function AddPanel({
   return (
     <Card style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <strong style={{ color: T.text }}>Adicionar item</strong>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+          <strong style={{ color: T.text }}>Adicionar item</strong>
+          {naLista > 0 && (
+            <span style={{ color: T.muted, fontSize: 12.5, fontWeight: 600 }}>
+              {naLista} na lista
+            </span>
+          )}
+        </div>
         <button
           onClick={onClose}
           style={{
@@ -1698,6 +1719,7 @@ function AddPanel({
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <input
+          ref={buscaRef}
           placeholder="Buscar produto…"
           value={sel ? sel.nome : busca}
           onChange={(e) => {

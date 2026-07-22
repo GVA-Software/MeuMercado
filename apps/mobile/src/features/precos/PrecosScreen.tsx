@@ -137,9 +137,8 @@ export function PrecosScreen({
     let base = t ? rows.filter((r) => combinaBusca(r.produto.nome, t)) : rows;
     if (categoria) base = base.filter((r) => r.produto.categoria === categoria);
     const arr = [...base];
-    if (ordem === 'menor')
-      arr.sort((a, b) => (a.mediaCents ?? Infinity) - (b.mediaCents ?? Infinity));
-    else if (ordem === 'maior') arr.sort((a, b) => (b.mediaCents ?? -1) - (a.mediaCents ?? -1));
+    if (ordem === 'menor') arr.sort((a, b) => (a.minCents ?? Infinity) - (b.minCents ?? Infinity));
+    else if (ordem === 'maior') arr.sort((a, b) => (b.maxCents ?? -1) - (a.maxCents ?? -1));
     else if (ordem === 'az')
       arr.sort((a, b) => a.produto.nome.localeCompare(b.produto.nome, 'pt-BR'));
     // 'populares' = já vem por nº de reportes (backend)
@@ -680,23 +679,51 @@ function TabelaRow({ row, onClick }: { row: PriceTableRowDTO; onClick: () => voi
         >
           {row.produto.nome}
         </p>
-        <p style={{ color: T.muted, fontSize: 12, margin: '2px 0 5px' }}>
+        <p style={{ color: T.muted, fontSize: 12, margin: '2px 0 0' }}>
           {row.amostras} {row.amostras === 1 ? 'preço' : 'preços'}
           {row.atualizadoEm ? ` · ${fmtData(row.atualizadoEm)}` : ''}
-          {row.menorPrecoMercado ? ' · menor em' : ''}
         </p>
-        {row.menorPrecoMercado && <MarketTag nome={row.menorPrecoMercado} />}
       </div>
-      <div style={{ textAlign: 'right' }}>
-        <p style={{ color: T.text, fontSize: 15, fontWeight: 800, margin: 0 }}>
-          {row.mediaCents !== null ? formatBRL(row.mediaCents) : '—'}
+      {/* Destaque = MENOR preço + onde (o "achei mais barato" do app), não a média. */}
+      <div style={{ textAlign: 'right', minWidth: 0, maxWidth: '46%', flexShrink: 0 }}>
+        <p style={{ color: T.text, fontSize: 16, fontWeight: 800, margin: 0 }}>
+          {row.minCents !== null
+            ? formatBRL(row.minCents)
+            : row.mediaCents !== null
+              ? formatBRL(row.mediaCents)
+              : '—'}
           {row.produto.unidade && row.produto.unidade !== 'un' && (
             <span style={{ fontSize: 11, fontWeight: 600, color: T.muted }}>
               /{row.produto.unidade}
             </span>
           )}
         </p>
-        <div style={{ marginTop: 3 }}>
+        {row.menorPrecoMercado && (
+          <p
+            style={{
+              color: T.muted,
+              fontSize: 11,
+              margin: '1px 0 0',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            🏆 {row.menorPrecoMercado}
+          </p>
+        )}
+        <div
+          style={{
+            display: 'flex',
+            gap: 6,
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            marginTop: 3,
+          }}
+        >
+          {row.mediaCents !== null && row.minCents !== null && row.mediaCents !== row.minCents && (
+            <span style={{ fontSize: 10.5, color: T.muted }}>méd {formatBRL(row.mediaCents)}</span>
+          )}
           {row.amostras >= MIN_AMOSTRAS_TREND && (
             <TrendBadge trend={row.trend} pct={row.trendPct} />
           )}
@@ -934,6 +961,65 @@ function DetailSheet({
         {row.amostras >= MIN_AMOSTRAS_TREND && <TrendBadge trend={row.trend} pct={row.trendPct} />}
       </div>
 
+      {/* A resposta que o usuário quer, logo no topo: onde está mais barato + a economia. */}
+      {row.minCents !== null && row.menorPrecoMercado && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            background: T.primaryBg,
+            border: `1px solid ${T.primary}44`,
+            borderRadius: 14,
+            padding: '12px 14px',
+            marginBottom: 10,
+          }}
+        >
+          <span style={{ fontSize: 24 }}>🏆</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p
+              style={{
+                color: T.muted,
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: 0.3,
+                margin: 0,
+              }}
+            >
+              MAIS BARATO
+            </p>
+            <p
+              style={{
+                color: T.text,
+                fontSize: 16,
+                fontWeight: 800,
+                margin: '1px 0 0',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {formatBRL(row.minCents)} · {row.menorPrecoMercado}
+            </p>
+          </div>
+          {row.mediaCents !== null && row.mediaCents > row.minCents && (
+            <span
+              style={{
+                flexShrink: 0,
+                color: T.primary,
+                fontSize: 12,
+                fontWeight: 800,
+                textAlign: 'right',
+              }}
+            >
+              −{formatBRL(row.mediaCents - row.minCents)}
+              <br />
+              <span style={{ fontWeight: 600, color: T.muted }}>vs média</span>
+            </span>
+          )}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
         <StatChip label="MENOR" valorCents={row.minCents} />
         <StatChip label="MÉDIA" valorCents={row.mediaCents} />
@@ -1152,7 +1238,6 @@ function PriceEntrySheet({
   onDone: () => void;
 }) {
   const { T } = useTheme();
-  const { user } = useAuth();
   const [produto, setProduto] = useState<ProdutoDTO | null>(preselect ?? null);
   const [buscaProd, setBuscaProd] = useState('');
   const [criando, setCriando] = useState(false);
@@ -1359,27 +1444,25 @@ function PriceEntrySheet({
               onChange={(e) => setBuscaProd(e.target.value)}
               style={{ ...inputStyle, flex: 1, minWidth: 0 }}
             />
-            {user?.isAdmin && (
-              <button
-                onClick={() => {
-                  setErro(null);
-                  setScanOpen(true);
-                }}
-                title="Bipar o código de barras"
-                style={{
-                  flexShrink: 0,
-                  background: T.primaryBg,
-                  color: T.primary,
-                  border: 'none',
-                  borderRadius: 12,
-                  padding: '0 14px',
-                  fontSize: 20,
-                  cursor: 'pointer',
-                }}
-              >
-                📷
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setErro(null);
+                setScanOpen(true);
+              }}
+              title="Bipar o código de barras"
+              style={{
+                flexShrink: 0,
+                background: T.primaryBg,
+                color: T.primary,
+                border: 'none',
+                borderRadius: 12,
+                padding: '0 14px',
+                fontSize: 20,
+                cursor: 'pointer',
+              }}
+            >
+              📷
+            </button>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
             {filtrados.map((p) => (

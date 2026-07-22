@@ -52,10 +52,10 @@ export function AuthForm() {
 
   useEffect(() => {
     const clientId = googleClientId ?? '';
-    // O botão fica SÓ na tela de login: "Entrar com o Google" já é login E cadastro (cria
-    // a conta se não existir). Consentimento LGPD de conta nova é garantido pelo
+    // Aparece no login E no cadastro (é login E cadastro: cria a conta se não existir),
+    // menos em "esqueci a senha". Consentimento LGPD de conta nova é garantido pelo
     // ReconsentGate (tela cheia de aceite) logo após entrar.
-    if (!clientId || mode !== 'login') return;
+    if (!clientId || mode === 'forgot') return;
     let cancelado = false;
 
     function iniciar() {
@@ -302,7 +302,7 @@ export function AuthForm() {
             {busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}
           </Btn>
 
-          {googleClientId && mode === 'login' && (
+          {googleClientId && (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '2px 0' }}>
                 <div style={{ flex: 1, height: 1, background: T.border }} />
@@ -335,7 +335,7 @@ export function AuthForm() {
                   }}
                 >
                   <GoogleG />
-                  Entrar com o Google
+                  Continuar com o Google
                 </div>
                 <div
                   ref={googleBtnRef}

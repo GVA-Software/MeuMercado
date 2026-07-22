@@ -160,6 +160,7 @@ export function App() {
           onFechar={() => {
             marcarOnboardingVisto();
             setOnboarding(false);
+            setTab('historico'); // cai nos Preços (valor), não na Compra vazia
           }}
         />
       )}
