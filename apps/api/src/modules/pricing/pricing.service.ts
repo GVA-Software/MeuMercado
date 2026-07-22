@@ -85,7 +85,17 @@ export class PricingService {
   async estimativa(
     itens: readonly { produtoId: string; quantity: number }[],
   ): Promise<EstimativaListaResponse> {
-    const querido = new Set(itens.map((i) => i.produtoId));
+    // Colapsa linhas do MESMO produto (soma as quantidades): cobertura e ranking são por
+    // produto DISTINTO — senão o mesmo item contaria 2x e inflaria o "cobre k de N".
+    const qtdPorProduto = new Map<string, number>();
+    for (const it of itens)
+      qtdPorProduto.set(it.produtoId, (qtdPorProduto.get(it.produtoId) ?? 0) + it.quantity);
+    const lista = [...qtdPorProduto.entries()].map(([produtoId, quantity]) => ({
+      produtoId,
+      quantity,
+    }));
+
+    const querido = new Set(lista.map((i) => i.produtoId));
     const porProduto = new Map<string, PriceObservation[]>();
     // produtoId → mercadoId → observação MAIS RECENTE (o preço "de agora" naquele mercado).
     const recentePorMercado = new Map<string, Map<string, PriceObservation>>();
@@ -107,7 +117,7 @@ export class PricingService {
     const mediaPorProduto = new Map<string, number>();
     let totalEstimadoCents = 0;
     const semPreco: string[] = [];
-    const linhas = itens.map((it) => {
+    const linhas = lista.map((it) => {
       const obs = porProduto.get(it.produtoId);
       const mediaCents =
         obs && obs.length > 0 ? (new PriceStatistics(obs).average()?.cents ?? null) : null;
@@ -124,7 +134,7 @@ export class PricingService {
       string,
       { nome: string; total: number; mediaCoberta: number; cobertos: number }
     >();
-    for (const it of itens) {
+    for (const it of lista) {
       const byMkt = recentePorMercado.get(it.produtoId);
       if (!byMkt) continue;
       const media = mediaPorProduto.get(it.produtoId);
@@ -151,7 +161,7 @@ export class PricingService {
       .sort((x, y) => y.itensCobertos - x.itensCobertos || x.totalCents - y.totalCents)
       .slice(0, 5);
 
-    return { itens: linhas, totalEstimadoCents, semPreco, totalItens: itens.length, mercados };
+    return { itens: linhas, totalEstimadoCents, semPreco, totalItens: lista.length, mercados };
   }
 
   /**

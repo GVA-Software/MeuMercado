@@ -164,6 +164,22 @@ describe('PricingService.estimativa — prévia da lista', () => {
     expect(r.mercados[0].economiaVsMediaCents).toBe(100);
   });
 
+  it('colapsa linhas do mesmo produto: cobertura conta produto DISTINTO, soma a quantidade', async () => {
+    const service = makeService(
+      [obs('p1', 'm1', 1000, 5), obs('p2', 'm1', 500, 5)],
+      [produto('p1', 'Arroz'), produto('p2', 'Feijão')],
+    );
+    // Duas linhas de p1 (qty 1 + 2) + uma de p2 (qty 1).
+    const r = await service.estimativa([
+      { produtoId: 'p1', quantity: 1 },
+      { produtoId: 'p1', quantity: 2 },
+      { produtoId: 'p2', quantity: 1 },
+    ]);
+    expect(r.totalItens).toBe(2); // produtos distintos, não 3 linhas
+    expect(r.mercados[0].itensCobertos).toBe(2); // p1 não conta 2x
+    expect(r.mercados[0].totalCents).toBe(1000 * 3 + 500 * 1); // p1 qty somada = 3
+  });
+
   it('usa o preço MAIS RECENTE por mercado (não a média) no total do mercado', async () => {
     const service = makeService(
       [obs('p1', 'm1', 2000, 10), obs('p1', 'm1', 800, 1)], // recente = 800
