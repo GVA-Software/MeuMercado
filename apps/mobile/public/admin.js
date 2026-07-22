@@ -1,7 +1,7 @@
       'use strict';
       var API_BASE = (location.port === '5173' ? 'http://localhost:3000' : '') + '/api';
       var token = null;
-      var state = { tab: 'app', stats: null, funil: null, feedbacks: null, fbTab: 'todos', fbStatus: '', fbSel: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', covProdPag: 1, covProdSize: 20, covMercPag: 1, covMercSize: 20, covSel: {}, covMercSel: {}, covProdBusca: '', covMercBusca: '', covProdCat: '', users: [], busca: '', userView: 'ativos', aberto: null, agindo: null, erro: '' };
+      var state = { tab: 'app', stats: null, funil: null, acessos: null, engajamento: null, feedbacks: null, fbTab: 'todos', fbStatus: '', fbSel: null, qa: null, qaLoading: false, dups: null, dupsLoading: false, cobertura: null, coberturaLoading: false, coberturaErro: '', covProdPag: 1, covProdSize: 20, covMercPag: 1, covMercSize: 20, covSel: {}, covMercSel: {}, covProdBusca: '', covMercBusca: '', covProdCat: '', users: [], busca: '', userView: 'ativos', aberto: null, agindo: null, erro: '' };
       var FB_TIPO = { bug: '🐛 Bug', sugestao: '💡 Sugestão', elogio: '❤️ Elogio', outro: '💬 Outro' };
 
       function esc(s) {
@@ -322,6 +322,82 @@
           '<p class="fnote">Coorte: <b>' + f.vistosQueRegistraram + '</b> dos que viram as boas-vindas registraram preço (' +
           pct(f.vistosQueRegistraram, f.onboardingVistos) + ').</p>' +
           '</div>';
+      }
+
+      // ---------- Aplicação: dashboard (KPIs + funil + engajamento + usuários) ----------
+      function somaSerie(pontos, k) {
+        return pontos.reduce(function (a, p) { return a + (p[k] || 0); }, 0);
+      }
+      // Engajamento (acessos Web×App + streak + sessão). NULL-SAFE: enquanto não há dado
+      // coletado, mostra "coletando…" em vez de número inventado.
+      function appEngajamentoHtml() {
+        var ac = state.acessos, eng = state.engajamento;
+        var temAcessos = ac && ac.pontos && ac.pontos.some(function (p) { return (p.web + p.pwa) > 0; });
+        var temStreak = eng && eng.faixas && eng.faixas.some(function (f) { return f.usuarios > 0; });
+        var temSessao = eng && eng.sessaoMediaMin != null;
+        var titulo = '<h2 class="fb-h2" style="margin:22px 0 10px">📊 Engajamento</h2>';
+        if (!temAcessos && !temStreak && !temSessao) {
+          return titulo + '<div class="cov-card"><p class="fnote" style="margin:0">Coletando dados de uso ' +
+            '(acessos, streak e sessão)… aparece aqui assim que os usuários abrirem o app. 🌱</p></div>';
+        }
+        var acBox = '';
+        if (temAcessos) {
+          var labels = ac.pontos.map(function (p) { return formatDiaCurto(p.dia); });
+          acBox = '<div class="cov-card"><p class="cov-card-t">📈 Acessos por dia</p>' +
+            '<p class="cov-card-sub">Quantas vezes o app foi aberto — navegador (Web) × app instalado na tela inicial (PWA).</p>' +
+            svgLineChart(labels, [
+              { values: ac.pontos.map(function (p) { return p.web; }), color: '#38bdf8', nome: 'Web' },
+              { values: ac.pontos.map(function (p) { return p.pwa; }), color: '#22c55e', nome: 'App' },
+            ]) + legendaInline([
+              { color: '#38bdf8', label: 'Web (navegador)', value: somaSerie(ac.pontos, 'web') },
+              { color: '#22c55e', label: 'App instalado', value: somaSerie(ac.pontos, 'pwa') },
+            ]) + '</div>';
+        }
+        var stBox = '';
+        if (temStreak) {
+          var cores = ['#f59e0b', '#38bdf8', '#22c55e'];
+          var segs = eng.faixas.map(function (f, i) { return { value: f.usuarios, color: cores[i] }; });
+          var itens = eng.faixas.map(function (f, i) { return { color: cores[i], label: f.label, value: f.usuarios }; });
+          var totalU = eng.faixas.reduce(function (a, f) { return a + f.usuarios; }, 0);
+          stBox = '<div class="cov-card"><p class="cov-card-t">🔥 Streak (dias de uso)</p>' +
+            '<div class="donut-wrap">' + svgDonut(segs, totalU, 'usuários') + '</div>' +
+            legendaHtml(itens) +
+            '<p class="fnote" style="margin-top:8px">Streak médio: <b>' + eng.streakMedio + ' dias</b> · <b>' +
+            eng.emStreakHoje + '</b> ativo(s) hoje E ontem.</p></div>';
+        }
+        var seBox = '';
+        if (temSessao) {
+          var labels2 = eng.sessaoPorDia.map(function (p) { return formatDiaCurto(p.dia); });
+          seBox = '<div class="cov-card"><p class="cov-card-t">⏱️ Tempo de sessão por dia</p>' +
+            '<p class="cov-card-sub">Minutos médios em foco por sessão (aproximado — heartbeat de foco).</p>' +
+            svgLineChart(labels2, [{ values: eng.sessaoPorDia.map(function (p) { return p.min; }), color: '#a78bfa', nome: 'min' }]) +
+            legendaInline([{ color: '#a78bfa', label: 'Média geral', value: eng.sessaoMediaMin + ' min' }]) + '</div>';
+        }
+        return titulo + '<div class="cov-grid">' + acBox + stBox + seBox + '</div>';
+      }
+      function appHtml() {
+        var s = state.stats;
+        if (!s) return '<p class="fnote">Carregando…</p>';
+        var eng = state.engajamento;
+        var ativosHoje = eng ? eng.ativosHoje : '—';
+        var sessao = eng && eng.sessaoMediaMin != null ? eng.sessaoMediaMin + ' min' : '—';
+        var kpis = '<div class="kpis">' +
+          kpiCard('👥', s.totalUsuarios, 'Usuários', '#ff6b2b', '+' + s.cadastros7d + ' em 7 dias') +
+          kpiCard('⭐', s.proAtivos, 'Pro ativos', '#22c55e', s.trials + ' em teste · ' + s.free + ' free') +
+          kpiCard('🟢', ativosHoje, 'Ativos hoje', '#38bdf8', eng ? eng.emStreakHoje + ' em streak' : 'coletando…') +
+          kpiCard('⏱️', sessao, 'Sessão média', '#a78bfa', eng ? 'streak méd. ' + eng.streakMedio + 'd' : 'coletando…') +
+          '</div>';
+        var miniBar = '<div class="mini">' + mini(s.cadastrosHoje, 'hoje') + mini(s.cadastros7d, '7 dias') +
+          mini(s.cadastros30d, '30 dias') + mini(s.admins, 'admins') + '</div>';
+        var funil = state.funil ? funnelHtml(state.funil) : '';
+        var usuarios = '<h2 class="fb-h2" style="margin:22px 0 10px">👤 Usuários</h2>' +
+          '<div style="display:flex;gap:6px;margin:2px 0 10px">' +
+          uviewBtn('ativos', 'Ativos') +
+          uviewBtn('excluidos', 'Excluídos (' + state.users.filter(function (u) { return u.excluidoEm; }).length + ')') +
+          '</div>' +
+          '<input class="search" id="busca" placeholder="Buscar por nome ou e-mail…" value="' + esc(state.busca) + '"/>' +
+          '<div id="lista"></div>';
+        return kpis + miniBar + funil + appEngajamentoHtml() + usuarios;
       }
 
       // ---------- Cobertura (produtos × mercados + contribuidores) ----------
@@ -1186,23 +1262,7 @@
         } else if (tab === 'nina') {
           conteudo = ninaHtml();
         } else {
-          conteudo = (s ? (
-              '<div class="stats">' +
-                statCard(s.totalUsuarios, 'Usuários', '#ff6b2b') +
-                statCard(s.proAtivos, 'Pro ativos', '#22c55e') +
-                statCard(s.trials, 'Em teste', '#38bdf8') +
-                statCard(s.free, 'Free', '#8a93a3') +
-              '</div>' +
-              '<div class="mini">' + mini(s.cadastrosHoje, 'hoje') + mini(s.cadastros7d, '7 dias') +
-                mini(s.cadastros30d, '30 dias') + mini(s.admins, 'admins') + '</div>'
-            ) : '') +
-            (state.funil ? funnelHtml(state.funil) : '') +
-            '<div style="display:flex;gap:6px;margin:2px 0 10px">' +
-              uviewBtn('ativos', 'Ativos') +
-              uviewBtn('excluidos', 'Excluídos (' + state.users.filter(function (u) { return u.excluidoEm; }).length + ')') +
-            '</div>' +
-            '<input class="search" id="busca" placeholder="Buscar por nome ou e-mail…" value="' + esc(state.busca) + '"/>' +
-            '<div id="lista"></div>';
+          conteudo = appHtml();
         }
         root.innerHTML = '<div class="wrap">' +
           '<div class="top"><div><div class="brand"><img src="/Loading.png" alt=""/><b>Meu Mercado</b></div>' +
@@ -1611,11 +1671,15 @@
             apiFetch('/admin/users?limit=100'),
             apiFetch('/admin/funil').catch(function () { return null; }),
             apiFetch('/admin/feedbacks').catch(function () { return null; }),
+            apiFetch('/admin/acessos').catch(function () { return null; }),
+            apiFetch('/admin/engajamento').catch(function () { return null; }),
           ]);
           state.stats = res[0];
           state.users = res[1].items;
           state.funil = res[2];
           state.feedbacks = res[3];
+          state.acessos = res[4];
+          state.engajamento = res[5];
           renderDashboard();
         } catch (e) {
           // Já autenticado: mostra o erro no painel (não volta pro login).
