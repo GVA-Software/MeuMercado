@@ -137,6 +137,8 @@ export function NinaChat({ T }: { T: Theme }) {
   const listaRef = useRef<HTMLDivElement>(null);
   // Receitas DINÂMICAS (ensinadas pelo ADM) — baixadas 1x e passadas ao interpretar.
   const receitasRef = useRef<ReceitaDef[]>([]);
+  // Garante que a dica proativa (insight de abertura) entre só uma vez.
+  const proativoRef = useRef(false);
 
   const empurrar = (m: SemId<Msg>) =>
     setMsgs((atual) => [...atual, { ...m, id: idRef.current++ } as Msg]);
@@ -151,6 +153,24 @@ export function NinaChat({ T }: { T: Theme }) {
       .ninaReceitas()
       .then((r) => {
         receitasRef.current = r.receitas;
+      })
+      .catch(() => {});
+  }, []);
+
+  // Proativa: ao abrir, a Nina já traz o alerta mais relevante (UM só) — sem esperar
+  // você digitar. O resto continua atrás de "✨ Meus alertas" (não vira chat carregado).
+  useEffect(() => {
+    if (proativoRef.current) return;
+    proativoRef.current = true;
+    api
+      .insights()
+      .then(({ insights }) => {
+        const top = insights[0];
+        if (top)
+          setMsgs((atual) => [
+            ...atual,
+            { id: idRef.current++, from: 'nina', kind: 'insight', insight: top } as Msg,
+          ]);
       })
       .catch(() => {});
   }, []);

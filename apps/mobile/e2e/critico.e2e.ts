@@ -93,8 +93,18 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await page.getByRole('button', { name: /Meus alertas/ }).click();
 
     await expect(page.getByText('Compare o ARROZ TIO JOAO e economize')).toBeVisible();
+    // O alerta de topo também aparece proativo na abertura → pode haver 2 na tela.
+    await expect(page.getByText('ARROZ TIO JOAO subiu 4%').first()).toBeVisible();
+    await expect(page.getByText(/Passou de R\$ 24,90 para R\$ 31,00/).first()).toBeVisible();
+  });
+
+  test('Nina (Pro): abre já com o alerta mais relevante (proativo)', async ({ page }) => {
+    await installApiMocks(page, { pro: true });
+    await page.goto('/');
+
+    await page.getByRole('button', { name: /Nina IA/ }).click();
+    // Sem tocar em "Meus alertas": o insight de topo já aparece na abertura.
     await expect(page.getByText('ARROZ TIO JOAO subiu 4%')).toBeVisible();
-    await expect(page.getByText(/Passou de R\$ 24,90 para R\$ 31,00/)).toBeVisible();
   });
 
   test('loop de cobertura: registrar pelo alerta abre o registro do produto', async ({ page }) => {
