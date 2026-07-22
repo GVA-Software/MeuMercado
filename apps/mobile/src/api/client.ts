@@ -245,11 +245,16 @@ export class ApiClient {
   repetirUltimaCompra(id: string): Promise<CartDTO> {
     return this.request(`/carts/${id}/repetir-ultima`, { method: 'POST' });
   }
-  /** Prévia do gasto da lista pela média da base (+ produtos sem preço). */
+  /** Prévia do gasto da lista pela média da base (+ produtos sem preço).
+   *  `pos` (opcional) habilita distância + endereço por mercado no ranking. */
   estimarLista(
     itens: Array<{ produtoId: string; quantity: number }>,
+    pos?: { lat: number; lng: number },
   ): Promise<EstimativaListaResponse> {
-    return this.request('/prices/estimativa', { method: 'POST', body: JSON.stringify({ itens }) });
+    return this.request('/prices/estimativa', {
+      method: 'POST',
+      body: JSON.stringify({ itens, ...(pos ? { lat: pos.lat, lng: pos.lng } : {}) }),
+    });
   }
 
   // ---- Listas salvas (modelos reutilizáveis) ----

@@ -63,7 +63,12 @@ export class PricingController {
   estimativa(
     @Body(new ZodValidationPipe(EstimativaListaSchema)) body: EstimativaListaInput,
   ): Promise<EstimativaListaResponse> {
-    return this.service.estimativa(body.itens);
+    // lat/lng vêm validados (números) do corpo — sem parseFloat (isso é só na rota GET table).
+    const userPos =
+      body.lat !== undefined && body.lng !== undefined
+        ? { lat: body.lat, lng: body.lng }
+        : undefined;
+    return this.service.estimativa(body.itens, userPos);
   }
 
   /** Produtos que só têm preço em 1 mercado — mutirão "complete a comparação". */

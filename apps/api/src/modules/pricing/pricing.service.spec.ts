@@ -19,6 +19,7 @@ const obs = (
   reporterId = 'u1',
   lat?: number,
   lng?: number,
+  endereco?: string,
 ) =>
   new PriceObservation({
     id: `${produtoId}-${mercadoId}-${dias}`,
@@ -31,6 +32,7 @@ const obs = (
     observedAt: diasAtras(dias),
     ...(lat !== undefined ? { mercadoLat: lat } : {}),
     ...(lng !== undefined ? { mercadoLng: lng } : {}),
+    ...(endereco !== undefined ? { mercadoEndereco: endereco } : {}),
   });
 
 function makeService(observations: PriceObservation[], produtos: Produto[]): PricingService {
@@ -191,6 +193,54 @@ describe('PricingService.estimativa — prévia da lista', () => {
     );
     const r = await service.estimativa([{ produtoId: 'p1', quantity: 1 }]);
     expect(r.mercados[0]!.totalCents).toBe(800);
+  });
+
+  it('expõe endereço/coordenadas do mercado e calcula a distância quando recebe a posição', async () => {
+    const service = makeService(
+      [obs('p1', 'm1', 1000, 5, 'u1', -23.6, -46.7, 'Av. Teste, 100')],
+      [produto('p1', 'Arroz')],
+    );
+    const r = await service.estimativa([{ produtoId: 'p1', quantity: 1 }], {
+      lat: -23.55,
+      lng: -46.63,
+    });
+    expect(r.mercados[0]!.mercadoEndereco).toBe('Av. Teste, 100');
+    expect(r.mercados[0]!.mercadoLat).toBe(-23.6);
+    expect(r.mercados[0]!.mercadoLng).toBe(-46.7);
+    expect(r.mercados[0]!.distanciaMetros).toBeGreaterThan(0);
+  });
+
+  it('mantém as coordenadas do mercado mesmo quando a observação mais recente não tem geo', async () => {
+    const service = makeService(
+      [
+        obs('p1', 'm1', 1000, 5), // mais recente em m1, SEM geo (reporte manual)
+        obs('p2', 'm1', 500, 10, 'u1', -23.6, -46.7, 'Av. Teste, 100'), // mais antiga, COM geo
+      ],
+      [produto('p1', 'Arroz'), produto('p2', 'Feijão')],
+    );
+    const r = await service.estimativa(
+      [
+        { produtoId: 'p1', quantity: 1 },
+        { produtoId: 'p2', quantity: 1 },
+      ],
+      { lat: -23.55, lng: -46.63 },
+    );
+    const m1 = r.mercados.find((m) => m.mercadoId === 'm1')!;
+    expect(m1.mercadoLat).toBe(-23.6);
+    expect(m1.mercadoLng).toBe(-46.7);
+    expect(m1.mercadoEndereco).toBe('Av. Teste, 100');
+    expect(m1.distanciaMetros).toBeGreaterThan(0);
+  });
+
+  it('sem posição: distância vem null (coordenadas do mercado seguem expostas)', async () => {
+    const service = makeService(
+      [obs('p1', 'm1', 1000, 5, 'u1', -23.6, -46.7)],
+      [produto('p1', 'Arroz')],
+    );
+    const r = await service.estimativa([{ produtoId: 'p1', quantity: 1 }]);
+    expect(r.mercados[0]!.distanciaMetros).toBeNull();
+    expect(r.mercados[0]!.mercadoLat).toBe(-23.6);
+    expect(r.mercados[0]!.mercadoEndereco).toBeNull();
   });
 });
 

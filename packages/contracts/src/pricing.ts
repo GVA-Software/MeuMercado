@@ -113,6 +113,9 @@ export const EstimativaListaSchema = z.object({
     )
     .min(1)
     .max(200),
+  /** Posição do usuário (opcional): habilita distância + raio no ranking de mercados. */
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
 });
 export type EstimativaListaInput = z.infer<typeof EstimativaListaSchema>;
 
@@ -133,6 +136,13 @@ export const EstimativaMercadoSchema = z.object({
   itensCobertos: z.number().int().nonnegative(),
   /** Quanto essa cesta (mesmos itens) sai mais barata que a MÉDIA da base. Sempre ≥ 0. */
   economiaVsMediaCents: z.number().int().nonnegative(),
+  /** Endereço do mercado (denormalizado da observação mais recente); null se ausente. */
+  mercadoEndereco: z.string().nullable(),
+  /** Coordenadas do mercado (da observação mais recente); null se a obs não tem geo. */
+  mercadoLat: z.number().nullable(),
+  mercadoLng: z.number().nullable(),
+  /** Distância (m) até este mercado — só quando o app envia a posição; senão null. */
+  distanciaMetros: z.number().int().nonnegative().nullable(),
 });
 export type EstimativaMercadoDTO = z.infer<typeof EstimativaMercadoSchema>;
 

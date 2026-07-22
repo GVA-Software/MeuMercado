@@ -84,7 +84,10 @@ export class PricingService {
    */
   async estimativa(
     itens: readonly { produtoId: string; quantity: number }[],
+    userPos?: { lat: number; lng: number },
   ): Promise<EstimativaListaResponse> {
+    // Posição do usuário (opcional): habilita a distância por mercado no ranking.
+    const from = this.geoFrom(userPos);
     // Colapsa linhas do MESMO produto (soma as quantidades): cobertura e ranking são por
     // produto DISTINTO — senão o mesmo item contaria 2x e inflaria o "cobre k de N".
     const qtdPorProduto = new Map<string, number>();
@@ -132,7 +135,17 @@ export class PricingService {
     // Agregação por mercado: total (preço recente × qtd) + média coberta + nº de itens.
     const agg = new Map<
       string,
-      { nome: string; total: number; mediaCoberta: number; cobertos: number }
+      {
+        nome: string;
+        total: number;
+        mediaCoberta: number;
+        cobertos: number;
+        endereco: string | null;
+        lat: number | null;
+        lng: number | null;
+        latestAt: number;
+        geoAt: number;
+      }
     >();
     for (const it of lista) {
       const byMkt = recentePorMercado.get(it.produtoId);
@@ -141,12 +154,36 @@ export class PricingService {
       for (const [mid, o] of byMkt) {
         let a = agg.get(mid);
         if (!a) {
-          a = { nome: o.mercadoNome ?? mid, total: 0, mediaCoberta: 0, cobertos: 0 };
+          a = {
+            nome: o.mercadoNome ?? mid,
+            total: 0,
+            mediaCoberta: 0,
+            cobertos: 0,
+            endereco: null,
+            lat: null,
+            lng: null,
+            latestAt: 0,
+            geoAt: 0,
+          };
           agg.set(mid, a);
         }
         a.total += o.price.cents * it.quantity;
         if (media !== undefined) a.mediaCoberta += Math.round(media * it.quantity);
         a.cobertos += 1;
+        const t = o.observedAt.getTime();
+        // Nome: da observação mais recente do mercado.
+        if (t >= a.latestAt) {
+          a.latestAt = t;
+          a.nome = o.mercadoNome ?? mid;
+        }
+        // Endereço/coordenadas: da observação COM geo mais recente — não perde a
+        // localização se a obs mais nova foi manual/sem GPS (igual à tabela de preços).
+        if (o.mercadoLat !== undefined && o.mercadoLng !== undefined && t >= a.geoAt) {
+          a.geoAt = t;
+          a.lat = o.mercadoLat;
+          a.lng = o.mercadoLng;
+          a.endereco = o.mercadoEndereco ?? a.endereco;
+        }
       }
     }
     const mercados = [...agg.entries()]
@@ -156,6 +193,10 @@ export class PricingService {
         totalCents: a.total,
         itensCobertos: a.cobertos,
         economiaVsMediaCents: Math.max(0, a.mediaCoberta - a.total),
+        mercadoEndereco: a.endereco,
+        mercadoLat: a.lat,
+        mercadoLng: a.lng,
+        distanciaMetros: this.distancia(from, a.lat ?? undefined, a.lng ?? undefined),
       }))
       // Mais completo primeiro; empate → mais barato. (Incompleto não ganha por ter menos.)
       .sort((x, y) => y.itensCobertos - x.itensCobertos || x.totalCents - y.totalCents)
@@ -184,6 +225,19 @@ export class PricingService {
     return Math.round(from.distanceTo(new GeoPoint(lat, lng)));
   }
 
+  /** GeoPoint a partir da posição do usuário; null se ausente ou fora dos limites válidos. */
+  private geoFrom(userPos?: { lat: number; lng: number }): GeoPoint | null {
+    return userPos &&
+      Number.isFinite(userPos.lat) &&
+      Number.isFinite(userPos.lng) &&
+      userPos.lat >= -90 &&
+      userPos.lat <= 90 &&
+      userPos.lng >= -180 &&
+      userPos.lng <= 180
+      ? new GeoPoint(userPos.lat, userPos.lng)
+      : null;
+  }
+
   async tabela(
     q?: string,
     mercado?: string,
@@ -191,16 +245,7 @@ export class PricingService {
     asOf: Date = new Date(),
   ): Promise<PriceTableRowDTO[]> {
     // Posição do usuário (opcional). Inválida → tratada como ausente (distâncias null).
-    const from =
-      userPos &&
-      Number.isFinite(userPos.lat) &&
-      Number.isFinite(userPos.lng) &&
-      userPos.lat >= -90 &&
-      userPos.lat <= 90 &&
-      userPos.lng >= -180 &&
-      userPos.lng <= 180
-        ? new GeoPoint(userPos.lat, userPos.lng)
-        : null;
+    const from = this.geoFrom(userPos);
 
     const todas = this.reais(await this.repo.all());
     const observacoes = mercado ? todas.filter((o) => o.mercadoNome === mercado) : todas;
