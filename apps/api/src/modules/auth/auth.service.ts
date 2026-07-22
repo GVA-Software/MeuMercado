@@ -110,7 +110,10 @@ export class AuthService {
     const email = new Email(identidade.email).value; // valida + normaliza
 
     const porSub = await this.users.findByGoogleSub(identidade.sub);
-    if (porSub && !porSub.excluidoEm) return this.issue(porSub);
+    if (porSub && !porSub.excluidoEm) {
+      await this.sincronizarFotoGoogle(porSub, identidade.foto);
+      return this.issue(porSub);
+    }
 
     const porEmail = await this.users.findByEmail(email);
     if (porEmail && !porEmail.excluidoEm) {
@@ -128,6 +131,7 @@ export class AuthService {
         porEmail.passwordHash = null;
         await this.sessions.revogarTodasDoUsuario(porEmail.id);
       }
+      await this.sincronizarFotoGoogle(porEmail, identidade.foto);
       return this.issue(porEmail);
     }
 
@@ -138,6 +142,7 @@ export class AuthService {
       nome: identidade.nome.trim() || email,
       passwordHash: null, // conta só-Google
       googleSub: identidade.sub,
+      fotoUrl: identidade.foto || null, // avatar padrão vindo do Google
       criadoEm: new Date(),
       // Consentimento LGPD: se não veio o aceite, fica null e o ReconsentGate cobra ao entrar.
       politicaVersao: consentiu ? POLITICA_VERSAO : null,
@@ -296,6 +301,14 @@ export class AuthService {
     return (await this.novaSessao(user)).result;
   }
 
+  /** Mantém a foto do Google em dia no login (só grava se mudou; ignora vazio). */
+  private async sincronizarFotoGoogle(user: StoredUser, foto: string): Promise<void> {
+    if (foto && user.fotoUrl !== foto) {
+      await this.users.atualizarFotoGoogle(user.id, foto);
+      user.fotoUrl = foto;
+    }
+  }
+
   private toDTO(user: StoredUser): UserDTO {
     return {
       id: user.id,
@@ -303,6 +316,7 @@ export class AuthService {
       nome: user.nome,
       isAdmin: isAdminEmail(user.email, this.config.get('ADMIN_EMAILS', { infer: true })),
       temSenha: user.passwordHash !== null,
+      fotoUrl: user.fotoUrl ?? null,
       politicaVersao: user.politicaVersao ?? null,
     };
   }

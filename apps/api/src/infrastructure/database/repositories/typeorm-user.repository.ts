@@ -33,6 +33,10 @@ export class TypeOrmUserRepository implements UserRepository {
     await this.repo.update(id, { googleSub });
   }
 
+  async atualizarFotoGoogle(id: string, fotoUrl: string): Promise<void> {
+    await this.repo.update(id, { fotoUrl });
+  }
+
   async updateNome(id: string, nome: string): Promise<void> {
     await this.repo.update(id, { nome });
   }
@@ -65,6 +69,7 @@ export class TypeOrmUserRepository implements UserRepository {
       email: emailAnonimo(id),
       passwordHash: null,
       googleSub: null, // solta o vínculo Google (relogar cria conta nova, não bate na excluída)
+      fotoUrl: null, // some a foto (PII)
     });
   }
 

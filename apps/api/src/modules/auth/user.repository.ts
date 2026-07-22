@@ -15,6 +15,8 @@ export interface StoredUser {
   politicaAceitaEm?: Date | null;
   /** Identidade Google (claim `sub`, estável por usuário) quando a conta usa Google. */
   googleSub?: string | null;
+  /** URL da foto de perfil do Google (claim `picture`). Usada como avatar padrão. */
+  fotoUrl?: string | null;
 }
 
 /** Porta de acesso a usuários. Assíncrona (suporta memória e banco). */
@@ -26,6 +28,8 @@ export interface UserRepository {
   create(user: StoredUser): Promise<void>;
   /** Vincula uma identidade Google a uma conta já existente (mesmo e-mail verificado). */
   vincularGoogle(id: string, googleSub: string): Promise<void>;
+  /** Atualiza a URL da foto do Google (mantém o avatar em dia a cada login). */
+  atualizarFotoGoogle(id: string, fotoUrl: string): Promise<void>;
   /** Atualiza só o nome (edição de perfil). */
   updateNome(id: string, nome: string): Promise<void>;
   /** Troca o hash de senha (usado na recuperação de senha). */
@@ -85,6 +89,11 @@ export class InMemoryUserRepository implements UserRepository {
     }
     return Promise.resolve();
   }
+  atualizarFotoGoogle(id: string, fotoUrl: string): Promise<void> {
+    const u = this.byId.get(id);
+    if (u) u.fotoUrl = fotoUrl;
+    return Promise.resolve();
+  }
   updateNome(id: string, nome: string): Promise<void> {
     const u = this.byId.get(id);
     if (u) {
@@ -136,6 +145,7 @@ export class InMemoryUserRepository implements UserRepository {
       u.email = emailAnonimo(id);
       u.passwordHash = null;
       u.googleSub = null; // relogar com o mesmo Google cria conta nova (não bate na excluída)
+      u.fotoUrl = null; // some a foto (PII)
       this.byEmail.set(u.email, u);
     }
     return Promise.resolve();

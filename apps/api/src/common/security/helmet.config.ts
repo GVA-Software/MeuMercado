@@ -9,7 +9,7 @@ const OSM_TILES = ['https://tile.openstreetmap.org', 'https://*.tile.openstreetm
  */
 const GIS = 'https://accounts.google.com/gsi/';
 const GIS_CLIENT = 'https://accounts.google.com/gsi/client';
-const GOOGLE_AVATARS = 'https://lh3.googleusercontent.com';
+const GOOGLE_AVATARS = 'https://*.googleusercontent.com';
 
 /**
  * Config do helmet. CSP restritiva, mas liberando o necessário para o MapLibre

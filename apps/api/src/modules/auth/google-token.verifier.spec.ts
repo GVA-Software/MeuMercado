@@ -53,16 +53,34 @@ describe('GoogleTokenVerifier', () => {
   beforeEach(() => mockJwks());
   afterEach(() => vi.unstubAllGlobals());
 
-  it('token válido + email_verified → devolve a identidade', async () => {
+  it('token válido + email_verified → devolve a identidade (com a foto do Google)', async () => {
     const v = new GoogleTokenVerifier(configCom(CLIENT_ID));
-    const token = assinar({ email: 'user@x.com', email_verified: true, name: 'User' });
+    const foto = 'https://lh3.googleusercontent.com/a/xyz';
+    const token = assinar({
+      email: 'user@x.com',
+      email_verified: true,
+      name: 'User',
+      picture: foto,
+    });
     const id = await v.verificar(token);
     expect(id).toMatchObject({
       sub: 'sub-123',
       email: 'user@x.com',
       emailVerified: true,
       nome: 'User',
+      foto,
     });
+  });
+
+  it('foto que NÃO é do CDN do Google é descartada (foto = "")', async () => {
+    const v = new GoogleTokenVerifier(configCom(CLIENT_ID));
+    const token = assinar({
+      email: 'u@x.com',
+      email_verified: true,
+      picture: 'https://evil.com/x.png',
+    });
+    const id = await v.verificar(token);
+    expect(id.foto).toBe('');
   });
 
   it('audience errada → rejeita', async () => {

@@ -19,6 +19,10 @@ export class UserEntity {
   @Column({ name: 'google_sub', type: 'varchar', nullable: true, unique: true })
   googleSub!: string | null;
 
+  /** URL da foto do Google (avatar padrão). */
+  @Column({ name: 'foto_url', type: 'varchar', length: 512, nullable: true })
+  fotoUrl!: string | null;
+
   @Column({ name: 'criado_em', type: 'timestamptz' })
   criadoEm!: Date;
 

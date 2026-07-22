@@ -413,14 +413,17 @@ export function PerfilScreen() {
     }
   }
 
-  // Foto de perfil: fica só no aparelho (localStorage), privada do usuário.
+  // Foto de perfil: upload LOCAL (localStorage, só neste aparelho) tem prioridade; se não
+  // houver, cai na foto da conta Google (user.fotoUrl, vinda do login).
   const fotoKey = user ? `mm-avatar:${user.email}` : '';
-  const [foto, setFoto] = useState<string | null>(null);
+  const [fotoLocal, setFotoLocal] = useState<string | null>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    setFoto(fotoKey ? localStorage.getItem(fotoKey) : null);
+    setFotoLocal(fotoKey ? localStorage.getItem(fotoKey) : null);
   }, [fotoKey]);
+  const fotoGoogle = user?.fotoUrl ?? null;
+  const foto = fotoLocal || fotoGoogle;
 
   function onEscolherFoto(file?: File | null) {
     if (file) setCropFile(file);
@@ -430,7 +433,7 @@ export function PerfilScreen() {
     if (fotoKey) {
       try {
         localStorage.setItem(fotoKey, dataUrl);
-        setFoto(dataUrl);
+        setFotoLocal(dataUrl);
       } catch {
         /* armazenamento cheio — ignora */
       }
@@ -439,7 +442,7 @@ export function PerfilScreen() {
   }
   function removerFoto() {
     if (fotoKey) localStorage.removeItem(fotoKey);
-    setFoto(null);
+    setFotoLocal(null); // volta pra foto do Google, se houver
   }
 
   return (
@@ -639,7 +642,7 @@ export function PerfilScreen() {
                     >
                       {foto ? 'Trocar foto' : '📷 Adicionar foto'}
                     </button>
-                    {foto && (
+                    {fotoLocal && (
                       <button
                         onClick={removerFoto}
                         style={{
@@ -657,7 +660,9 @@ export function PerfilScreen() {
                     )}
                   </div>
                   <p style={{ color: T.muted, fontSize: 11, margin: '6px 0 0' }}>
-                    🔒 Fica só neste aparelho
+                    {!fotoLocal && fotoGoogle
+                      ? 'Foto da sua conta Google'
+                      : '🔒 Fica só neste aparelho'}
                   </p>
                 </div>
               </div>

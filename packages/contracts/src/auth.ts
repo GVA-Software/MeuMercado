@@ -70,6 +70,8 @@ export const UserSchema = z.object({
   isAdmin: z.boolean(),
   /** Tem senha local? `false` = conta só-Google. A UI adapta (ex.: exclusão sem senha). */
   temSenha: z.boolean(),
+  /** Foto de perfil do Google (avatar padrão) — null se não veio do Google. */
+  fotoUrl: z.string().nullable(),
   /** Versão da Política/Termos que o usuário aceitou. Se < POLITICA_VERSAO, o app
    *  pede o reaceite (mudança relevante da política). */
   politicaVersao: z.string().nullable(),

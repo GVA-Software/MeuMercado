@@ -16,6 +16,7 @@ export const USER = {
   nome: 'Gustavo Teste',
   isAdmin: false,
   temSenha: true,
+  fotoUrl: null,
   // Já aceitou a política vigente → o ReconsentGate (modal full-screen) não cobre o app.
   politicaVersao: POLITICA_VERSAO,
 };

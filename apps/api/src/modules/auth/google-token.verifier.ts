@@ -26,6 +26,8 @@ export interface GoogleIdentity {
   email: string;
   emailVerified: boolean;
   nome: string;
+  /** URL da foto de perfil (claim `picture`, CDN do Google). '' se ausente. */
+  foto: string;
 }
 
 /**
@@ -115,10 +117,13 @@ export class GoogleTokenVerifier {
     // Google manda email_verified como boolean; alguns fluxos legados mandam string.
     const emailVerified = payload.email_verified === true || payload.email_verified === 'true';
     const nome = typeof payload.name === 'string' ? payload.name : '';
+    // Só aceita a foto se for HTTPS do domínio de CDN do Google (evita URL estranha).
+    const pic = typeof payload.picture === 'string' ? payload.picture : '';
+    const foto = /^https:\/\/[a-z0-9-]+\.googleusercontent\.com\//i.test(pic) ? pic : '';
 
     if (!sub || !email) throw new UnauthorizedException('Token do Google incompleto.');
     if (!emailVerified) throw new UnauthorizedException('E-mail do Google não verificado.');
 
-    return { sub, email, emailVerified: true, nome };
+    return { sub, email, emailVerified: true, nome, foto };
   }
 }

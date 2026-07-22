@@ -195,6 +195,7 @@ describe('AuthService — login com Google', () => {
     email: 'novo@x.com',
     emailVerified: true,
     nome: 'Novo',
+    foto: '',
     ...over,
   });
   const fake = (id: GoogleIdentity): Pick<GoogleTokenVerifier, 'verificar'> => ({
@@ -244,6 +245,14 @@ describe('AuthService — login com Google', () => {
     const r2 = await service.loginComGoogle({ idToken: 't' });
     expect(r2.response.user.id).toBe(r1.response.user.id);
     expect(await users.count()).toBe(1);
+  });
+
+  it('usa a foto do Google como fotoUrl (avatar padrão)', async () => {
+    const foto = 'https://lh3.googleusercontent.com/a/abc123';
+    const { service, users } = make(fake(ident({ sub: 'g-8', email: 'foto@x.com', foto })));
+    const r = await service.loginComGoogle({ idToken: 't' });
+    expect(r.response.user.fotoUrl).toBe(foto);
+    expect((await users.findByGoogleSub('g-8'))?.fotoUrl).toBe(foto);
   });
 
   it('conta excluída relogando com o mesmo Google cria conta NOVA (não bate na excluída)', async () => {
