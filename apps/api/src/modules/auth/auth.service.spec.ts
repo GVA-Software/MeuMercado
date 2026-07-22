@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import type { ConfigService } from '@nestjs/config';
+import { POLITICA_VERSAO } from '@meumercado/contracts';
 import { AuthService } from './auth.service.js';
 import { TokenService } from './token.service.js';
 import { ScryptPasswordHasher } from './password.hasher.js';
+import { GoogleTokenVerifier, type GoogleIdentity } from './google-token.verifier.js';
 import { InMemoryUserRepository } from './user.repository.js';
 import { InMemoryNameChangeRepository } from './name-change.repository.js';
 import { InMemoryRefreshSessionRepository } from './refresh-session.repository.js';
@@ -20,14 +22,15 @@ const env: Record<string, unknown> = {
 };
 const config = { get: (k: string) => env[k] } as unknown as ConfigService<Env, true>;
 
-function make() {
+function make(googleVerifier?: Pick<GoogleTokenVerifier, 'verificar'>) {
   const sessions = new InMemoryRefreshSessionRepository();
   const compras = new InMemoryCompraRepository();
   const listas = new InMemoryListaRepository();
   const push = new InMemoryPushSubscriptionRepository();
+  const users = new InMemoryUserRepository();
   const tokens = new TokenService(config);
   const service = new AuthService(
-    new InMemoryUserRepository(),
+    users,
     new InMemoryNameChangeRepository(),
     new ScryptPasswordHasher(),
     tokens,
@@ -36,8 +39,11 @@ function make() {
     compras,
     listas,
     push,
+    // Sem GOOGLE_CLIENT_ID no config, o verifier real fica desligado; os testes de
+    // Google injetam um fake determinístico (sem rede).
+    (googleVerifier ?? new GoogleTokenVerifier(config)) as GoogleTokenVerifier,
   );
-  return { service, tokens, sessions, compras, listas, push };
+  return { service, tokens, sessions, compras, listas, push, users };
 }
 
 const registrar = (s: AuthService) =>
@@ -180,5 +186,77 @@ describe('AuthService — exclusão de conta (anonimização LGPD)', () => {
     const reg = await registrar(service);
     // sanity: cadastrou e emitiu sessão (a versão fica gravada no StoredUser).
     expect(reg.response.user.email).toBe('a@b.com');
+  });
+});
+
+describe('AuthService — login com Google', () => {
+  const ident = (over?: Partial<GoogleIdentity>): GoogleIdentity => ({
+    sub: 'g-1',
+    email: 'novo@x.com',
+    emailVerified: true,
+    nome: 'Novo',
+    ...over,
+  });
+  const fake = (id: GoogleIdentity): Pick<GoogleTokenVerifier, 'verificar'> => ({
+    verificar: () => Promise.resolve(id),
+  });
+
+  it('e-mail novo → CRIA conta sem senha; grava consentimento quando aceitouTermos', async () => {
+    const { service, users } = make(fake(ident()));
+    const r = await service.loginComGoogle({ idToken: 't', aceitouTermos: true });
+    expect(r.response.user.email).toBe('novo@x.com');
+    expect(r.response.user.politicaVersao).toBe(POLITICA_VERSAO);
+    const u = await users.findByGoogleSub('g-1');
+    expect(u?.passwordHash).toBeNull();
+    expect(u?.googleSub).toBe('g-1');
+  });
+
+  it('sem aceitouTermos → cria com politicaVersao null (ReconsentGate cobra ao entrar)', async () => {
+    const { service } = make(fake(ident({ sub: 'g-2', email: 'sem@x.com' })));
+    const r = await service.loginComGoogle({ idToken: 't' });
+    expect(r.response.user.politicaVersao).toBeNull();
+  });
+
+  it('e-mail que JÁ tem conta com senha → VINCULA (mantém a senha), não duplica', async () => {
+    const { service, users } = make(fake(ident({ sub: 'g-3', email: 'a@b.com' })));
+    const reg = await registrar(service); // cria a@b.com COM senha
+    const r = await service.loginComGoogle({ idToken: 't' });
+    expect(r.response.user.id).toBe(reg.response.user.id); // mesma conta
+    const u = await users.findById(reg.response.user.id);
+    expect(u?.googleSub).toBe('g-3');
+    expect(u?.passwordHash).toBeTruthy(); // senha preservada
+    // a senha continua funcionando após o vínculo
+    await expect(
+      service.login({ email: 'a@b.com', senha: 'senha-de-teste' }),
+    ).resolves.toBeTruthy();
+  });
+
+  it('segundo login acha por googleSub (não recria a conta)', async () => {
+    const { service, users } = make(fake(ident({ sub: 'g-4', email: 'again@x.com' })));
+    const r1 = await service.loginComGoogle({ idToken: 't' });
+    const r2 = await service.loginComGoogle({ idToken: 't' });
+    expect(r2.response.user.id).toBe(r1.response.user.id);
+    expect(await users.count()).toBe(1);
+  });
+
+  it('conta excluída relogando com o mesmo Google cria conta NOVA (não bate na excluída)', async () => {
+    const { service } = make(fake(ident({ sub: 'g-5', email: 'del@x.com' })));
+    const r1 = await service.loginComGoogle({ idToken: 't' });
+    await service.excluirConta(r1.response.user.id); // conta Google: sem senha
+    const r2 = await service.loginComGoogle({ idToken: 't' });
+    expect(r2.response.user.id).not.toBe(r1.response.user.id);
+  });
+
+  it('login por SENHA numa conta só-Google responde 401 sem estourar (500)', async () => {
+    const { service } = make(fake(ident({ sub: 'g-6', email: 'g6@x.com' })));
+    await service.loginComGoogle({ idToken: 't' });
+    await expect(service.login({ email: 'g6@x.com', senha: 'qualquer-uma' })).rejects.toThrow();
+  });
+
+  it('excluir conta só-Google NÃO exige senha e zera o vínculo google_sub', async () => {
+    const { service, users } = make(fake(ident({ sub: 'g-7', email: 'g7@x.com' })));
+    const r = await service.loginComGoogle({ idToken: 't' });
+    await service.excluirConta(r.response.user.id); // sem senha
+    expect(await users.findByGoogleSub('g-7')).toBeNull();
   });
 });

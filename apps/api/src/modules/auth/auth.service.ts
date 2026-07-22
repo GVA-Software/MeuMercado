@@ -5,6 +5,7 @@ import { Email } from '@meumercado/domain';
 import {
   POLITICA_VERSAO,
   type AuthResponse,
+  type GoogleLoginInput,
   type LoginInput,
   type RegisterInput,
   type UserDTO,
@@ -25,6 +26,7 @@ import {
   type PushSubscriptionRepository,
 } from '../push/push-subscription.repository.js';
 import { TokenService } from './token.service.js';
+import { GoogleTokenVerifier } from './google-token.verifier.js';
 
 export interface AuthResult {
   response: AuthResponse;
@@ -43,6 +45,7 @@ export class AuthService {
     @Inject(COMPRA_REPOSITORY) private readonly compras: CompraRepository,
     @Inject(LISTA_REPOSITORY) private readonly listas: ListaRepository,
     @Inject(PUSH_SUBSCRIPTION_REPOSITORY) private readonly push: PushSubscriptionRepository,
+    private readonly googleVerifier: GoogleTokenVerifier,
   ) {}
 
   /**
@@ -81,6 +84,12 @@ export class AuthService {
       await this.hasher.hash(input.senha);
       throw new UnauthorizedException('Credenciais inválidas');
     }
+    // Conta só-Google (sem senha): não dá pra entrar por senha. Roda um hash descartável
+    // (mesmo custo de tempo) e responde igual a "senha errada" — não vaza a existência.
+    if (!user.passwordHash) {
+      await this.hasher.hash(input.senha);
+      throw new UnauthorizedException('Credenciais inválidas');
+    }
     if (!(await this.hasher.verify(user.passwordHash, input.senha))) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
@@ -88,6 +97,42 @@ export class AuthService {
       throw new UnauthorizedException('Esta conta foi excluída.');
     }
     return this.issue(user);
+  }
+
+  /**
+   * Login com Google: verifica o ID token e resolve a conta de forma determinística —
+   * (1) já vinculada pelo `sub`; senão (2) e-mail VERIFICADO que já tem conta → VINCULA
+   * (mantém a conta e a senha, só grava o google_sub); senão (3) cria conta nova (sem
+   * senha). Converge na MESMA emissão de tokens/cookie do login por senha.
+   */
+  async loginComGoogle(input: GoogleLoginInput): Promise<AuthResult> {
+    const identidade = await this.googleVerifier.verificar(input.idToken);
+    const email = new Email(identidade.email).value; // valida + normaliza
+
+    const porSub = await this.users.findByGoogleSub(identidade.sub);
+    if (porSub && !porSub.excluidoEm) return this.issue(porSub);
+
+    const porEmail = await this.users.findByEmail(email);
+    if (porEmail && !porEmail.excluidoEm) {
+      await this.users.vincularGoogle(porEmail.id, identidade.sub);
+      porEmail.googleSub = identidade.sub;
+      return this.issue(porEmail);
+    }
+
+    const consentiu = input.aceitouTermos === true;
+    const novo: StoredUser = {
+      id: randomUUID(),
+      email,
+      nome: identidade.nome.trim() || email,
+      passwordHash: null, // conta só-Google
+      googleSub: identidade.sub,
+      criadoEm: new Date(),
+      // Consentimento LGPD: se não veio o aceite, fica null e o ReconsentGate cobra ao entrar.
+      politicaVersao: consentiu ? POLITICA_VERSAO : null,
+      politicaAceitaEm: consentiu ? new Date() : null,
+    };
+    await this.users.create(novo);
+    return this.issue(novo);
   }
 
   async me(userId: string): Promise<UserDTO> {
@@ -107,12 +152,16 @@ export class AuthService {
    * sessões são derrubadas, o histórico PRIVADO de compras é apagado e as
    * inscrições de notificação (push) são removidas — para não notificar quem saiu.
    */
-  async excluirConta(userId: string, senha: string): Promise<void> {
+  async excluirConta(userId: string, senha?: string): Promise<void> {
     const user = await this.users.findById(userId);
     if (!user) throw new UnauthorizedException();
     if (user.excluidoEm) return; // idempotente
-    if (!(await this.hasher.verify(user.passwordHash, senha))) {
-      throw new UnauthorizedException('Senha incorreta.');
+    // Conta com senha: confirma a senha. Conta só-Google (sem senha): dispensa a
+    // confirmação — o usuário já está autenticado por JWT (não há senha a conferir).
+    if (user.passwordHash) {
+      if (!senha || !(await this.hasher.verify(user.passwordHash, senha))) {
+        throw new UnauthorizedException('Senha incorreta.');
+      }
     }
     await this.users.marcarExcluido(user.id, new Date());
     await this.sessions.revogarTodasDoUsuario(user.id);

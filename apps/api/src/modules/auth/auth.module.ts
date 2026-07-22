@@ -5,6 +5,7 @@ import { PasswordResetService } from './password-reset.service.js';
 import { TokenService } from './token.service.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { TurnstileGuard } from './turnstile.guard.js';
+import { GoogleTokenVerifier } from './google-token.verifier.js';
 import { PASSWORD_HASHER, ScryptPasswordHasher } from './password.hasher.js';
 
 // USER_REPOSITORY é fornecido globalmente pelo PersistenceModule (memória ou Postgres).
@@ -16,6 +17,7 @@ import { PASSWORD_HASHER, ScryptPasswordHasher } from './password.hasher.js';
     TokenService,
     JwtAuthGuard,
     TurnstileGuard,
+    GoogleTokenVerifier,
     { provide: PASSWORD_HASHER, useClass: ScryptPasswordHasher },
   ],
   // Exporta o que outros módulos precisam para proteger rotas.

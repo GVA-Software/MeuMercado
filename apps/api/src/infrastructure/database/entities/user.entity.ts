@@ -11,8 +11,13 @@ export class UserEntity {
   @Column()
   nome!: string;
 
-  @Column({ name: 'password_hash' })
-  passwordHash!: string;
+  /** null = conta só-Google (sem senha). */
+  @Column({ name: 'password_hash', type: 'varchar', nullable: true })
+  passwordHash!: string | null;
+
+  /** Identidade Google (`sub`), única. Muitos NULL convivem (contas não-Google). */
+  @Column({ name: 'google_sub', type: 'varchar', nullable: true, unique: true })
+  googleSub!: string | null;
 
   @Column({ name: 'criado_em', type: 'timestamptz' })
   criadoEm!: Date;

@@ -83,6 +83,14 @@ export const envSchema = z.object({
   GMAIL_REFRESH_TOKEN: z.string().optional(),
 
   /**
+   * Google Sign-In (opcional, GRÁTIS). COM o Client ID (OAuth "Web application") → o
+   * botão "Entrar com Google" acende no app e o backend valida o ID token contra ele
+   * (audience). É valor PÚBLICO (o MESMO vai no front como VITE_GOOGLE_CLIENT_ID) —
+   * não é segredo. SEM → recurso desligado (endpoint recusa, botão não aparece).
+   */
+  GOOGLE_CLIENT_ID: z.string().optional(),
+
+  /**
    * Postgres (TypeORM). Se definido → usa banco (dados persistem).
    * Se ausente → repositórios em memória (dev local sem banco).
    */

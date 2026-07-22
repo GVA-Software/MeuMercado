@@ -16,6 +16,7 @@ import type { Request, Response } from 'express';
 import {
   EsqueciSenhaSchema,
   ExcluirContaSchema,
+  GoogleLoginSchema,
   LoginSchema,
   RedefinirSenhaSchema,
   RegisterSchema,
@@ -23,6 +24,7 @@ import {
   type AuthResponse,
   type EsqueciSenhaInput,
   type ExcluirContaInput,
+  type GoogleLoginInput,
   type LoginInput,
   type RedefinirSenhaInput,
   type RegisterInput,
@@ -92,6 +94,19 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponse> {
     return this.finish(await this.service.login(body), res);
+  }
+
+  /**
+   * Login com Google. O ID token já é a prova anti-bot → sem TurnstileGuard.
+   * Mesmo cookie httpOnly de refresh do login por senha (via finish()).
+   */
+  @Post('google')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async google(
+    @Body(new ZodValidationPipe(GoogleLoginSchema)) body: GoogleLoginInput,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponse> {
+    return this.finish(await this.service.loginComGoogle(body), res);
   }
 
   @Post('refresh')

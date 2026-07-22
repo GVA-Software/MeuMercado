@@ -1,10 +1,19 @@
 import helmet from 'helmet';
 
 const OSM_TILES = ['https://tile.openstreetmap.org', 'https://*.tile.openstreetmap.org'];
+/**
+ * Google Identity Services (botão "Entrar com Google"). Libera o MÍNIMO: só o subpath
+ * /gsi/ (script + iframe do botão/One Tap) e as fotos de avatar. Sem isso, em produção
+ * (single-origin, CSP ativa) o botão simplesmente não carrega — em dev o Vite ignora a
+ * CSP, então é uma pegadinha de "funciona local, quebra em prod".
+ */
+const GIS = 'https://accounts.google.com/gsi/';
+const GIS_CLIENT = 'https://accounts.google.com/gsi/client';
+const GOOGLE_AVATARS = 'https://lh3.googleusercontent.com';
 
 /**
- * Config do helmet. CSP restritiva, mas liberando o necessário para o MapLibre:
- * tiles do OpenStreetMap (img/connect) e o web worker do mapa (blob:).
+ * Config do helmet. CSP restritiva, mas liberando o necessário para o MapLibre
+ * (tiles OSM + worker blob:) e para o botão do Google (subpath /gsi/).
  */
 export const helmetOptions: Parameters<typeof helmet>[0] = {
   contentSecurityPolicy: {
@@ -14,11 +23,12 @@ export const helmetOptions: Parameters<typeof helmet>[0] = {
       fontSrc: ["'self'", 'https:', 'data:'],
       formAction: ["'self'"],
       frameAncestors: ["'self'"],
-      imgSrc: ["'self'", 'data:', 'blob:', ...OSM_TILES],
-      connectSrc: ["'self'", ...OSM_TILES],
+      frameSrc: ["'self'", GIS],
+      imgSrc: ["'self'", 'data:', 'blob:', ...OSM_TILES, GOOGLE_AVATARS],
+      connectSrc: ["'self'", ...OSM_TILES, GIS],
       workerSrc: ["'self'", 'blob:'],
       objectSrc: ["'none'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", GIS_CLIENT],
       scriptSrcAttr: ["'none'"],
       styleSrc: ["'self'", 'https:', "'unsafe-inline'"],
       upgradeInsecureRequests: [],

@@ -41,11 +41,26 @@ export const RedefinirSenhaSchema = z.object({
 });
 export type RedefinirSenhaInput = z.infer<typeof RedefinirSenhaSchema>;
 
-/** Excluir a própria conta — exige a senha atual como confirmação. */
+/**
+ * Excluir a própria conta. Conta com senha → exige a senha como confirmação.
+ * Conta só-Google (sem senha) → a confirmação é dispensada (já está autenticada por
+ * JWT), por isso `senha` é opcional aqui e a exigência é feita no servidor.
+ */
 export const ExcluirContaSchema = z.object({
-  senha: z.string().min(1, 'Informe sua senha').max(200),
+  senha: z.string().min(1, 'Informe sua senha').max(200).optional(),
 });
 export type ExcluirContaInput = z.infer<typeof ExcluirContaSchema>;
+
+/**
+ * Login com Google: o app envia o ID token (JWT assinado pelo Google) e o servidor
+ * verifica (assinatura via JWKS + aud + iss + exp + email_verified). `aceitouTermos`
+ * só importa quando cria uma conta nova (consentimento LGPD).
+ */
+export const GoogleLoginSchema = z.object({
+  idToken: z.string().min(1).max(4096),
+  aceitouTermos: z.boolean().optional(),
+});
+export type GoogleLoginInput = z.infer<typeof GoogleLoginSchema>;
 
 export const UserSchema = z.object({
   id: IdSchema,

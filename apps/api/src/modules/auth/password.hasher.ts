@@ -9,7 +9,8 @@ const SALT_BYTES = 16;
 /** Porta de hashing de senha (implementação trocável). */
 export interface PasswordHasher {
   hash(plain: string): Promise<string>;
-  verify(hashed: string, plain: string): Promise<boolean>;
+  /** `hashed` pode ser null/'' (conta só-Google, sem senha) → sempre false, sem crash. */
+  verify(hashed: string | null, plain: string): Promise<boolean>;
 }
 
 export const PASSWORD_HASHER = 'PASSWORD_HASHER';
@@ -27,7 +28,8 @@ export class ScryptPasswordHasher implements PasswordHasher {
     return `${salt.toString('hex')}:${derived.toString('hex')}`;
   }
 
-  async verify(hashed: string, plain: string): Promise<boolean> {
+  async verify(hashed: string | null, plain: string): Promise<boolean> {
+    if (!hashed) return false; // conta só-Google (sem senha) — nunca casa, nunca estoura
     const [saltHex, keyHex] = hashed.split(':');
     if (!saltHex || !keyHex) return false;
     const salt = Buffer.from(saltHex, 'hex');

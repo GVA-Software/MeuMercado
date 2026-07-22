@@ -21,8 +21,16 @@ export class TypeOrmUserRepository implements UserRepository {
     return this.repo.findOne({ where: { id } });
   }
 
+  async findByGoogleSub(sub: string): Promise<StoredUser | null> {
+    return this.repo.findOne({ where: { googleSub: sub } });
+  }
+
   async create(user: StoredUser): Promise<void> {
     await this.repo.insert(user);
+  }
+
+  async vincularGoogle(id: string, googleSub: string): Promise<void> {
+    await this.repo.update(id, { googleSub });
   }
 
   async updateNome(id: string, nome: string): Promise<void> {
@@ -51,7 +59,8 @@ export class TypeOrmUserRepository implements UserRepository {
       excluidoEm: quando,
       nome: NOME_EXCLUIDO,
       email: emailAnonimo(id),
-      passwordHash: '',
+      passwordHash: null,
+      googleSub: null, // solta o vínculo Google (relogar cria conta nova, não bate na excluída)
     });
   }
 
