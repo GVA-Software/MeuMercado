@@ -748,4 +748,41 @@ test.describe('Meu Mercado — jornada crítica', () => {
     // O histórico agora vive no Perfil; sem compras, abre no estado vazio.
     await expect(page.getByText('Nenhuma compra ainda')).toBeVisible();
   });
+
+  test('Home: com histórico, o tutorial vira o card da última compra', async ({ page }) => {
+    await installApiMocks(page, { pro: true });
+    // Uma compra anterior COM economia → a Home troca o tutorial pelo insight.
+    await page.route(
+      (url) => url.pathname.endsWith('/compras'),
+      (route) => {
+        if (route.request().method() !== 'GET') return route.fallback();
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: { 'access-control-allow-origin': '*' },
+          body: JSON.stringify({
+            compras: [
+              {
+                id: 'c1',
+                mercadoId: null,
+                mercadoNome: 'Atacadão',
+                mercadoEndereco: null,
+                totalCents: 8740,
+                economiaCents: 1230,
+                criadaEm: '2026-07-20T12:00:00.000Z',
+                itens: [{ produtoId: 'p-arroz', nome: 'Arroz', unitPriceCents: 500, quantity: 2 }],
+              },
+            ],
+          }),
+        });
+      },
+    );
+    await page.goto('/');
+
+    // Lista vazia + histórico → mostra a economia da última compra (um insight só),
+    // e NÃO o tutorial de 3 passos.
+    await expect(page.getByText(/você economizou/i)).toBeVisible();
+    await expect(page.getByText(/R\$\s?12,30/)).toBeVisible();
+    await expect(page.getByText('Monte a lista aqui, em casa ou na fila')).toHaveCount(0);
+  });
 });

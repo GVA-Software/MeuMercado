@@ -4,6 +4,7 @@ import type {
   CartDTO,
   CartItemDTO,
   CartMercadoDTO,
+  CompraDTO,
   EstimativaListaResponse,
   MercadoDTO,
   ProdutoDTO,
@@ -55,6 +56,25 @@ function formatDistancia(m: number): string {
  *  "onde sua lista sai mais barata" — evita sugerir um mercado a 100 km de você. */
 const RAIO_PREVIA_METROS = 50_000;
 
+/** "há quanto tempo" humano a partir de uma data ISO (pro card da última compra). */
+function haQuantoTempo(iso: string): string {
+  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (dias <= 0) return 'hoje';
+  if (dias === 1) return 'ontem';
+  if (dias < 14) return `há ${dias} dias`;
+  const semanas = Math.floor(dias / 7);
+  if (semanas < 9) return `há ${semanas} ${semanas === 1 ? 'semana' : 'semanas'}`;
+  const meses = Math.floor(dias / 30);
+  return `há ${meses} ${meses === 1 ? 'mês' : 'meses'}`;
+}
+
+/** A compra mais recente da lista (não dependemos da ordem do backend). */
+function maisRecente(compras: CompraDTO[]): CompraDTO | null {
+  return compras.length > 0
+    ? [...compras].sort((a, b) => b.criadaEm.localeCompare(a.criadaEm))[0]!
+    : null;
+}
+
 export function CompraScreen() {
   const { T } = useTheme();
   const { user } = useAuth();
@@ -87,6 +107,8 @@ export function CompraScreen() {
   const [faltando, setFaltando] = useState(false);
   // Tem compra anterior? → habilita "repetir última compra" na lista vazia.
   const [temHistorico, setTemHistorico] = useState(false);
+  // Última compra: alimenta o card inteligente da Home (troca o tutorial depois de comprar).
+  const [ultimaCompra, setUltimaCompra] = useState<CompraDTO | null>(null);
   const [repetindo, setRepetindo] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   // Estimativa da lista pela base (prévia de gasto + produtos sem preço).
@@ -129,8 +151,11 @@ export function CompraScreen() {
           api.listarListas(),
         ]);
         if (prods.status === 'fulfilled') setProdutos(prods.value ?? []);
-        if (compras.status === 'fulfilled')
-          setTemHistorico((compras.value.compras ?? []).length > 0);
+        if (compras.status === 'fulfilled') {
+          const lista = compras.value.compras ?? [];
+          setTemHistorico(lista.length > 0);
+          setUltimaCompra(maisRecente(lista));
+        }
         if (listas.status === 'fulfilled') setListasSalvas(listas.value.listas ?? []);
       } catch (e) {
         setError(mensagemDeErro(e));
@@ -362,6 +387,15 @@ export function CompraScreen() {
       await api.finalizarCompra(cart.id);
       setCart(await api.obterCarrinho(cart.id)); // agora vazio
       setFinalizadoOk(true);
+      // Atualiza o card "última compra" da Home (senão só apareceria no próximo boot).
+      void api
+        .listarCompras()
+        .then((r) => {
+          const lista = r.compras ?? [];
+          setTemHistorico(lista.length > 0);
+          setUltimaCompra(maisRecente(lista));
+        })
+        .catch(() => {});
     } catch (e) {
       setFinalizarErro(mensagemDeErro(e));
     } finally {
@@ -692,42 +726,89 @@ export function CompraScreen() {
               titulo="Monte sua lista de compras"
               sub="Adicione o que você precisa — mesmo sem saber o preço ainda."
             />
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-                margin: '0 auto 16px',
-                maxWidth: 300,
-              }}
-            >
-              {[
-                { n: '1', t: 'Monte a lista aqui, em casa ou na fila' },
-                { n: '2', t: 'No mercado, toque em ▶️ Iniciar compra' },
-                { n: '3', t: 'Vá riscando o que pegar e informe o preço' },
-              ].map((p) => (
-                <div key={p.n} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span
-                    style={{
-                      flexShrink: 0,
-                      width: 22,
-                      height: 22,
-                      borderRadius: 99,
-                      background: T.primaryBg,
-                      color: T.primary,
-                      fontSize: 12,
-                      fontWeight: 800,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {p.n}
-                  </span>
-                  <span style={{ color: T.sub, fontSize: 13 }}>{p.t}</span>
-                </div>
-              ))}
-            </div>
+            {ultimaCompra ? (
+              // Usuário já comprou: troca o tutorial por UM insight (a última compra).
+              <div
+                style={{
+                  background: T.primaryBg,
+                  border: `1px solid ${T.primary}22`,
+                  borderRadius: 14,
+                  padding: '12px 14px',
+                  margin: '0 auto 16px',
+                  maxWidth: 320,
+                  width: '100%',
+                  boxSizing: 'border-box',
+                }}
+              >
+                {ultimaCompra.economiaCents > 0 ? (
+                  <>
+                    <p style={{ color: T.sub, fontSize: 12.5, margin: 0 }}>
+                      Na sua última compra você economizou
+                    </p>
+                    <p style={{ color: T.green, fontSize: 22, fontWeight: 800, margin: '2px 0 0' }}>
+                      {formatBRL(ultimaCompra.economiaCents)} 🎉
+                    </p>
+                    <p
+                      style={{ color: T.muted, fontSize: 11.5, margin: '4px 0 0', lineHeight: 1.4 }}
+                    >
+                      {formatBRL(ultimaCompra.totalCents)} no total
+                      {ultimaCompra.mercadoNome ? ` · ${ultimaCompra.mercadoNome}` : ''} ·{' '}
+                      {haQuantoTempo(ultimaCompra.criadaEm)}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ color: T.sub, fontSize: 12.5, margin: 0 }}>Sua última compra</p>
+                    <p style={{ color: T.text, fontSize: 22, fontWeight: 800, margin: '2px 0 0' }}>
+                      {formatBRL(ultimaCompra.totalCents)}
+                    </p>
+                    <p
+                      style={{ color: T.muted, fontSize: 11.5, margin: '4px 0 0', lineHeight: 1.4 }}
+                    >
+                      {ultimaCompra.mercadoNome ? `${ultimaCompra.mercadoNome} · ` : ''}
+                      {haQuantoTempo(ultimaCompra.criadaEm)}
+                    </p>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  margin: '0 auto 16px',
+                  maxWidth: 300,
+                }}
+              >
+                {[
+                  { n: '1', t: 'Monte a lista aqui, em casa ou na fila' },
+                  { n: '2', t: 'No mercado, toque em ▶️ Iniciar compra' },
+                  { n: '3', t: 'Vá riscando o que pegar e informe o preço' },
+                ].map((p) => (
+                  <div key={p.n} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        width: 22,
+                        height: 22,
+                        borderRadius: 99,
+                        background: T.primaryBg,
+                        color: T.primary,
+                        fontSize: 12,
+                        fontWeight: 800,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {p.n}
+                    </span>
+                    <span style={{ color: T.sub, fontSize: 13 }}>{p.t}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div
               style={{
                 display: 'flex',
