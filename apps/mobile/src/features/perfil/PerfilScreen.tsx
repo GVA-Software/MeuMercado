@@ -712,9 +712,27 @@ export function PerfilScreen() {
 
             <FeedbackCard />
 
-            <Btn variant="ghost" full onClick={() => setHistoricoOpen(true)}>
-              🧾 Minhas compras (histórico)
-            </Btn>
+            <button
+              onClick={() => setHistoricoOpen(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                width: '100%',
+                background: T.surface,
+                border: `1px solid ${T.border}`,
+                borderRadius: 14,
+                padding: '14px 16px',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <span style={{ fontSize: 18 }}>🧾</span>
+              <span style={{ flex: 1, color: T.text, fontSize: 14, fontWeight: 700 }}>
+                Minhas compras
+              </span>
+              <span style={{ color: T.muted, fontSize: 13 }}>histórico ›</span>
+            </button>
 
             <Btn variant="ghost" full onClick={() => void logout()}>
               Sair

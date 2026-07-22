@@ -743,7 +743,7 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await page.goto('/');
 
     await page.getByRole('button', { name: /Perfil/ }).click();
-    await page.getByRole('button', { name: /Minhas compras \(histórico\)/ }).click();
+    await page.getByRole('button', { name: /Minhas compras/ }).click();
 
     // O histórico agora vive no Perfil; sem compras, abre no estado vazio.
     await expect(page.getByText('Nenhuma compra ainda')).toBeVisible();
