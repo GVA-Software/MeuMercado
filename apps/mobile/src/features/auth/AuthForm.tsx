@@ -7,6 +7,30 @@ import { CreditoDev } from '../../ui/brand';
 
 type Mode = 'login' | 'register' | 'forgot';
 
+/** "G" oficial do Google (4 cores) — recognizível sobre o botão laranja translúcido. */
+function GoogleG() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
+    </svg>
+  );
+}
+
 /** Formulário de login/cadastro + recuperação de senha (mostrado quando deslogado). */
 export function AuthForm() {
   const { T } = useTheme();
@@ -23,7 +47,8 @@ export function AuthForm() {
 
   // Login com Google (apagado por padrão — só acende com VITE_GOOGLE_CLIENT_ID).
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
-  const googleBtnRef = useRef<HTMLDivElement>(null);
+  const googleBtnRef = useRef<HTMLDivElement>(null); // botão real do GIS (invisível)
+  const googleWrapRef = useRef<HTMLDivElement>(null); // container p/ medir a largura
   // Refs para o callback do GIS (fixado uma vez) ler o valor ATUAL de aceite/modo.
   const aceitoRef = useRef(aceito);
   aceitoRef.current = aceito;
@@ -63,13 +88,18 @@ export function AuthForm() {
         cancel_on_tap_outside: true,
       });
       googleBtnRef.current.innerHTML = '';
+      // Renderiza o botão real do Google na LARGURA do container: ele fica invisível
+      // (opacity 0) por cima do nosso botão estilizado e é ele que captura o toque —
+      // assim mantemos o fluxo oficial (ID token) com a nossa aparência.
+      const largura = Math.max(200, Math.min(400, googleWrapRef.current?.clientWidth ?? 320));
       gid.renderButton(googleBtnRef.current, {
         type: 'standard',
-        theme: 'filled_blue',
+        theme: 'outline',
         size: 'large',
         text: mode === 'register' ? 'signup_with' : 'signin_with',
         shape: 'pill',
-        logo_alignment: 'left',
+        logo_alignment: 'center',
+        width: largura,
       });
     }
 
@@ -288,14 +318,46 @@ export function AuthForm() {
                 <span style={{ color: T.muted, fontSize: 12 }}>ou</span>
                 <div style={{ flex: 1, height: 1, background: T.border }} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
-                {/* GIS renderiza o botão aqui. Em cadastro, o aceite dos Termos destrava. */}
+              {/* Nosso botão (laranja translúcido, tamanho do "Entrar") com o botão REAL
+                  do Google invisível por cima capturando o toque. No cadastro, o aceite
+                  dos Termos destrava (pointerEvents). */}
+              <div ref={googleWrapRef} style={{ position: 'relative', width: '100%' }}>
+                <div
+                  aria-hidden="true"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 10,
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '14px 20px',
+                    borderRadius: 14,
+                    // Laranja translúcido (funciona no tema claro E escuro) — "meio
+                    // transparente com laranja", no tamanho/forma do botão "Entrar".
+                    border: `1px solid ${T.primary}66`,
+                    background: `${T.primary}22`,
+                    color: T.primary,
+                    fontSize: 15,
+                    fontWeight: 700,
+                    opacity: busy || (mode === 'register' && !aceito) ? 0.5 : 1,
+                    transition: 'opacity .15s',
+                  }}
+                >
+                  <GoogleG />
+                  {mode === 'register' ? 'Cadastrar com o Google' : 'Entrar com o Google'}
+                </div>
                 <div
                   ref={googleBtnRef}
                   style={{
-                    opacity: busy || (mode === 'register' && !aceito) ? 0.5 : 1,
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: 0,
+                    overflow: 'hidden',
                     pointerEvents: busy || (mode === 'register' && !aceito) ? 'none' : 'auto',
-                    transition: 'opacity .15s',
                   }}
                 />
               </div>
