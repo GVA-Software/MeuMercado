@@ -141,12 +141,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /* ignora falha de logout */
     }
     localStorage.removeItem(TOKEN_KEY);
-    // Limpa resíduo de PII local (foto de perfil, `mm-avatar:<email>`) — importa em
-    // aparelho compartilhado, pra a foto do usuário anterior não sobrar.
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith('mm-avatar:')) localStorage.removeItem(k);
-    }
+    // NÃO apagamos a foto de perfil (mm-avatar:<email>) no logout: ela é local e isolada
+    // POR E-MAIL — quem logar com outro e-mail neste aparelho não vê a sua. Assim, ao
+    // reentrar (ou voltar depois de testar outra conta) a sua foto continua aqui. A
+    // limpeza da foto acontece na EXCLUSÃO da conta (libera o e-mail → PII local some).
     api.setToken(null);
     setUser(null);
     setSubscription(null);

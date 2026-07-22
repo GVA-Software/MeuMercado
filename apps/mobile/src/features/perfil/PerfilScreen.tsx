@@ -738,7 +738,11 @@ export function PerfilScreen() {
       {mostrarExcluir && (
         <ExcluirContaModal
           temSenha={!!user?.temSenha}
-          onExcluido={() => void logout()}
+          onExcluido={() => {
+            // Conta excluída → apaga a foto local (PII) desse e-mail, que fica liberado.
+            if (user) localStorage.removeItem(`mm-avatar:${user.email}`);
+            void logout();
+          }}
           onCancel={() => setMostrarExcluir(false)}
         />
       )}
