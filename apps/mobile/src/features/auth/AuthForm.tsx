@@ -53,6 +53,9 @@ export function AuthForm() {
   // Turnstile (anti-robô) — apagado por padrão; só acende com VITE_TURNSTILE_SITE_KEY.
   const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
   const [turnstileToken, setTurnstileToken] = useState('');
+  // No modo INVISÍVEL o widget não mostra nada; se a verificação falhar (rede ruim), o
+  // botão ficaria travado sem explicação → este erro dá um "recarregar" pro usuário.
+  const [turnstileErro, setTurnstileErro] = useState(false);
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
 
@@ -123,8 +126,14 @@ export function AuthForm() {
       turnstileRef.current.innerHTML = '';
       widgetIdRef.current = ts.render(turnstileRef.current, {
         sitekey: siteKey,
-        callback: (tok) => setTurnstileToken(tok),
-        'error-callback': () => setTurnstileToken(''),
+        callback: (tok) => {
+          setTurnstileToken(tok);
+          setTurnstileErro(false);
+        },
+        'error-callback': () => {
+          setTurnstileToken('');
+          setTurnstileErro(true);
+        },
         'expired-callback': () => setTurnstileToken(''),
         theme: 'auto',
       });
@@ -147,6 +156,7 @@ export function AuthForm() {
     return () => {
       cancelado = true;
       setTurnstileToken('');
+      setTurnstileErro(false);
       const ts = window.turnstile;
       if (ts && widgetIdRef.current) {
         try {
@@ -357,10 +367,31 @@ export function AuthForm() {
           )}
 
           {turnstileSiteKey && (
-            <div
-              ref={turnstileRef}
-              style={{ display: 'flex', justifyContent: 'center', minHeight: 65 }}
-            />
+            <>
+              {/* Modo INVISÍVEL: renderiza vazio (sem reservar altura → sem "buraco").
+                  Se o modo do widget for Managed/visível, ele cresce sozinho aqui. */}
+              <div ref={turnstileRef} style={{ display: 'flex', justifyContent: 'center' }} />
+              {turnstileErro && (
+                <p style={{ color: T.danger, fontSize: 12, margin: 0, lineHeight: 1.4 }}>
+                  ⚠️ A verificação de segurança não carregou.{' '}
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: T.primary,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: 0,
+                      fontSize: 12,
+                    }}
+                  >
+                    Recarregar
+                  </button>
+                </p>
+              )}
+            </>
           )}
 
           {erro && <p style={{ color: T.danger, fontSize: 13, margin: 0 }}>{erro}</p>}
