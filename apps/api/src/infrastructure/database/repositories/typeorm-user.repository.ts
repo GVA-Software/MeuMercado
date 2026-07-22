@@ -76,4 +76,8 @@ export class TypeOrmUserRepository implements UserRepository {
   async registrarAceitePolitica(id: string, versao: string, quando: Date): Promise<void> {
     await this.repo.update(id, { politicaVersao: versao, politicaAceitaEm: quando });
   }
+
+  async marcarEmailVerificado(id: string): Promise<void> {
+    await this.repo.update(id, { emailVerificado: true });
+  }
 }

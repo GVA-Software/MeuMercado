@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { PasswordResetService } from './password-reset.service.js';
+import { EmailVerificationService } from './email-verification.service.js';
 import { TokenService } from './token.service.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { TurnstileGuard } from './turnstile.guard.js';
@@ -14,6 +15,7 @@ import { PASSWORD_HASHER, ScryptPasswordHasher } from './password.hasher.js';
   providers: [
     AuthService,
     PasswordResetService,
+    EmailVerificationService,
     TokenService,
     JwtAuthGuard,
     TurnstileGuard,

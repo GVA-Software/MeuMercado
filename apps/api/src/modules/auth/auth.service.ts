@@ -68,6 +68,7 @@ export class AuthService {
       criadoEm: new Date(),
       politicaVersao: POLITICA_VERSAO, // consentimento LGPD registrado no cadastro
       politicaAceitaEm: new Date(),
+      emailVerificado: false, // pendente; o controller manda o link (e ajusta se o e-mail está off)
     };
     await this.users.create(user);
     return this.issue(user);
@@ -147,6 +148,7 @@ export class AuthService {
       // Consentimento LGPD: se não veio o aceite, fica null e o ReconsentGate cobra ao entrar.
       politicaVersao: consentiu ? POLITICA_VERSAO : null,
       politicaAceitaEm: consentiu ? new Date() : null,
+      emailVerificado: true, // o Google já provou a posse do e-mail (claim email_verified)
     };
     try {
       await this.users.create(novo);
@@ -318,6 +320,9 @@ export class AuthService {
       temSenha: user.passwordHash !== null,
       fotoUrl: user.fotoUrl ?? null,
       politicaVersao: user.politicaVersao ?? null,
+      // false só quando explicitamente pendente; ausente/true = confirmado (contas antigas
+      // e "verificação desligada" não incomodam o usuário com o banner).
+      emailVerificado: user.emailVerificado !== false,
     };
   }
 }

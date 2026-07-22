@@ -795,4 +795,33 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await expect(page.getByText(/R\$\s?12,30/)).toBeVisible();
     await expect(page.getByText('Monte a lista aqui, em casa ou na fila')).toHaveCount(0);
   });
+
+  test('Verificação de e-mail: quem não confirmou vê o banner (e some ao confirmar)', async ({
+    page,
+  }) => {
+    await installApiMocks(page, { pro: true });
+    // Sobrescreve o refresh com um usuário de e-mail NÃO confirmado.
+    await page.route(
+      (url) => url.pathname.endsWith('/auth/refresh'),
+      (route) => {
+        if (route.request().method() !== 'POST') return route.fallback();
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: {
+            'access-control-allow-origin': route.request().headers()['origin'] ?? '*',
+            'access-control-allow-credentials': 'true',
+          },
+          body: JSON.stringify({ ...AUTH, user: { ...AUTH.user, emailVerificado: false } }),
+        });
+      },
+    );
+    await page.goto('/');
+
+    // O banner não-bloqueante aparece…
+    await expect(page.getByText('Confirme seu e-mail')).toBeVisible();
+    // …e o "+" da Home segue clicável (regressão do review: a barra NÃO cobre o header).
+    await page.getByRole('button', { name: '+', exact: true }).click();
+    await expect(page.getByPlaceholder('Buscar produto…')).toBeVisible();
+  });
 });

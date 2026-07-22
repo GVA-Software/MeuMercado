@@ -73,6 +73,7 @@ function makeService(
     vincularGoogle: () => Promise.resolve(),
     atualizarFotoGoogle: () => Promise.resolve(),
     invalidarSenha: () => Promise.resolve(),
+    marcarEmailVerificado: () => Promise.resolve(),
   };
   const assinatura = Assinatura.free('x');
   const proAtivo = { isProAtivo: () => true } as unknown as Assinatura;

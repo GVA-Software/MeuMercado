@@ -375,6 +375,17 @@ export class ApiClient {
       body: JSON.stringify({ token, senha }),
     });
   }
+  /** Confirma o e-mail a partir do token do link. */
+  confirmarEmail(token: string): Promise<void> {
+    return this.request('/auth/confirmar-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  }
+  /** Reenvia o link de confirmação de e-mail (usuário logado). */
+  reenviarVerificacao(): Promise<void> {
+    return this.request('/auth/reenviar-verificacao', { method: 'POST' });
+  }
   me(): Promise<UserDTO> {
     return this.request('/auth/me');
   }

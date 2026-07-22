@@ -9,6 +9,7 @@ import { PrecosScreen } from '../features/precos/PrecosScreen';
 import { PerfilScreen } from '../features/perfil/PerfilScreen';
 import { AuthScreen } from '../features/auth/AuthScreen';
 import { ReconsentGate } from '../features/auth/ReconsentGate';
+import { EmailVerificacaoBanner } from '../features/auth/EmailVerificacaoBanner';
 import { Onboarding } from '../features/onboarding/Onboarding';
 import { onboardingVisto, marcarOnboardingVisto } from '../features/onboarding/onboardingStore';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
@@ -117,6 +118,9 @@ export function App() {
   return (
     <NavProvider value={{ irParaMapa, abrirRegistroPreco }}>
       <div className="app-shell" style={{ background: T.bg, color: T.text }}>
+        {/* Aviso de confirmação de e-mail EM FLUXO no topo: reserva espaço (não cobre o
+            header nem a onboarding). Fora do .app-scroll → não some ao trocar de aba. */}
+        <EmailVerificacaoBanner />
         {/* Só esta área rola; o header (sticky) de cada tela e a nav ficam fixos. */}
         <div className="app-scroll" key={tab}>
           {tab === 'compra' && <CompraScreen />}

@@ -17,6 +17,9 @@ export interface StoredUser {
   googleSub?: string | null;
   /** URL da foto de perfil do Google (claim `picture`). Usada como avatar padrão. */
   fotoUrl?: string | null;
+  /** E-mail confirmado por link? `false` = pendente; `true`/null/ausente = confirmado
+   *  (null cobre contas ANTIGAS — coluna nova nasce nula — e o "verificação desligada"). */
+  emailVerificado?: boolean | null;
 }
 
 /** Porta de acesso a usuários. Assíncrona (suporta memória e banco). */
@@ -48,6 +51,8 @@ export interface UserRepository {
   marcarExcluido(id: string, quando: Date): Promise<void>;
   /** Registra o (re)aceite da Política/Termos: grava a versão aceita e a data. */
   registrarAceitePolitica(id: string, versao: string, quando: Date): Promise<void>;
+  /** Marca o e-mail como confirmado (verificação por link). */
+  marcarEmailVerificado(id: string): Promise<void>;
 }
 
 export const USER_REPOSITORY = 'USER_REPOSITORY';
@@ -156,6 +161,11 @@ export class InMemoryUserRepository implements UserRepository {
       u.politicaVersao = versao;
       u.politicaAceitaEm = quando;
     }
+    return Promise.resolve();
+  }
+  marcarEmailVerificado(id: string): Promise<void> {
+    const u = this.byId.get(id);
+    if (u) u.emailVerificado = true;
     return Promise.resolve();
   }
 }

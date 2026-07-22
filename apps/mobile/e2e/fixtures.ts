@@ -19,6 +19,8 @@ export const USER = {
   fotoUrl: null,
   // Já aceitou a política vigente → o ReconsentGate (modal full-screen) não cobre o app.
   politicaVersao: POLITICA_VERSAO,
+  // E-mail confirmado → o banner de verificação não aparece nos testes.
+  emailVerificado: true,
 };
 
 export const AUTH = { accessToken: 'e2e-access-token', user: USER };

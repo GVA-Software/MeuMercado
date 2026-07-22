@@ -14,6 +14,7 @@ import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import {
+  ConfirmarEmailSchema,
   EsqueciSenhaSchema,
   ExcluirContaSchema,
   GoogleLoginSchema,
@@ -22,6 +23,7 @@ import {
   RegisterSchema,
   UpdateNameSchema,
   type AuthResponse,
+  type ConfirmarEmailInput,
   type EsqueciSenhaInput,
   type ExcluirContaInput,
   type GoogleLoginInput,
@@ -35,6 +37,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
 import type { Env } from '../../config/env.schema.js';
 import { AuthService, type AuthResult } from './auth.service.js';
 import { PasswordResetService } from './password-reset.service.js';
+import { EmailVerificationService } from './email-verification.service.js';
 import { CurrentUser } from './current-user.decorator.js';
 import { JwtAuthGuard, type AuthedUser } from './jwt-auth.guard.js';
 import { TokenService } from './token.service.js';
@@ -48,6 +51,7 @@ export class AuthController {
   constructor(
     private readonly service: AuthService,
     private readonly resets: PasswordResetService,
+    private readonly verificacao: EmailVerificationService,
     private readonly tokens: TokenService,
     private readonly config: ConfigService<Env, true>,
   ) {}
@@ -74,15 +78,43 @@ export class AuthController {
     await this.resets.redefinirSenha(body.token, body.senha);
   }
 
+  /** Confirma o e-mail a partir do token do link. Público (o token é a prova). */
+  @Post('confirmar-email')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(204)
+  async confirmarEmail(
+    @Body(new ZodValidationPipe(ConfirmarEmailSchema)) body: ConfirmarEmailInput,
+  ): Promise<void> {
+    await this.verificacao.confirmar(body.token);
+  }
+
+  /** Reenvia o link de confirmação de e-mail (usuário logado). Sempre 204. */
+  @Post('reenviar-verificacao')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(204)
+  async reenviarVerificacao(@CurrentUser() user: AuthedUser, @Req() req: Request): Promise<void> {
+    const base = `${req.protocol}://${req.get('host')}`;
+    await this.verificacao.enviarVerificacao(user.id, base);
+  }
+
   // Anti-brute-force/abuso: bem mais restrito que o limite global. Cadastro é raro.
   @Post('register')
   @Throttle({ default: { limit: 6, ttl: 60_000 } })
   @UseGuards(TurnstileGuard)
   async register(
     @Body(new ZodValidationPipe(RegisterSchema)) body: RegisterInput,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponse> {
-    return this.finish(await this.service.register(body), res);
+    const result = await this.service.register(body);
+    // Manda o link de confirmação. Se NÃO há transporte de e-mail, enviarVerificacao
+    // marca a conta como verificada e devolve false — então ajustamos o DTO pra não
+    // mostrar o banner "confirme seu e-mail" (não há como confirmar sem e-mail).
+    const base = `${req.protocol}://${req.get('host')}`;
+    const enviado = await this.verificacao.enviarVerificacao(result.response.user.id, base);
+    if (!enviado) result.response.user.emailVerificado = true;
+    return this.finish(result, res);
   }
 
   // Anti-brute-force de senha: 10 tentativas/min por IP (vs. 120 do limite global).

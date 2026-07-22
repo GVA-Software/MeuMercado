@@ -37,4 +37,9 @@ export class UserEntity {
   /** Quando aceitou a versão atual (cadastro ou reaceite). */
   @Column({ name: 'politica_aceita_em', type: 'timestamptz', nullable: true })
   politicaAceitaEm!: Date | null;
+
+  /** E-mail confirmado por link? Nullable de propósito: contas ANTIGAS (coluna recém
+   *  criada) nascem NULL e são tratadas como confirmadas (sem incomodar quem já usa). */
+  @Column({ name: 'email_verificado', type: 'boolean', nullable: true })
+  emailVerificado!: boolean | null;
 }

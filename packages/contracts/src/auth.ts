@@ -41,6 +41,12 @@ export const RedefinirSenhaSchema = z.object({
 });
 export type RedefinirSenhaInput = z.infer<typeof RedefinirSenhaSchema>;
 
+/** Confirmação de e-mail a partir do token do link enviado ao usuário. */
+export const ConfirmarEmailSchema = z.object({
+  token: z.string().min(10).max(200),
+});
+export type ConfirmarEmailInput = z.infer<typeof ConfirmarEmailSchema>;
+
 /**
  * Excluir a própria conta. Conta com senha → exige a senha como confirmação.
  * Conta só-Google (sem senha) → a confirmação é dispensada (já está autenticada por
@@ -75,6 +81,10 @@ export const UserSchema = z.object({
   /** Versão da Política/Termos que o usuário aceitou. Se < POLITICA_VERSAO, o app
    *  pede o reaceite (mudança relevante da política). */
   politicaVersao: z.string().nullable(),
+  /** E-mail confirmado? Quando a verificação está desligada (sem transporte de e-mail),
+   *  ou para contas Google/antigas, o servidor devolve true — o banner "confirme seu
+   *  e-mail" só aparece quando false. */
+  emailVerificado: z.boolean(),
 });
 export type UserDTO = z.infer<typeof UserSchema>;
 

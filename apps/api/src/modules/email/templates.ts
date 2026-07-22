@@ -96,3 +96,45 @@ Se não foi você, pode ignorar este e-mail — sua senha continua a mesma.
 
   return { assunto, texto, html: casca(miolo) };
 }
+
+/** E-mail de confirmação de conta (verificação de e-mail). `link` é a URL com o token. */
+export function emailConfirmacaoEmail(
+  nome: string,
+  link: string,
+): { assunto: string; texto: string; html: string } {
+  const assunto = 'Confirme seu e-mail — Meu Mercado';
+  const texto = `Oi, ${nome}!
+
+Falta só confirmar o seu e-mail pra deixar a sua conta do Meu Mercado completa. Abra o link abaixo (vale por 24 horas):
+
+${link}
+
+Se você não criou esta conta, pode ignorar este e-mail.
+
+— Meu Mercado 🧡`;
+
+  const miolo = `
+    <tr><td style="padding:8px 28px 0;">
+      <h1 style="margin:0 0 8px;font-size:19px;font-weight:800;color:${TEXT};text-align:center;">Confirme seu e-mail</h1>
+      <p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:${SUB};text-align:center;">
+        Oi, <b>${esc(nome)}</b>! Falta só um clique para confirmar o seu e-mail e deixar a sua conta completa.
+      </p>
+    </td></tr>
+    <tr><td style="padding:0 28px 4px;" align="center">${botao('Confirmar meu e-mail', link)}</td></tr>
+    <tr><td style="padding:16px 28px 0;">
+      <p style="margin:0;font-size:12px;line-height:1.5;color:${MUTED};text-align:center;">
+        O link vale por <b>24 horas</b>. Se o botão não funcionar, copie e cole este endereço no navegador:
+      </p>
+      <p style="margin:6px 0 0;font-size:12px;line-height:1.5;text-align:center;word-break:break-all;">
+        <a href="${link}" style="color:${PRIMARY};text-decoration:none;">${link}</a>
+      </p>
+    </td></tr>
+    <tr><td style="padding:20px 28px 24px;">
+      <hr style="border:none;border-top:1px solid ${BORDER};margin:0 0 14px;">
+      <p style="margin:0;font-size:12px;line-height:1.5;color:${MUTED};text-align:center;">
+        Se você não criou esta conta, pode ignorar este e-mail.<br>— Meu Mercado 🧡
+      </p>
+    </td></tr>`;
+
+  return { assunto, texto, html: casca(miolo) };
+}
