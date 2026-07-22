@@ -49,27 +49,20 @@ export function AuthForm() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
   const googleBtnRef = useRef<HTMLDivElement>(null); // botão real do GIS (invisível)
   const googleWrapRef = useRef<HTMLDivElement>(null); // container p/ medir a largura
-  // Refs para o callback do GIS (fixado uma vez) ler o valor ATUAL de aceite/modo.
-  const aceitoRef = useRef(aceito);
-  aceitoRef.current = aceito;
-  const modeRef = useRef<Mode>(mode);
-  modeRef.current = mode;
 
   useEffect(() => {
     const clientId = googleClientId ?? '';
-    if (!clientId || mode === 'forgot') return;
+    // O botão fica SÓ na tela de login: "Entrar com o Google" já é login E cadastro (cria
+    // a conta se não existir). Consentimento LGPD de conta nova é garantido pelo
+    // ReconsentGate (tela cheia de aceite) logo após entrar.
+    if (!clientId || mode !== 'login') return;
     let cancelado = false;
 
     async function entrar(credential: string) {
-      // No cadastro exige o aceite explícito; no login, conta nova cai no ReconsentGate.
-      if (modeRef.current === 'register' && !aceitoRef.current) {
-        setErro('Aceite os Termos para entrar com o Google.');
-        return;
-      }
       setBusy(true);
       setErro(null);
       try {
-        await loginComGoogle(credential, aceitoRef.current);
+        await loginComGoogle(credential, false);
       } catch (e) {
         setErro(mensagemDeErro(e));
       } finally {
@@ -96,7 +89,7 @@ export function AuthForm() {
         type: 'standard',
         theme: 'outline',
         size: 'large',
-        text: mode === 'register' ? 'signup_with' : 'signin_with',
+        text: 'signin_with',
         shape: 'pill',
         logo_alignment: 'center',
         width: largura,
@@ -311,7 +304,7 @@ export function AuthForm() {
             {busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}
           </Btn>
 
-          {googleClientId && (
+          {googleClientId && mode === 'login' && (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '2px 0' }}>
                 <div style={{ flex: 1, height: 1, background: T.border }} />
@@ -319,8 +312,8 @@ export function AuthForm() {
                 <div style={{ flex: 1, height: 1, background: T.border }} />
               </div>
               {/* Nosso botão (laranja translúcido, tamanho do "Entrar") com o botão REAL
-                  do Google invisível por cima capturando o toque. No cadastro, o aceite
-                  dos Termos destrava (pointerEvents). */}
+                  do Google invisível por cima capturando o toque — visual nosso, fluxo
+                  oficial (ID token). "Entrar com o Google" já cria a conta se não existir. */}
               <div ref={googleWrapRef} style={{ position: 'relative', width: '100%' }}>
                 <div
                   aria-hidden="true"
@@ -333,19 +326,18 @@ export function AuthForm() {
                     boxSizing: 'border-box',
                     padding: '14px 20px',
                     borderRadius: 14,
-                    // Laranja translúcido (funciona no tema claro E escuro) — "meio
-                    // transparente com laranja", no tamanho/forma do botão "Entrar".
+                    // Laranja translúcido (tema claro E escuro), no tamanho/forma do "Entrar".
                     border: `1px solid ${T.primary}66`,
                     background: `${T.primary}22`,
                     color: T.primary,
                     fontSize: 15,
                     fontWeight: 700,
-                    opacity: busy || (mode === 'register' && !aceito) ? 0.5 : 1,
+                    opacity: busy ? 0.5 : 1,
                     transition: 'opacity .15s',
                   }}
                 >
                   <GoogleG />
-                  {mode === 'register' ? 'Cadastrar com o Google' : 'Entrar com o Google'}
+                  Entrar com o Google
                 </div>
                 <div
                   ref={googleBtnRef}
@@ -357,15 +349,10 @@ export function AuthForm() {
                     justifyContent: 'center',
                     opacity: 0,
                     overflow: 'hidden',
-                    pointerEvents: busy || (mode === 'register' && !aceito) ? 'none' : 'auto',
+                    pointerEvents: busy ? 'none' : 'auto',
                   }}
                 />
               </div>
-              {mode === 'register' && !aceito && (
-                <p style={{ color: T.muted, fontSize: 11.5, textAlign: 'center', margin: 0 }}>
-                  Aceite os Termos acima para entrar com o Google.
-                </p>
-              )}
             </>
           )}
 
