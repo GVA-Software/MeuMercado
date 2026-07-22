@@ -640,9 +640,10 @@ function TabelaRow({ row, onClick }: { row: PriceTableRowDTO; onClick: () => voi
           {row.atualizadoEm ? ` · ${fmtData(row.atualizadoEm)}` : ''}
         </p>
       </div>
-      {/* Destaque = MENOR preço + onde (o "achei mais barato" do app), não a média. */}
+      {/* Destaque = MENOR preço + onde (o "achei mais barato" do app), não a média.
+          Preço é o herói do card: bem maior que o resto (nome/indicadores). */}
       <div style={{ textAlign: 'right', minWidth: 0, maxWidth: '46%', flexShrink: 0 }}>
-        <p style={{ color: T.text, fontSize: 16, fontWeight: 800, margin: 0 }}>
+        <p style={{ color: T.text, fontSize: 19, fontWeight: 800, margin: 0, letterSpacing: -0.3 }}>
           {row.minCents !== null
             ? formatBRL(row.minCents)
             : row.mediaCents !== null
