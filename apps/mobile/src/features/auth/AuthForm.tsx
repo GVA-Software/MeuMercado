@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { useTheme } from '../../theme/theme';
 import { api, mensagemDeErro } from '../../api/client';
@@ -10,7 +10,7 @@ type Mode = 'login' | 'register' | 'forgot';
 /** Formulário de login/cadastro + recuperação de senha (mostrado quando deslogado). */
 export function AuthForm() {
   const { T } = useTheme();
-  const { login, register } = useAuth();
+  const { login, register, loginComGoogle } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [nome, setNome] = useState('');
@@ -20,6 +20,77 @@ export function AuthForm() {
   const [busy, setBusy] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [aceito, setAceito] = useState(false); // consentimento LGPD (obrigatório no cadastro)
+
+  // Login com Google (apagado por padrão — só acende com VITE_GOOGLE_CLIENT_ID).
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+  // Refs para o callback do GIS (fixado uma vez) ler o valor ATUAL de aceite/modo.
+  const aceitoRef = useRef(aceito);
+  aceitoRef.current = aceito;
+  const modeRef = useRef<Mode>(mode);
+  modeRef.current = mode;
+
+  useEffect(() => {
+    const clientId = googleClientId ?? '';
+    if (!clientId || mode === 'forgot') return;
+    let cancelado = false;
+
+    async function entrar(credential: string) {
+      // No cadastro exige o aceite explícito; no login, conta nova cai no ReconsentGate.
+      if (modeRef.current === 'register' && !aceitoRef.current) {
+        setErro('Aceite os Termos para entrar com o Google.');
+        return;
+      }
+      setBusy(true);
+      setErro(null);
+      try {
+        await loginComGoogle(credential, aceitoRef.current);
+      } catch (e) {
+        setErro(mensagemDeErro(e));
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function iniciar() {
+      const gid = window.google?.accounts?.id;
+      if (cancelado || !gid || !googleBtnRef.current) return;
+      gid.initialize({
+        client_id: clientId,
+        callback: (resp) => {
+          if (resp.credential) void entrar(resp.credential);
+        },
+        cancel_on_tap_outside: true,
+      });
+      googleBtnRef.current.innerHTML = '';
+      gid.renderButton(googleBtnRef.current, {
+        type: 'standard',
+        theme: 'filled_blue',
+        size: 'large',
+        text: mode === 'register' ? 'signup_with' : 'signin_with',
+        shape: 'pill',
+        logo_alignment: 'left',
+      });
+    }
+
+    const SRC = 'https://accounts.google.com/gsi/client';
+    if (window.google?.accounts?.id) {
+      iniciar();
+    } else {
+      let s = document.querySelector<HTMLScriptElement>(`script[src="${SRC}"]`);
+      if (!s) {
+        s = document.createElement('script');
+        s.src = SRC;
+        s.async = true;
+        s.defer = true;
+        document.head.appendChild(s);
+      }
+      s.addEventListener('load', iniciar, { once: true });
+    }
+    return () => {
+      cancelado = true;
+    };
+  }, [googleClientId, mode, loginComGoogle]);
 
   async function submit() {
     setBusy(true);
@@ -209,6 +280,32 @@ export function AuthForm() {
           >
             {busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}
           </Btn>
+
+          {googleClientId && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '2px 0' }}>
+                <div style={{ flex: 1, height: 1, background: T.border }} />
+                <span style={{ color: T.muted, fontSize: 12 }}>ou</span>
+                <div style={{ flex: 1, height: 1, background: T.border }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                {/* GIS renderiza o botão aqui. Em cadastro, o aceite dos Termos destrava. */}
+                <div
+                  ref={googleBtnRef}
+                  style={{
+                    opacity: busy || (mode === 'register' && !aceito) ? 0.5 : 1,
+                    pointerEvents: busy || (mode === 'register' && !aceito) ? 'none' : 'auto',
+                    transition: 'opacity .15s',
+                  }}
+                />
+              </div>
+              {mode === 'register' && !aceito && (
+                <p style={{ color: T.muted, fontSize: 11.5, textAlign: 'center', margin: 0 }}>
+                  Aceite os Termos acima para entrar com o Google.
+                </p>
+              )}
+            </>
+          )}
 
           {mode === 'login' && (
             <button onClick={() => trocarModo('forgot')} style={link}>

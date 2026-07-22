@@ -14,6 +14,8 @@ interface AuthState {
   tentarConectar: () => void;
   login: (email: string, senha: string) => Promise<void>;
   register: (email: string, nome: string, senha: string) => Promise<void>;
+  /** Login com Google (ID token do GIS). `aceitouTermos` só importa se criar conta. */
+  loginComGoogle: (idToken: string, aceitouTermos: boolean) => Promise<void>;
   atualizarNome: (nome: string) => Promise<void>;
   /** Registra o reaceite da Política/Termos (quando a versão muda). */
   aceitarPolitica: () => Promise<void>;
@@ -111,6 +113,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, nome: string, senha: string) => {
       // O consentimento é obrigatório na tela de cadastro (checkbox trava o botão).
       const r = await api.register({ email, nome, senha, aceitouTermos: true });
+      applyAuth(r.accessToken, r.user);
+    },
+    [applyAuth],
+  );
+
+  const loginComGoogle = useCallback(
+    async (idToken: string, aceitouTermos: boolean) => {
+      const r = await api.loginGoogle(idToken, aceitouTermos);
       applyAuth(r.accessToken, r.user);
     },
     [applyAuth],
@@ -224,6 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         tentarConectar: () => void iniciar(),
         login,
         register,
+        loginComGoogle,
         atualizarNome,
         aceitarPolitica,
         logout,

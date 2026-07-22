@@ -338,6 +338,13 @@ export class ApiClient {
   login(input: LoginInput): Promise<AuthResponse> {
     return this.request('/auth/login', { method: 'POST', body: JSON.stringify(input) });
   }
+  /** Login com Google: envia o ID token (verificado no servidor). */
+  loginGoogle(idToken: string, aceitouTermos: boolean): Promise<AuthResponse> {
+    return this.request('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ idToken, aceitouTermos }),
+    });
+  }
   /** Renova a sessão a partir do cookie httpOnly de refresh (mantém logado). */
   refresh(): Promise<AuthResponse> {
     return this.request('/auth/refresh', { method: 'POST' });
