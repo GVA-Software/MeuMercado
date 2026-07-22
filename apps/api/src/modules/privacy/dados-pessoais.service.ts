@@ -80,6 +80,8 @@ export class DadosPessoaisService {
         id: user.id,
         nome: user.nome,
         email: user.email,
+        fotoUrl: user.fotoUrl ?? null, // avatar (vindo do Google), se houver
+        loginGoogle: Boolean(user.googleSub), // se a conta está vinculada ao Google
         criadoEm: user.criadoEm.toISOString(),
         politicaVersaoAceita: user.politicaVersao ?? null,
       },

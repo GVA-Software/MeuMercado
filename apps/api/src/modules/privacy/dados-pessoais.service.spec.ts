@@ -63,9 +63,11 @@ describe('DadosPessoaisService — exportar (portabilidade LGPD)', () => {
       id: 'u1',
       email: 'a@b.com',
       nome: 'A',
-      passwordHash: 'x',
+      passwordHash: null,
+      googleSub: 'g-1',
+      fotoUrl: 'https://lh3.googleusercontent.com/a/xyz',
       criadoEm: new Date('2026-06-01T00:00:00Z'),
-      politicaVersao: '2026-07-17',
+      politicaVersao: '2026-07-22',
     });
     await repos.compras.salvar('u1', {
       id: 'c1',
@@ -123,6 +125,8 @@ describe('DadosPessoaisService — exportar (portabilidade LGPD)', () => {
 
     expect(out.titular.id).toBe('u1');
     expect(out.titular.email).toBe('a@b.com');
+    expect(out.titular.fotoUrl).toBe('https://lh3.googleusercontent.com/a/xyz');
+    expect(out.titular.loginGoogle).toBe(true);
     expect(out.compras).toHaveLength(1);
     expect(out.precosQueReportei).toHaveLength(1); // só o 'o1' (reporter u1)
     expect(out.precosQueReportei[0].id).toBe('o1');
