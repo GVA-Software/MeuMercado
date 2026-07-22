@@ -217,18 +217,25 @@ describe('AuthService — login com Google', () => {
     expect(r.response.user.politicaVersao).toBeNull();
   });
 
-  it('e-mail que JÁ tem conta com senha → VINCULA (mantém a senha), não duplica', async () => {
-    const { service, users } = make(fake(ident({ sub: 'g-3', email: 'a@b.com' })));
-    const reg = await registrar(service); // cria a@b.com COM senha
+  it('e-mail que JÁ tem conta com senha → VINCULA mas INVALIDA a senha antiga (anti pre-hijacking)', async () => {
+    // Cenário de pre-hijacking: alguém pré-cadastrou a@b.com com uma senha (o e-mail nunca
+    // foi verificado). Quando o dono REAL entra com Google (e-mail verificado), a conta é
+    // preservada (dados), mas a senha plantada é invalidada e as sessões antigas caem.
+    const { service, users, tokens, sessions } = make(
+      fake(ident({ sub: 'g-3', email: 'a@b.com' })),
+    );
+    const reg = await registrar(service); // "atacante" cria a@b.com COM senha
+    const { jti: jtiAntigo } = tokens.verifyRefresh(reg.refreshToken);
     const r = await service.loginComGoogle({ idToken: 't' });
-    expect(r.response.user.id).toBe(reg.response.user.id); // mesma conta
+    expect(r.response.user.id).toBe(reg.response.user.id); // mesma conta (dados preservados)
     const u = await users.findById(reg.response.user.id);
     expect(u?.googleSub).toBe('g-3');
-    expect(u?.passwordHash).toBeTruthy(); // senha preservada
-    // a senha continua funcionando após o vínculo
-    await expect(
-      service.login({ email: 'a@b.com', senha: 'senha-de-teste' }),
-    ).resolves.toBeTruthy();
+    expect(u?.passwordHash).toBeNull(); // senha plantada invalidada
+    expect(r.response.user.temSenha).toBe(false);
+    // a senha antiga NÃO loga mais (o "atacante" perde o acesso)
+    await expect(service.login({ email: 'a@b.com', senha: 'senha-de-teste' })).rejects.toThrow();
+    // e as sessões antigas foram derrubadas
+    expect((await sessions.buscar(jtiAntigo!))?.revoked).toBe(true);
   });
 
   it('segundo login acha por googleSub (não recria a conta)', async () => {

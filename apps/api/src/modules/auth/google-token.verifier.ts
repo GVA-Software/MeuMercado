@@ -39,6 +39,7 @@ export interface GoogleIdentity {
 export class GoogleTokenVerifier {
   private chavesPem = new Map<string, string>();
   private expiraEm = 0;
+  private ultimoReloadForcado = 0;
 
   constructor(private readonly config: ConfigService<Env, true>) {}
 
@@ -77,8 +78,10 @@ export class GoogleTokenVerifier {
   private async pemPara(kid: string): Promise<string | undefined> {
     await this.carregarChaves();
     let pem = this.chavesPem.get(kid);
-    if (!pem) {
-      // kid desconhecido → o Google pode ter rotacionado: recarrega uma vez.
+    // kid desconhecido → o Google pode ter rotacionado: recarrega, MAS no máximo 1x/min
+    // (senão tokens forjados com kid aleatório martelariam o endpoint de certs do Google).
+    if (!pem && Date.now() - this.ultimoReloadForcado > 60_000) {
+      this.ultimoReloadForcado = Date.now();
       await this.carregarChaves(true);
       pem = this.chavesPem.get(kid);
     }

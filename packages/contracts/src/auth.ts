@@ -68,6 +68,8 @@ export const UserSchema = z.object({
   nome: z.string(),
   /** Derivado no servidor (allowlist de e-mails). Libera o painel de administração. */
   isAdmin: z.boolean(),
+  /** Tem senha local? `false` = conta só-Google. A UI adapta (ex.: exclusão sem senha). */
+  temSenha: z.boolean(),
   /** Versão da Política/Termos que o usuário aceitou. Se < POLITICA_VERSAO, o app
    *  pede o reaceite (mudança relevante da política). */
   politicaVersao: z.string().nullable(),

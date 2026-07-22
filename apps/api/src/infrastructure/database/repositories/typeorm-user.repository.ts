@@ -41,6 +41,10 @@ export class TypeOrmUserRepository implements UserRepository {
     await this.repo.update(id, { passwordHash });
   }
 
+  async invalidarSenha(id: string): Promise<void> {
+    await this.repo.update(id, { passwordHash: null });
+  }
+
   async findAll(): Promise<StoredUser[]> {
     return this.repo.find({ order: { criadoEm: 'DESC' } });
   }

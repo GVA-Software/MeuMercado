@@ -170,9 +170,12 @@ function CropModal({
  * os preços cadastrados FICAM na base comunitária. Ao excluir, desloga.
  */
 function ExcluirContaModal({
+  temSenha,
   onExcluido,
   onCancel,
 }: {
+  /** false = conta só-Google (sem senha) → não pede senha na confirmação. */
+  temSenha: boolean;
   onExcluido: () => void;
   onCancel: () => void;
 }) {
@@ -181,10 +184,10 @@ function ExcluirContaModal({
   const [ciente, setCiente] = useState(false);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const podeExcluir = !!senha && ciente;
+  const podeExcluir = ciente && (!temSenha || !!senha);
 
   async function confirmar() {
-    if (!senha) {
+    if (temSenha && !senha) {
       setErro('Digite sua senha para confirmar.');
       return;
     }
@@ -195,7 +198,7 @@ function ExcluirContaModal({
     setBusy(true);
     setErro(null);
     try {
-      await api.excluirConta(senha);
+      await api.excluirConta(temSenha ? senha : undefined);
       onExcluido();
     } catch (e) {
       setErro(mensagemDeErro(e));
@@ -275,22 +278,24 @@ function ExcluirContaModal({
             forma anônima, e não serão apagados.
           </span>
         </label>
-        <input
-          type="password"
-          placeholder="Sua senha"
-          autoComplete="current-password"
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-          style={{
-            border: `1.5px solid ${T.border}`,
-            borderRadius: 12,
-            padding: '13px 14px',
-            background: T.card,
-            color: T.text,
-            fontSize: 15,
-            width: '100%',
-          }}
-        />
+        {temSenha && (
+          <input
+            type="password"
+            placeholder="Sua senha"
+            autoComplete="current-password"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+            style={{
+              border: `1.5px solid ${T.border}`,
+              borderRadius: 12,
+              padding: '13px 14px',
+              background: T.card,
+              color: T.text,
+              fontSize: 15,
+              width: '100%',
+            }}
+          />
+        )}
         {erro && <p style={{ color: T.danger, fontSize: 13, margin: 0 }}>{erro}</p>}
         <button
           onClick={() => void confirmar()}
@@ -732,6 +737,7 @@ export function PerfilScreen() {
 
       {mostrarExcluir && (
         <ExcluirContaModal
+          temSenha={!!user?.temSenha}
           onExcluido={() => void logout()}
           onCancel={() => setMostrarExcluir(false)}
         />

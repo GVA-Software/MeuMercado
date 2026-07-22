@@ -366,11 +366,14 @@ export class ApiClient {
   me(): Promise<UserDTO> {
     return this.request('/auth/me');
   }
-  /** Exclui a PRÓPRIA conta (confirma com a senha). Os preços cadastrados permanecem. */
-  excluirConta(senha: string): Promise<void> {
+  /**
+   * Exclui a PRÓPRIA conta. Conta com senha → confirma com a senha; conta só-Google →
+   * sem senha (o servidor dispensa, já autenticado por JWT). Os preços permanecem.
+   */
+  excluirConta(senha?: string): Promise<void> {
     return this.request('/auth/excluir-conta', {
       method: 'POST',
-      body: JSON.stringify({ senha }),
+      body: JSON.stringify(senha ? { senha } : {}),
     });
   }
   /** Atualiza o próprio nome (persistido; e-mail não muda). */

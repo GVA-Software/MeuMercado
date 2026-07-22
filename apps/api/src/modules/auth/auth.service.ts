@@ -116,6 +116,18 @@ export class AuthService {
     if (porEmail && !porEmail.excluidoEm) {
       await this.users.vincularGoogle(porEmail.id, identidade.sub);
       porEmail.googleSub = identidade.sub;
+      // ANTI PRE-HIJACKING: o e-mail LOCAL nunca foi verificado (o cadastro por senha não
+      // comprova posse do e-mail). O Google acabou de comprovar a posse, então a senha
+      // local pré-existente NÃO é confiável — podia ter sido plantada por um atacante que
+      // pré-cadastrou o e-mail da vítima. Invalida a senha e derruba as sessões antigas:
+      // o atacante perde o acesso por senha e as sessões que porventura tivesse. Quem
+      // realmente quiser senha redefine pelo "esqueci a senha" (link vai pro e-mail que o
+      // Google comprovou pertencer a quem está logando).
+      if (porEmail.passwordHash) {
+        await this.users.invalidarSenha(porEmail.id);
+        porEmail.passwordHash = null;
+        await this.sessions.revogarTodasDoUsuario(porEmail.id);
+      }
       return this.issue(porEmail);
     }
 
@@ -131,7 +143,16 @@ export class AuthService {
       politicaVersao: consentiu ? POLITICA_VERSAO : null,
       politicaAceitaEm: consentiu ? new Date() : null,
     };
-    await this.users.create(novo);
+    try {
+      await this.users.create(novo);
+    } catch (e) {
+      // Corrida (dois primeiros logins simultâneos) → violação do unique(google_sub/email).
+      // Reconsulta e emite a sessão da linha que venceu, em vez de estourar 500.
+      const existente =
+        (await this.users.findByGoogleSub(identidade.sub)) ?? (await this.users.findByEmail(email));
+      if (existente && !existente.excluidoEm) return this.issue(existente);
+      throw e;
+    }
     return this.issue(novo);
   }
 
@@ -281,6 +302,7 @@ export class AuthService {
       email: user.email,
       nome: user.nome,
       isAdmin: isAdminEmail(user.email, this.config.get('ADMIN_EMAILS', { infer: true })),
+      temSenha: user.passwordHash !== null,
       politicaVersao: user.politicaVersao ?? null,
     };
   }

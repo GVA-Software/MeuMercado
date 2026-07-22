@@ -15,6 +15,7 @@ export const USER = {
   email: 'teste@meumercado.app',
   nome: 'Gustavo Teste',
   isAdmin: false,
+  temSenha: true,
   // Já aceitou a política vigente → o ReconsentGate (modal full-screen) não cobre o app.
   politicaVersao: POLITICA_VERSAO,
 };
