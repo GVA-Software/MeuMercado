@@ -116,7 +116,7 @@
       <div class="top">
         <div class="brand">🛒 Meu Mercado</div>
         <h1>Política de Privacidade</h1>
-        <p class="muted">Versão 2026-07-16 · vigente desde 16 de julho de 2026</p>
+        <p class="muted">Versão 2026-07-22 · vigente desde 22 de julho de 2026</p>
       </div>
 
       <p>
@@ -141,11 +141,21 @@
         <li><strong>Cadastro:</strong> nome e e-mail.</li>
         <li>
           <strong>Senha:</strong> guardada apenas de forma cifrada (hash com scrypt) — nunca em
-          texto puro, nem nós conseguimos lê-la.
+          texto puro, nem nós conseguimos lê-la. Se você usa apenas o login com Google, sua conta
+          não tem senha.
         </li>
         <li>
-          <strong>Foto de perfil</strong> (opcional): fica armazenada
-          <strong>apenas no seu aparelho</strong> — não é enviada aos nossos servidores.
+          <strong>Login com Google</strong> (opcional): ao entrar com o Google, recebemos dele o seu
+          <strong>nome, e-mail e a URL da sua foto de perfil</strong>, para criar ou acessar sua
+          conta.
+        </li>
+        <li>
+          <strong>Foto de perfil</strong> (opcional): se você <strong>envia uma foto</strong> pelo
+          app, ela fica <strong>apenas no seu aparelho</strong> — não é enviada aos nossos
+          servidores. Se você <strong>entra com o Google</strong>, guardamos a
+          <strong>URL</strong> da sua foto do perfil Google como avatar padrão; ela é
+          <strong>apagada quando você exclui a conta</strong>. Uma foto que você envie pelo app tem
+          prioridade sobre a do Google.
         </li>
       </ul>
       <p><strong>Dados que você gera usando o app</strong></p>
@@ -217,8 +227,9 @@
         <li><strong>Render</strong> — hospedagem da aplicação.</li>
         <li><strong>Neon (PostgreSQL)</strong> — banco de dados.</li>
         <li>
-          <strong>Google (Gmail API)</strong> — envio de e-mails transacionais (ex.: recuperar
-          senha).
+          <strong>Google</strong> — envio de e-mails transacionais (Gmail API, ex.: recuperar senha)
+          e <strong>login com Google</strong> (Sign-In), quando você opta por ele. Ao exibir sua
+          foto do Google, seu navegador a carrega direto do servidor de imagens do Google.
         </li>
         <li>
           <strong>OpenStreetMap / Nominatim</strong> — mapas e conversão de endereços em

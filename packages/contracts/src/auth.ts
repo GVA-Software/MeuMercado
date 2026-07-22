@@ -6,7 +6,7 @@ import { IdSchema } from './common.js';
  * (trilha de consentimento LGPD). Ao publicar uma versão nova, atualize aqui E nas
  * páginas /privacidade.html e /termos.html.
  */
-export const POLITICA_VERSAO = '2026-07-17';
+export const POLITICA_VERSAO = '2026-07-22';
 
 export const RegisterSchema = z.object({
   email: z.string().email().max(254),
