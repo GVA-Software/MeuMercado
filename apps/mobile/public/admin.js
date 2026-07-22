@@ -781,6 +781,43 @@
         });
         document.body.appendChild(ov);
       }
+      // Confirmação própria (Promise) no tema do painel — substitui o confirm() do navegador.
+      // Resolve true no OK e false no Cancelar/backdrop/Esc (Enter = confirmar).
+      function mmConfirm(opts) {
+        opts = opts || {};
+        return new Promise(function (resolve) {
+          var ov = document.createElement('div');
+          ov.className = 'mm-modal-ov';
+          ov.innerHTML = '<div class="mm-modal">' +
+            '<h3>' + esc(opts.title || '') + '</h3>' +
+            (opts.message ? '<p>' + esc(opts.message) + '</p>' : '') +
+            '<div class="mm-modal-acts">' +
+              '<button class="mm-btn-ghost" data-mm="cancel">' + esc(opts.cancelText || 'Cancelar') + '</button>' +
+              '<button class="mm-btn ' + (opts.okClass || '') + '" data-mm="ok">' + esc(opts.okText || 'Confirmar') + '</button>' +
+            '</div></div>';
+          var done = false;
+          function close(v) {
+            if (done) return;
+            done = true;
+            if (ov.parentNode) ov.parentNode.removeChild(ov);
+            document.removeEventListener('keydown', onKey);
+            resolve(v);
+          }
+          function onKey(e) {
+            if (e.key === 'Escape') close(false);
+            else if (e.key === 'Enter') close(true);
+          }
+          ov.addEventListener('click', function (ev) {
+            var act = ev.target.getAttribute && ev.target.getAttribute('data-mm');
+            if (ev.target === ov || act === 'cancel') { close(false); return; }
+            if (act === 'ok') { close(true); }
+          });
+          document.addEventListener('keydown', onKey);
+          document.body.appendChild(ov);
+          var okBtn = ov.querySelector('[data-mm="ok"]');
+          if (okBtn) okBtn.focus();
+        });
+      }
       function excluirCobertura() {
         var ids = Object.keys(state.covSel);
         if (!ids.length) return;
@@ -1375,11 +1412,14 @@
         if (keep) {
           var manter = keep.getAttribute('data-manter');
           var remover = (keep.getAttribute('data-remover') || '').split(',').filter(Boolean);
-          if (
-            remover.length &&
-            confirm('Juntar os outros NESTE produto? Os preços são movidos e os duplicados removidos.')
-          ) {
-            juntarDup(manter, remover);
+          if (remover.length) {
+            mmConfirm({
+              title: 'Juntar duplicados?',
+              message: 'Os preços dos outros são movidos para este e os duplicados, removidos.',
+              okText: 'Juntar',
+            }).then(function (ok) {
+              if (ok) juntarDup(manter, remover);
+            });
           }
           return;
         }
@@ -1400,7 +1440,13 @@
         var u = state.users.find(function (x) { return x.id === id; });
         if (!u) return;
         if (act === 'excluir') {
-          if (!confirm('Excluir ' + u.nome + ' (' + u.email + ')? Esta ação não pode ser desfeita.')) return;
+          var okExcluir = await mmConfirm({
+            title: 'Excluir ' + u.nome + '?',
+            message: u.email + ' — esta ação não pode ser desfeita.',
+            okText: 'Excluir',
+            okClass: 'mm-danger',
+          });
+          if (!okExcluir) return;
           state.agindo = id; state.erro = ''; renderLista();
           try {
             await apiFetch('/admin/users/' + id, { method: 'DELETE' });
