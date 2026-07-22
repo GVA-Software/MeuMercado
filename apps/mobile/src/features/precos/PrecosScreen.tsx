@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type {
   MercadoDTO,
@@ -1334,6 +1334,42 @@ function PriceEntrySheet({
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [recentes] = useState(getRecentMarkets);
+  // Ref pra o callback do GPS (assíncrono) saber se o usuário JÁ escolheu um mercado.
+  const mercadoNomeRef = useRef(mercadoNome);
+  mercadoNomeRef.current = mercadoNome;
+
+  // Ao abrir "Registrar preço", pré-seleciona o mercado por GPS (o mais próximo), como o
+  // carrinho já faz — deixando "trocar" fácil (recentes/lista/digitar). Sem GPS/negado →
+  // segue no manual, sem travar. maximumAge reusa uma posição recente (bem mais rápido).
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    setLocalizando(true);
+    navigator.geolocation.getCurrentPosition(
+      (posGeo) => {
+        api
+          .mercadosProximos(posGeo.coords.latitude, posGeo.coords.longitude, 3000)
+          .then((m) => {
+            const lista = m.slice(0, 12);
+            setNearby(lista);
+            const perto = lista[0];
+            // Só pré-seleciona se o usuário ainda NÃO escolheu/digitou um mercado.
+            if (perto && !mercadoNomeRef.current.trim()) {
+              setMercadoNome(perto.nome);
+              setMercadoId(perto.id);
+              setMercadoDados({
+                ...(perto.endereco ? { endereco: perto.endereco } : {}),
+                lat: perto.localizacao.lat,
+                lng: perto.localizacao.lng,
+              });
+            }
+          })
+          .catch(() => setNearby([]))
+          .finally(() => setLocalizando(false));
+      },
+      () => setLocalizando(false), // negou → segue manual, sem erro ruidoso
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
+    );
+  }, []);
 
   function escolherMercado(m: {
     id: string | null;
@@ -1592,6 +1628,11 @@ function PriceEntrySheet({
 
       {/* Mercado */}
       <SLabel>Mercado</SLabel>
+      {localizando && !mercadoNome.trim() && (
+        <p style={{ color: T.muted, fontSize: 11.5, margin: '0 0 8px' }}>
+          📍 Localizando o mercado mais próximo…
+        </p>
+      )}
       {recentes.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
           {recentes.map((m) => {
