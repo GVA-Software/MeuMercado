@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import { Money, PriceObservation, PriceStatistics } from '@meumercado/domain';
+import { GeoPoint, Money, PriceObservation, PriceStatistics } from '@meumercado/domain';
 import type {
   EstimativaListaResponse,
   MercadoResumoDTO,
@@ -169,7 +169,39 @@ export class PricingService {
    * estatística regional. Opcionalmente filtrada por busca. Ordena pelos mais
    * reportados (mais confiáveis) primeiro. Uma leitura só, agrupada em memória.
    */
-  async tabela(q?: string, mercado?: string, asOf: Date = new Date()): Promise<PriceTableRowDTO[]> {
+  /** Distância (m) de `from` até (lat,lng), null-safe (coord ausente/inválida → null). */
+  private distancia(from: GeoPoint | null, lat?: number, lng?: number): number | null {
+    if (!from || lat === undefined || lng === undefined) return null;
+    if (
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    )
+      return null;
+    return Math.round(from.distanceTo(new GeoPoint(lat, lng)));
+  }
+
+  async tabela(
+    q?: string,
+    mercado?: string,
+    userPos?: { lat: number; lng: number },
+    asOf: Date = new Date(),
+  ): Promise<PriceTableRowDTO[]> {
+    // Posição do usuário (opcional). Inválida → tratada como ausente (distâncias null).
+    const from =
+      userPos &&
+      Number.isFinite(userPos.lat) &&
+      Number.isFinite(userPos.lng) &&
+      userPos.lat >= -90 &&
+      userPos.lat <= 90 &&
+      userPos.lng >= -180 &&
+      userPos.lng <= 180
+        ? new GeoPoint(userPos.lat, userPos.lng)
+        : null;
+
     const todas = this.reais(await this.repo.all());
     const observacoes = mercado ? todas.filter((o) => o.mercadoNome === mercado) : todas;
     const porProduto = new Map<string, PriceObservation[]>();
@@ -190,6 +222,14 @@ export class PricingService {
           obs[0]!,
         );
         const latest = stats.latest();
+        // MENOR distância entre TODAS as observações do produto (ordenação honesta).
+        let maisProximo: number | null = null;
+        if (from) {
+          for (const o of obs) {
+            const d = this.distancia(from, o.mercadoLat, o.mercadoLng);
+            if (d !== null && (maisProximo === null || d < maisProximo)) maisProximo = d;
+          }
+        }
         return {
           produto: p.toJSON(),
           mediaCents: stats.average()?.cents ?? null,
@@ -199,6 +239,10 @@ export class PricingService {
           trendPct: stats.trendPercentAdaptativo(asOf, TREND_WINDOW_DAYS),
           amostras: stats.count,
           menorPrecoMercado: maisBarata.mercadoNome ?? null,
+          menorPrecoLat: maisBarata.mercadoLat ?? null,
+          menorPrecoLng: maisBarata.mercadoLng ?? null,
+          distanciaMetros: this.distancia(from, maisBarata.mercadoLat, maisBarata.mercadoLng),
+          distanciaMaisProximoMetros: maisProximo,
           atualizadoEm: latest?.observedAt.toISOString() ?? null,
         };
       })

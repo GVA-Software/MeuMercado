@@ -83,6 +83,10 @@ export const TABLE_ROW = {
   trendPct: 4,
   amostras: 3,
   menorPrecoMercado: 'Atacadao',
+  menorPrecoLat: -23.56,
+  menorPrecoLng: -46.64,
+  distanciaMetros: null,
+  distanciaMaisProximoMetros: null,
   atualizadoEm: '2026-07-10T12:00:00.000Z',
 };
 

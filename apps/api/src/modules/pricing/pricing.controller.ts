@@ -31,10 +31,23 @@ export class PricingController {
     return this.service.reportar(body, user.id);
   }
 
-  /** Tabela de preços colaborativa (produtos com preço reportado). */
+  /**
+   * Tabela de preços colaborativa (produtos com preço reportado). `lat`/`lng`
+   * (opcionais, em par) fazem a resposta trazer as distâncias — pro app ordenar
+   * "perto de mim". Sem eles, as distâncias vêm null (cliente antigo não quebra).
+   */
   @Get('table')
-  tabela(@Query('q') q?: string, @Query('mercado') mercado?: string): Promise<PriceTableRowDTO[]> {
-    return this.service.tabela(q, mercado);
+  tabela(
+    @Query('q') q?: string,
+    @Query('mercado') mercado?: string,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+  ): Promise<PriceTableRowDTO[]> {
+    const latN = parseFloat(lat ?? '');
+    const lngN = parseFloat(lng ?? '');
+    const userPos =
+      Number.isFinite(latN) && Number.isFinite(lngN) ? { lat: latN, lng: lngN } : undefined;
+    return this.service.tabela(q, mercado, userPos);
   }
 
   /** Mercados presentes na base (para o filtro da tabela). */

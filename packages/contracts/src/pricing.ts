@@ -58,6 +58,14 @@ export const PriceTableRowSchema = z.object({
   amostras: z.number().int().nonnegative(),
   /** Nome do mercado onde está mais barato (menor observação). */
   menorPrecoMercado: z.string().nullable(),
+  /** Coordenadas do mercado mais barato (null se a observação não tem geo). */
+  menorPrecoLat: z.number().nullable(),
+  menorPrecoLng: z.number().nullable(),
+  /** Distância (m) até o mercado MAIS BARATO — só quando o app envia a posição. */
+  distanciaMetros: z.number().int().nonnegative().nullable(),
+  /** MENOR distância (m) entre TODAS as observações do produto — ordena "perto de mim"
+   *  de forma honesta (um item barato-mas-longe não esconde o mesmo item perto). */
+  distanciaMaisProximoMetros: z.number().int().nonnegative().nullable(),
   /** ISO da observação mais recente. */
   atualizadoEm: z.string().datetime().nullable(),
 });

@@ -164,8 +164,15 @@ export class ApiClient {
   reportarPreco(input: ReportPriceInput): Promise<PriceSummaryDTO> {
     return this.request('/prices', { method: 'POST', body: JSON.stringify(input) });
   }
-  tabelaPrecos(mercado?: string): Promise<PriceTableRowDTO[]> {
-    return this.request(`/prices/table${mercado ? `?mercado=${encodeURIComponent(mercado)}` : ''}`);
+  tabelaPrecos(mercado?: string, pos?: { lat: number; lng: number }): Promise<PriceTableRowDTO[]> {
+    const params = new URLSearchParams();
+    if (mercado) params.set('mercado', mercado);
+    if (pos) {
+      params.set('lat', String(pos.lat));
+      params.set('lng', String(pos.lng));
+    }
+    const qs = params.toString();
+    return this.request(`/prices/table${qs ? `?${qs}` : ''}`);
   }
   mercadosPreco(): Promise<MercadoResumoDTO[]> {
     return this.request('/prices/mercados');

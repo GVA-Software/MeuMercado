@@ -26,6 +26,7 @@ import { MARCAS_DISCLAIMER, MarketTag, marcaMercado } from '../../ui/market';
 import { emojiDe } from '../../ui/emoji';
 import { useNav } from '../../app/nav';
 import { getRecentMarkets, pushRecentMarket } from './recentMarkets';
+import { useGeolocation } from '../../hooks/useGeolocation';
 import { useAuth } from '../../auth/AuthContext';
 import { NfceFlow } from '../nfce/NfceFlow';
 import { BarcodeScanner } from '../scan/BarcodeScanner';
@@ -33,6 +34,14 @@ import { BarcodeScanner } from '../scan/BarcodeScanner';
 function fmtData(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
+
+/** Distância humana: metros abaixo de 1 km, senão km com 1 casa. */
+function fmtDist(m: number): string {
+  return m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`;
+}
+
+/** Raio (m) usado só pra decidir o vazio "nada perto de você" — não filtra a lista. */
+const RAIO_PERTO = 5000;
 
 /**
  * Só afirmamos tendência (subiu/caiu) com amostra mínima — evita "estampar" uma
@@ -63,7 +72,8 @@ export function PrecosScreen({
   const [produtos, setProdutos] = useState<ProdutoDTO[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
-  const [ordem, setOrdem] = useState<'populares' | 'menor' | 'maior' | 'az'>('populares');
+  const [ordem, setOrdem] = useState<'populares' | 'menor' | 'maior' | 'az' | 'perto'>('populares');
+  const { pos, carregando: buscandoLocal, pedir: pedirLocal } = useGeolocation();
   const [visiveis, setVisiveis] = useState(20);
   const [entry, setEntry] = useState<{ open: boolean; produto?: ProdutoDTO }>({ open: false });
   const [detalhe, setDetalhe] = useState<PriceTableRowDTO | null>(null);
@@ -75,11 +85,11 @@ export function PrecosScreen({
 
   const carregar = useCallback(async () => {
     try {
-      setRows(await api.tabelaPrecos(mercadoFiltro ?? undefined));
+      setRows(await api.tabelaPrecos(mercadoFiltro ?? undefined, pos ?? undefined));
     } catch (e) {
       setErro(mensagemDeErro(e));
     }
-  }, [mercadoFiltro]);
+  }, [mercadoFiltro, pos]);
 
   const carregarCompletar = useCallback(() => {
     void api
@@ -101,7 +111,7 @@ export function PrecosScreen({
     let vivo = true;
     void (async () => {
       try {
-        const t = await api.tabelaPrecos(mercadoFiltro ?? undefined);
+        const t = await api.tabelaPrecos(mercadoFiltro ?? undefined, pos ?? undefined);
         if (vivo) setRows(t);
       } catch (e) {
         if (vivo) setErro(mensagemDeErro(e));
@@ -110,7 +120,7 @@ export function PrecosScreen({
     return () => {
       vivo = false;
     };
-  }, [mercadoFiltro]);
+  }, [mercadoFiltro, pos]);
 
   useEffect(() => {
     carregarMercados();
@@ -141,9 +151,35 @@ export function PrecosScreen({
     else if (ordem === 'maior') arr.sort((a, b) => (b.maxCents ?? -1) - (a.maxCents ?? -1));
     else if (ordem === 'az')
       arr.sort((a, b) => a.produto.nome.localeCompare(b.produto.nome, 'pt-BR'));
+    else if (ordem === 'perto')
+      // Menor distância entre TODAS as observações (honesto); sem distância vai pro fim.
+      arr.sort(
+        (a, b) =>
+          (a.distanciaMaisProximoMetros ?? Infinity) - (b.distanciaMaisProximoMetros ?? Infinity),
+      );
     // 'populares' = já vem por nº de reportes (backend)
     return arr;
   }, [rows, busca, ordem, categoria]);
+
+  // "Perto de mim": pede a localização (gesto). Negou/sem GPS → volta pra 'populares'.
+  async function ativarPerto() {
+    setOrdem('perto');
+    if (!pos) {
+      const p = await pedirLocal();
+      if (!p) setOrdem('populares');
+    }
+  }
+
+  // "Perto de mim" ligado, com localização, mas nada dentro do raio → convite (não filtra
+  // a lista: os preços mais próximos, ainda que longe, seguem visíveis abaixo).
+  const nadaPerto =
+    ordem === 'perto' &&
+    !!pos &&
+    !!filtradas &&
+    filtradas.length > 0 &&
+    filtradas.every(
+      (r) => r.distanciaMaisProximoMetros === null || r.distanciaMaisProximoMetros > RAIO_PERTO,
+    );
 
   // Volta pro topo da paginação quando muda a busca/ordem/categoria.
   useEffect(() => {
@@ -227,6 +263,7 @@ export function PrecosScreen({
           <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
             {(
               [
+                ['perto', buscandoLocal ? '📍 Localizando…' : '📍 Perto de mim'],
                 ['populares', 'Populares'],
                 ['menor', 'Menor preço'],
                 ['maior', 'Maior preço'],
@@ -237,7 +274,7 @@ export function PrecosScreen({
               return (
                 <button
                   key={k}
-                  onClick={() => setOrdem(k)}
+                  onClick={() => (k === 'perto' ? void ativarPerto() : setOrdem(k))}
                   style={{
                     flexShrink: 0,
                     background: sel ? T.primaryBg : T.card,
@@ -344,6 +381,30 @@ export function PrecosScreen({
 
         {filtradas && filtradas.length > 0 && (
           <>
+            {nadaPerto && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'center',
+                  background: T.primaryBg,
+                  border: `1px solid ${T.primary}44`,
+                  borderRadius: 14,
+                  padding: '12px 14px',
+                }}
+              >
+                <span style={{ fontSize: 24 }}>📍</span>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ color: T.text, fontSize: 14, fontWeight: 800, margin: 0 }}>
+                    Nenhum preço perto de você ainda
+                  </p>
+                  <p style={{ color: T.sub, fontSize: 12.5, margin: '2px 0 0', lineHeight: 1.4 }}>
+                    Seja o primeiro a registrar um preço na sua região. Abaixo, os mais próximos que
+                    a comunidade já tem (podem estar longe).
+                  </p>
+                </div>
+              </div>
+            )}
             <SLabel>
               {filtradas.length} {filtradas.length === 1 ? 'produto' : 'produtos'}
               {categoria ? ` · ${categoria}` : ''}
@@ -710,6 +771,7 @@ function TabelaRow({ row, onClick }: { row: PriceTableRowDTO; onClick: () => voi
             }}
           >
             🏆 {row.menorPrecoMercado}
+            {row.distanciaMetros !== null ? ` · a ${fmtDist(row.distanciaMetros)}` : ''}
           </p>
         )}
         <div

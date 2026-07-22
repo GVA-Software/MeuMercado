@@ -17,6 +17,8 @@ const obs = (
   cents: number,
   dias: number,
   reporterId = 'u1',
+  lat?: number,
+  lng?: number,
 ) =>
   new PriceObservation({
     id: `${produtoId}-${mercadoId}-${dias}`,
@@ -27,6 +29,8 @@ const obs = (
     source: 'manual',
     reporterId,
     observedAt: diasAtras(dias),
+    ...(lat !== undefined ? { mercadoLat: lat } : {}),
+    ...(lng !== undefined ? { mercadoLng: lng } : {}),
   });
 
 function makeService(observations: PriceObservation[], produtos: Produto[]): PricingService {
@@ -187,6 +191,42 @@ describe('PricingService.estimativa — prévia da lista', () => {
     );
     const r = await service.estimativa([{ produtoId: 'p1', quantity: 1 }]);
     expect(r.mercados[0].totalCents).toBe(800);
+  });
+});
+
+describe('PricingService.tabela — proximidade', () => {
+  it('sem posição: distâncias vêm null; a coord do mercado mais barato é exposta', async () => {
+    const service = makeService(
+      [obs('p1', 'm1', 1000, 5, 'u1', -23.5, -46.6)],
+      [produto('p1', 'Arroz')],
+    );
+    const t = await service.tabela();
+    expect(t[0].distanciaMetros).toBeNull();
+    expect(t[0].distanciaMaisProximoMetros).toBeNull();
+    expect(t[0].menorPrecoLat).toBe(-23.5);
+    expect(t[0].menorPrecoLng).toBe(-46.6);
+  });
+
+  it('com posição: distância ao mais barato + a MENOR entre todas as observações', async () => {
+    const service = makeService(
+      [
+        obs('p1', 'm1', 500, 5, 'u1', -23.6, -46.7), // mais barato, longe
+        obs('p1', 'm2', 900, 5, 'u1', -23.55, -46.63), // mais caro, colado no usuário
+      ],
+      [produto('p1', 'Arroz')],
+    );
+    const t = await service.tabela(undefined, undefined, { lat: -23.55, lng: -46.63 });
+    expect(t[0].distanciaMetros).toBeGreaterThan(0); // ao mais barato (m1, longe)
+    expect(t[0].distanciaMaisProximoMetros).toBeLessThan(100); // o mais próximo (m2) ~em cima
+    expect(t[0].distanciaMaisProximoMetros!).toBeLessThan(t[0].distanciaMetros!);
+  });
+
+  it('observação sem coord não quebra (distâncias null)', async () => {
+    const service = makeService([obs('p1', 'm1', 1000, 5)], [produto('p1', 'Arroz')]);
+    const t = await service.tabela(undefined, undefined, { lat: -23.5, lng: -46.6 });
+    expect(t[0].distanciaMetros).toBeNull();
+    expect(t[0].distanciaMaisProximoMetros).toBeNull();
+    expect(t[0].menorPrecoLat).toBeNull();
   });
 });
 
