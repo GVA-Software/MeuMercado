@@ -73,7 +73,9 @@ export function PrecosScreen({
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
   const [ordem, setOrdem] = useState<'populares' | 'menor' | 'maior' | 'az' | 'perto'>('populares');
-  const { pos, carregando: buscandoLocal, pedir: pedirLocal } = useGeolocation();
+  const { pos, carregando: buscandoLocal, erro: geoErro, pedir: pedirLocal } = useGeolocation();
+  // Qual posição as `rows` atuais refletem (para não afirmar "nada perto" antes do refetch).
+  const [rowsPos, setRowsPos] = useState<{ lat: number; lng: number } | null>(null);
   const [visiveis, setVisiveis] = useState(20);
   const [entry, setEntry] = useState<{ open: boolean; produto?: ProdutoDTO }>({ open: false });
   const [detalhe, setDetalhe] = useState<PriceTableRowDTO | null>(null);
@@ -86,6 +88,7 @@ export function PrecosScreen({
   const carregar = useCallback(async () => {
     try {
       setRows(await api.tabelaPrecos(mercadoFiltro ?? undefined, pos ?? undefined));
+      setRowsPos(pos ?? null);
     } catch (e) {
       setErro(mensagemDeErro(e));
     }
@@ -112,7 +115,10 @@ export function PrecosScreen({
     void (async () => {
       try {
         const t = await api.tabelaPrecos(mercadoFiltro ?? undefined, pos ?? undefined);
-        if (vivo) setRows(t);
+        if (vivo) {
+          setRows(t);
+          setRowsPos(pos ?? null);
+        }
       } catch (e) {
         if (vivo) setErro(mensagemDeErro(e));
       }
@@ -161,20 +167,21 @@ export function PrecosScreen({
     return arr;
   }, [rows, busca, ordem, categoria]);
 
-  // "Perto de mim": pede a localização (gesto). Negou/sem GPS → volta pra 'populares'.
+  // "Perto de mim": pede a localização (gesto). Se negar/sem GPS, o chip fica marcado e o
+  // erro (geoErro) é exibido; a lista cai na ordem padrão — nunca trava.
   async function ativarPerto() {
     setOrdem('perto');
-    if (!pos) {
-      const p = await pedirLocal();
-      if (!p) setOrdem('populares');
-    }
+    if (!pos) await pedirLocal();
   }
 
-  // "Perto de mim" ligado, com localização, mas nada dentro do raio → convite (não filtra
-  // a lista: os preços mais próximos, ainda que longe, seguem visíveis abaixo).
+  // As `rows` atuais já refletem a posição atual? (evita afirmar nada antes do refetch geo)
+  const rowsGeoAtual = !!pos && !!rowsPos && rowsPos.lat === pos.lat && rowsPos.lng === pos.lng;
+  // Concedeu o GPS mas as rows ainda são as SEM distância → buscando (não é "nada perto").
+  const atualizandoPerto = ordem === 'perto' && !!pos && !rowsGeoAtual;
+  // "Nada perto" SÓ com as rows já buscadas COM a posição — senão o banner piscava falso.
   const nadaPerto =
     ordem === 'perto' &&
-    !!pos &&
+    rowsGeoAtual &&
     !!filtradas &&
     filtradas.length > 0 &&
     filtradas.every(
@@ -295,6 +302,10 @@ export function PrecosScreen({
           </div>
         )}
 
+        {ordem === 'perto' && !pos && geoErro && (
+          <p style={{ color: T.muted, fontSize: 12, margin: 0, lineHeight: 1.4 }}>📍 {geoErro}</p>
+        )}
+
         {mercadosDisp.length > 0 && (
           <select
             value={mercadoFiltro ?? ''}
@@ -381,6 +392,11 @@ export function PrecosScreen({
 
         {filtradas && filtradas.length > 0 && (
           <>
+            {atualizandoPerto && (
+              <p style={{ color: T.muted, fontSize: 12.5, margin: 0 }}>
+                📍 Buscando os preços perto de você…
+              </p>
+            )}
             {nadaPerto && (
               <div
                 style={{
