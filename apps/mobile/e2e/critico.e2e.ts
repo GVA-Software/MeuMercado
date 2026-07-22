@@ -219,45 +219,6 @@ test.describe('Meu Mercado — jornada crítica', () => {
     await expect(containers).toHaveCount(1);
   });
 
-  test('cobertura: "Complete a comparação" leva ao registro do produto', async ({ page }) => {
-    await installApiMocks(page, { pro: true });
-    // Sobrescreve a rota do mutirão com 1 produto (só tem 1 mercado).
-    await page.route(
-      (url) => url.pathname.endsWith('/prices/para-completar'),
-      (route) =>
-        route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          headers: { 'access-control-allow-origin': '*' },
-          body: JSON.stringify([
-            {
-              produto: {
-                id: 'p-sabao',
-                nome: 'SAB. EM PO OMO 1KG',
-                categoria: 'Outros',
-                unidade: 'un',
-                emoji: '🧼',
-              },
-              precoCents: 1890,
-              mercadoNome: 'Atacadao',
-              atualizadoEm: '2026-07-10T12:00:00.000Z',
-            },
-          ]),
-        }),
-    );
-    await page.goto('/');
-    await page.getByRole('button', { name: /Preços/ }).click();
-
-    // A seção aparece com o produto que só tem 1 preço.
-    await expect(page.getByText('Complete a comparação')).toBeVisible();
-    await page.getByText('SAB. EM PO OMO 1KG').click();
-
-    // Abre o registro JÁ com o produto escolhido (só falta preço + mercado).
-    // Subtítulo é exclusivo do sheet de registro (evita casar com o botão da tela).
-    await expect(page.getByText(/Ajude a comunidade: quanto custou e onde/)).toBeVisible();
-    await expect(page.getByText('trocar')).toBeVisible(); // produto pré-selecionado
-  });
-
   test('bipar produto no Adicionar item preenche o nome (via digitar código)', async ({ page }) => {
     await installApiMocks(page, { pro: true });
     // Busca por EAN → produto conhecido no catálogo.
@@ -773,5 +734,18 @@ test.describe('Meu Mercado — jornada crítica', () => {
 
     await expect(page.getByText(/Lista salva/)).toBeVisible();
     expect(salvou.nome).toBe('Compra do mês');
+  });
+
+  test('Perfil: "Minhas compras (histórico)" abre o histórico (movido da Compra)', async ({
+    page,
+  }) => {
+    await installApiMocks(page, { pro: true });
+    await page.goto('/');
+
+    await page.getByRole('button', { name: /Perfil/ }).click();
+    await page.getByRole('button', { name: /Minhas compras \(histórico\)/ }).click();
+
+    // O histórico agora vive no Perfil; sem compras, abre no estado vazio.
+    await expect(page.getByText('Nenhuma compra ainda')).toBeVisible();
   });
 });

@@ -27,8 +27,8 @@ import {
 } from '../../ui/kit';
 import { MarketTag } from '../../ui/market';
 import { emojiDe } from '../../ui/emoji';
-import { MinhasCompras } from '../compras/MinhasCompras';
 import { BarcodeScanner } from '../scan/BarcodeScanner';
+import { useGeolocation } from '../../hooks/useGeolocation';
 
 /** Saudação conforme a hora do dia. */
 function saudacaoDoDia(): string {
@@ -46,6 +46,15 @@ function fraseAcolhedora(): string {
   return 'A Nina está de olho nas melhores ofertas ✨';
 }
 
+/** Distância humana: metros abaixo de 1 km, senão km com 1 casa. */
+function formatDistancia(m: number): string {
+  return m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`;
+}
+
+/** Raio (m) do ranking da prévia: acima disso o mercado é longe demais e NÃO entra em
+ *  "onde sua lista sai mais barata" — evita sugerir um mercado a 100 km de você. */
+const RAIO_PREVIA_METROS = 50_000;
+
 export function CompraScreen() {
   const { T } = useTheme();
   const { user } = useAuth();
@@ -56,7 +65,8 @@ export function CompraScreen() {
   // Só revela a tela quando TODO o boot terminou (tela inteira de uma vez).
   const [pronto, setPronto] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [comprasOpen, setComprasOpen] = useState(false);
+  // Confirma a finalização (o histórico agora vive no Perfil).
+  const [finalizadoOk, setFinalizadoOk] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
   const [finalizarErro, setFinalizarErro] = useState<string | null>(null);
   const [limiteMsg, setLimiteMsg] = useState<string | null>(null);
@@ -86,6 +96,18 @@ export function CompraScreen() {
   const [listasSalvas, setListasSalvas] = useState<SavedListDTO[]>([]);
   const [listasOpen, setListasOpen] = useState(false);
   const [salvarOpen, setSalvarOpen] = useState(false);
+  // Localização para a Prévia: habilita distância + raio no "onde sai mais barata".
+  const { pos, pedir: pedirLocal, carregando: buscandoLocal, erro: geoErro } = useGeolocation();
+  // Posição usada na prévia: a que o usuário pediu (gesto) OU a do mercado já confirmado
+  // por GPS no carrinho (reaproveita sem novo prompt).
+  const posEstimativa = useMemo<{ lat: number; lng: number } | undefined>(() => {
+    if (pos) return pos;
+    const m = cart?.mercado;
+    if (m && m.lat !== undefined && m.lng !== undefined) return { lat: m.lat, lng: m.lng };
+    return undefined;
+    // Deps por PRIMITIVO (lat/lng), não pela identidade de cart.mercado: senão cada
+    // refetch do carrinho recriaria o objeto e disparava uma estimativa redundante.
+  }, [pos, cart?.mercado?.lat, cart?.mercado?.lng]);
 
   useEffect(() => {
     void (async () => {
@@ -128,14 +150,36 @@ export function CompraScreen() {
     }
     let vivo = true;
     api
-      .estimarLista(itens)
+      .estimarLista(itens, posEstimativa)
       .then((e) => vivo && setEstimativa(e))
       .catch(() => vivo && setEstimativa(null));
     return () => {
       vivo = false;
     };
-    // itensChave resume a lista; cart.id garante recomputo ao trocar de carrinho.
-  }, [itensChave, cart?.id]);
+    // itensChave resume a lista; cart.id garante recomputo ao trocar de carrinho;
+    // posEstimativa refaz o cálculo com a distância quando a posição fica conhecida.
+  }, [itensChave, cart?.id, posEstimativa]);
+
+  // Ranking de mercados da prévia, filtrado por raio quando sabemos a posição do usuário.
+  const previa = useMemo(() => {
+    const todos = estimativa?.mercados ?? [];
+    const temPos = !!posEstimativa;
+    // Só escondemos o mercado que SABEMOS estar longe (>50 km). Sem coordenada a
+    // distância é DESCONHECIDA — não é "longe": o mercado segue na lista (só não navega).
+    const visiveis = temPos
+      ? todos.filter((m) => m.distanciaMetros === null || m.distanciaMetros <= RAIO_PREVIA_METROS)
+      : todos;
+    return {
+      temPos,
+      visiveis: visiveis.slice(0, 3),
+      // "Todos longe" SÓ quando todos têm distância conhecida e passam do raio — nunca por
+      // falta de coordenada (senão afirmaria ">50 km" de um mercado que pode ser aqui do lado).
+      todosLonge:
+        temPos &&
+        todos.length > 0 &&
+        todos.every((m) => m.distanciaMetros !== null && m.distanciaMetros > RAIO_PREVIA_METROS),
+    };
+  }, [estimativa, posEstimativa]);
 
   const status = cart?.status ?? 'sem-limite';
   const barColor = status === 'estourado' ? T.danger : status === 'alerta' ? T.yellow : T.green;
@@ -317,7 +361,7 @@ export function CompraScreen() {
     try {
       await api.finalizarCompra(cart.id);
       setCart(await api.obterCarrinho(cart.id)); // agora vazio
-      setComprasOpen(true);
+      setFinalizadoOk(true);
     } catch (e) {
       setFinalizarErro(mensagemDeErro(e));
     } finally {
@@ -632,28 +676,6 @@ export function CompraScreen() {
           />
         )}
 
-        <button
-          onClick={() => setComprasOpen(true)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            width: '100%',
-            background: T.surface,
-            border: `1px solid ${T.border}`,
-            borderRadius: 14,
-            padding: '12px 14px',
-            cursor: 'pointer',
-            textAlign: 'left',
-          }}
-        >
-          <span style={{ fontSize: 18 }}>🧾</span>
-          <span style={{ flex: 1, color: T.text, fontSize: 14, fontWeight: 700 }}>
-            Minhas compras
-          </span>
-          <span style={{ color: T.muted, fontSize: 13 }}>histórico ›</span>
-        </button>
-
         {addOpen && (
           <AddPanel
             produtos={produtos}
@@ -837,64 +859,182 @@ export function CompraScreen() {
                           paddingTop: 10,
                         }}
                       >
-                        <p
+                        <div
                           style={{
-                            color: T.text,
-                            fontSize: 12.5,
-                            fontWeight: 800,
-                            margin: '0 0 6px',
+                            display: 'flex',
+                            alignItems: 'baseline',
+                            justifyContent: 'space-between',
+                            gap: 8,
                           }}
                         >
-                          🏆 Onde sua lista sai mais barata
-                        </p>
-                        {estimativa.mercados.slice(0, 3).map((m, i) => (
-                          <div
-                            key={m.mercadoId}
+                          <p
                             style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: 8,
-                              padding: '4px 0',
+                              color: T.text,
+                              fontSize: 12.5,
+                              fontWeight: 800,
+                              margin: '0 0 6px',
                             }}
                           >
-                            <div style={{ minWidth: 0, flex: 1 }}>
-                              <span
-                                style={{
-                                  color: i === 0 ? T.primary : T.text,
-                                  fontSize: 13,
-                                  fontWeight: i === 0 ? 800 : 600,
-                                }}
-                              >
-                                {i === 0 ? '🥇 ' : ''}
-                                {m.mercadoNome}
-                              </span>
-                              <span style={{ color: T.muted, fontSize: 11, marginLeft: 6 }}>
-                                cobre {m.itensCobertos} de {estimativa.totalItens}
-                              </span>
-                            </div>
-                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                              <span style={{ color: T.text, fontSize: 13, fontWeight: 800 }}>
-                                ~{formatBRL(m.totalCents)}
-                              </span>
-                              {m.economiaVsMediaCents > 0 && (
-                                <div style={{ color: T.green, fontSize: 10.5, fontWeight: 700 }}>
-                                  −{formatBRL(m.economiaVsMediaCents)} vs média
+                            🏆 Onde sua lista sai mais barata
+                          </p>
+                          {!previa.temPos && (
+                            <button
+                              onClick={() => void pedirLocal()}
+                              style={{
+                                flexShrink: 0,
+                                background: 'none',
+                                border: 'none',
+                                padding: 0,
+                                color: T.primary,
+                                fontSize: 11.5,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {buscandoLocal ? '📍 Localizando…' : '📍 Perto de mim'}
+                            </button>
+                          )}
+                        </div>
+                        {!previa.temPos && geoErro && (
+                          <p
+                            style={{
+                              color: T.muted,
+                              fontSize: 10.5,
+                              margin: '0 0 6px',
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            📍 {geoErro}
+                          </p>
+                        )}
+                        {previa.todosLonge ? (
+                          <p
+                            style={{
+                              color: T.sub,
+                              fontSize: 11.5,
+                              margin: '0 0 2px',
+                              lineHeight: 1.45,
+                            }}
+                          >
+                            Os mercados com os melhores preços da sua lista estão a mais de{' '}
+                            {RAIO_PREVIA_METROS / 1000} km de você. Registre preços no seu bairro
+                            pra comparar por aqui. 🧡
+                          </p>
+                        ) : (
+                          previa.visiveis.map((m, i) => (
+                            <div
+                              key={m.mercadoId}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                justifyContent: 'space-between',
+                                gap: 8,
+                                padding: '5px 0',
+                              }}
+                            >
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <div>
+                                  <span
+                                    style={{
+                                      color: i === 0 ? T.primary : T.text,
+                                      fontSize: 13,
+                                      fontWeight: i === 0 ? 800 : 600,
+                                    }}
+                                  >
+                                    {i === 0 ? '🥇 ' : ''}
+                                    {m.mercadoNome}
+                                  </span>
+                                  <span style={{ color: T.muted, fontSize: 11, marginLeft: 6 }}>
+                                    cobre {m.itensCobertos} de {estimativa.totalItens}
+                                  </span>
                                 </div>
-                              )}
+                                {(m.distanciaMetros !== null || m.mercadoEndereco) && (
+                                  <p
+                                    style={{
+                                      color: T.muted,
+                                      fontSize: 10.5,
+                                      margin: '2px 0 0',
+                                      lineHeight: 1.35,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {m.distanciaMetros !== null
+                                      ? `📍 a ${formatDistancia(m.distanciaMetros)}`
+                                      : ''}
+                                    {m.distanciaMetros !== null && m.mercadoEndereco ? ' · ' : ''}
+                                    {m.mercadoEndereco ?? ''}
+                                  </p>
+                                )}
+                                {m.mercadoLat !== null && m.mercadoLng !== null && (
+                                  <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                                    <a
+                                      href={`https://waze.com/ul?ll=${m.mercadoLat},${m.mercadoLng}&navigate=yes`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 3,
+                                        background: T.primaryBg,
+                                        color: T.primary,
+                                        fontSize: 10.5,
+                                        fontWeight: 700,
+                                        textDecoration: 'none',
+                                        padding: '2px 9px',
+                                        borderRadius: 8,
+                                      }}
+                                    >
+                                      🧭 Waze
+                                    </a>
+                                    <a
+                                      href={`https://www.google.com/maps/dir/?api=1&destination=${m.mercadoLat},${m.mercadoLng}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 3,
+                                        background: T.primaryBg,
+                                        color: T.primary,
+                                        fontSize: 10.5,
+                                        fontWeight: 700,
+                                        textDecoration: 'none',
+                                        padding: '2px 9px',
+                                        borderRadius: 8,
+                                      }}
+                                    >
+                                      🗺️ Maps
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                <span style={{ color: T.text, fontSize: 13, fontWeight: 800 }}>
+                                  ~{formatBRL(m.totalCents)}
+                                </span>
+                                {m.economiaVsMediaCents > 0 && (
+                                  <div style={{ color: T.green, fontSize: 10.5, fontWeight: 700 }}>
+                                    −{formatBRL(m.economiaVsMediaCents)} vs média
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                        <p
-                          style={{
-                            color: T.muted,
-                            fontSize: 10.5,
-                            margin: '6px 0 0',
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          Total só dos itens que cada mercado tem preço na base.
-                        </p>
+                          ))
+                        )}
+                        {!previa.todosLonge && (
+                          <p
+                            style={{
+                              color: T.muted,
+                              fontSize: 10.5,
+                              margin: '6px 0 0',
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            Total só dos itens que cada mercado tem preço na base.
+                          </p>
+                        )}
                       </div>
                     )}
                     {estimativa.semPreco.length > 0 && (
@@ -996,7 +1136,14 @@ export function CompraScreen() {
         )}
       </div>
 
-      {comprasOpen && <MinhasCompras onClose={() => setComprasOpen(false)} />}
+      {finalizadoOk && (
+        <AvisoDialog
+          emoji="🎉"
+          titulo="Compra finalizada!"
+          mensagem="Você pode rever tudo em Perfil › Minhas compras."
+          onOk={() => setFinalizadoOk(false)}
+        />
+      )}
 
       {limiteMsg && <AvisoDialog emoji="🎯" titulo={limiteMsg} onOk={() => setLimiteMsg(null)} />}
 

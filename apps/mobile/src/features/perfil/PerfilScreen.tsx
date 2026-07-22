@@ -8,6 +8,7 @@ import { api, mensagemDeErro } from '../../api/client';
 import { AuthForm } from '../auth/AuthForm';
 import { PushToggle } from './PushToggle';
 import { FeedbackCard } from './FeedbackCard';
+import { MinhasCompras } from '../compras/MinhasCompras';
 
 /**
  * Modal de recorte da foto: o usuário arrasta e dá zoom para enquadrar antes de
@@ -350,6 +351,8 @@ export function PerfilScreen() {
   const [cancelando, setCancelando] = useState(false);
   const [cancelOk, setCancelOk] = useState(false);
   const [mostrarExcluir, setMostrarExcluir] = useState(false);
+  // Histórico de compras: movido da tela de Compra pra cá (Compra fica mais limpa).
+  const [historicoOpen, setHistoricoOpen] = useState(false);
 
   // Portabilidade LGPD: baixa os próprios dados em JSON.
   const [baixando, setBaixando] = useState(false);
@@ -709,6 +712,10 @@ export function PerfilScreen() {
 
             <FeedbackCard />
 
+            <Btn variant="ghost" full onClick={() => setHistoricoOpen(true)}>
+              🧾 Minhas compras (histórico)
+            </Btn>
+
             <Btn variant="ghost" full onClick={() => void logout()}>
               Sair
             </Btn>
@@ -751,6 +758,8 @@ export function PerfilScreen() {
           onCancel={() => setMostrarExcluir(false)}
         />
       )}
+
+      {historicoOpen && <MinhasCompras onClose={() => setHistoricoOpen(false)} />}
 
       {cropFile && (
         <CropModal file={cropFile} onSave={salvarFoto} onCancel={() => setCropFile(null)} />
