@@ -7,7 +7,6 @@ import type {
   PriceHistoryPointDTO,
   PriceTableRowDTO,
   ProdutoDTO,
-  ProdutoParaCompletarDTO,
   TrendDTO,
 } from '@meumercado/contracts';
 import { combinaBusca } from '@meumercado/domain';
@@ -83,7 +82,6 @@ export function PrecosScreen({
   const [mercadoFiltro, setMercadoFiltro] = useState<string | null>(null);
   const [mercadosDisp, setMercadosDisp] = useState<MercadoResumoDTO[]>([]);
   const [categoria, setCategoria] = useState<string>('');
-  const [completar, setCompletar] = useState<ProdutoParaCompletarDTO[]>([]);
 
   const carregar = useCallback(async () => {
     try {
@@ -93,13 +91,6 @@ export function PrecosScreen({
       setErro(mensagemDeErro(e));
     }
   }, [mercadoFiltro, pos]);
-
-  const carregarCompletar = useCallback(() => {
-    void api
-      .produtosParaCompletar()
-      .then(setCompletar)
-      .catch(() => {});
-  }, []);
 
   const carregarMercados = useCallback(() => {
     void api
@@ -130,12 +121,11 @@ export function PrecosScreen({
 
   useEffect(() => {
     carregarMercados();
-    carregarCompletar();
     void api
       .listarProdutos()
       .then(setProdutos)
       .catch(() => {});
-  }, [carregarMercados, carregarCompletar]);
+  }, [carregarMercados]);
 
   // Categorias presentes nos preços (pra montar o filtro sem opções vazias).
   const categoriasDisp = useMemo(
@@ -247,8 +237,6 @@ export function PrecosScreen({
         </div>
 
         {erro && <EmptyState emoji="⚠️" titulo="Não consegui carregar" sub={erro} />}
-
-        <CompletarSection itens={completar} onEscolher={(p) => abrirCadastro(p)} />
 
         {rows && rows.length > 0 && (
           <input
@@ -457,7 +445,6 @@ export function PrecosScreen({
             setEntry({ open: false });
             void carregar();
             carregarMercados();
-            carregarCompletar();
           }}
         />
       )}
@@ -471,7 +458,6 @@ export function PrecosScreen({
             setDetalhe(null);
             void carregar();
             carregarMercados();
-            carregarCompletar();
           }}
         />
       )}
@@ -482,115 +468,8 @@ export function PrecosScreen({
           onImported={() => {
             void carregar();
             carregarMercados();
-            carregarCompletar();
           }}
         />
-      )}
-    </div>
-  );
-}
-
-/**
- * Mutirão de cobertura: produtos que a comunidade só tem preço em 1 mercado.
- * Um toque abre o registro já com o produto escolhido — o usuário só põe o preço
- * do SEU mercado e o item vira comparável pra todo mundo. É o gargalo nº 1.
- */
-function CompletarSection({
-  itens,
-  onEscolher,
-}: {
-  itens: ProdutoParaCompletarDTO[];
-  onEscolher: (p: ProdutoDTO) => void;
-}) {
-  const { T } = useTheme();
-  const [expandido, setExpandido] = useState(false);
-  if (itens.length === 0) return null;
-  const mostra = expandido ? itens.slice(0, 20) : itens.slice(0, 4);
-  return (
-    <div
-      style={{
-        background: T.primaryBg,
-        border: `1px solid ${T.primary}33`,
-        borderRadius: 16,
-        padding: 14,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 18 }}>🤝</span>
-        <strong style={{ color: T.text, fontSize: 15 }}>Complete a comparação</strong>
-      </div>
-      <p style={{ color: T.muted, fontSize: 12, margin: '0 0 12px', lineHeight: 1.5 }}>
-        Estes só têm preço em 1 mercado. Registre quanto custam no seu e a Nina já compara pra todo
-        mundo. 🧡
-      </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {mostra.map((it) => (
-          <button
-            key={it.produto.id}
-            onClick={() => onEscolher(it.produto)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              background: T.surface,
-              border: `1px solid ${T.border}`,
-              borderRadius: 12,
-              padding: '10px 12px',
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            <span style={{ fontSize: 20 }}>{emojiDe(it.produto)}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p
-                style={{
-                  color: T.text,
-                  fontSize: 14,
-                  fontWeight: 700,
-                  margin: 0,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {it.produto.nome}
-              </p>
-              <p
-                style={{
-                  color: T.muted,
-                  fontSize: 12,
-                  margin: '2px 0 0',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {formatBRL(it.precoCents)}
-                {it.mercadoNome ? ` · só em ${marcaMercado(it.mercadoNome).label}` : ''}
-              </p>
-            </div>
-            <span style={{ color: T.primary, fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
-              ＋ comparar
-            </span>
-          </button>
-        ))}
-      </div>
-      {itens.length > 4 && (
-        <button
-          onClick={() => setExpandido((v) => !v)}
-          style={{
-            width: '100%',
-            background: 'none',
-            border: 'none',
-            color: T.primary,
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: 'pointer',
-            padding: '10px 0 0',
-          }}
-        >
-          {expandido ? 'Mostrar menos' : `Ver mais ${itens.length - 4}`}
-        </button>
       )}
     </div>
   );
