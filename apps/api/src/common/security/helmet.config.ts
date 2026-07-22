@@ -10,6 +10,9 @@ const OSM_TILES = ['https://tile.openstreetmap.org', 'https://*.tile.openstreetm
 const GIS = 'https://accounts.google.com/gsi/';
 const GIS_CLIENT = 'https://accounts.google.com/gsi/client';
 const GOOGLE_AVATARS = 'https://*.googleusercontent.com';
+/** Cloudflare Turnstile (anti-robô no cadastro/login): script + iframe do desafio +
+ *  XHR de verificação do widget. Só acende no front quando VITE_TURNSTILE_SITE_KEY existe. */
+const TURNSTILE = 'https://challenges.cloudflare.com';
 
 /**
  * Config do helmet. CSP restritiva, mas liberando o necessário para o MapLibre
@@ -24,12 +27,12 @@ export const helmetOptions: Parameters<typeof helmet>[0] = {
       // 'self' (nossos forms) + Google (fluxo redirect do Sign-In posta pro nosso callback).
       formAction: ["'self'", 'https://accounts.google.com'],
       frameAncestors: ["'self'"],
-      frameSrc: ["'self'", GIS],
+      frameSrc: ["'self'", GIS, TURNSTILE],
       imgSrc: ["'self'", 'data:', 'blob:', ...OSM_TILES, GOOGLE_AVATARS],
-      connectSrc: ["'self'", ...OSM_TILES, GIS],
+      connectSrc: ["'self'", ...OSM_TILES, GIS, TURNSTILE],
       workerSrc: ["'self'", 'blob:'],
       objectSrc: ["'none'"],
-      scriptSrc: ["'self'", GIS_CLIENT],
+      scriptSrc: ["'self'", GIS_CLIENT, TURNSTILE],
       scriptSrcAttr: ["'none'"],
       styleSrc: ["'self'", 'https:', "'unsafe-inline'"],
       upgradeInsecureRequests: [],

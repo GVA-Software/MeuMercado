@@ -36,4 +36,21 @@ interface Window {
       };
     };
   };
+
+  /** Cloudflare Turnstile (carregado dinâmico só quando VITE_TURNSTILE_SITE_KEY existe). */
+  turnstile?: {
+    render(
+      el: HTMLElement | string,
+      options: {
+        sitekey: string;
+        callback?: (token: string) => void;
+        'error-callback'?: () => void;
+        'expired-callback'?: () => void;
+        theme?: 'auto' | 'light' | 'dark';
+        size?: 'normal' | 'flexible' | 'compact';
+      },
+    ): string;
+    reset(widgetId?: string): void;
+    remove(widgetId?: string): void;
+  };
 }

@@ -12,8 +12,8 @@ interface AuthState {
   bootErro: boolean;
   /** Re-tenta conectar após um bootErro. */
   tentarConectar: () => void;
-  login: (email: string, senha: string) => Promise<void>;
-  register: (email: string, nome: string, senha: string) => Promise<void>;
+  login: (email: string, senha: string, turnstileToken?: string) => Promise<void>;
+  register: (email: string, nome: string, senha: string, turnstileToken?: string) => Promise<void>;
   /** Login com Google (ID token do GIS). `aceitouTermos` só importa se criar conta. */
   loginComGoogle: (idToken: string, aceitouTermos: boolean) => Promise<void>;
   atualizarNome: (nome: string) => Promise<void>;
@@ -102,17 +102,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [iniciar]);
 
   const login = useCallback(
-    async (email: string, senha: string) => {
-      const r = await api.login({ email, senha });
+    async (email: string, senha: string, turnstileToken?: string) => {
+      const r = await api.login({ email, senha, ...(turnstileToken ? { turnstileToken } : {}) });
       applyAuth(r.accessToken, r.user);
     },
     [applyAuth],
   );
 
   const register = useCallback(
-    async (email: string, nome: string, senha: string) => {
+    async (email: string, nome: string, senha: string, turnstileToken?: string) => {
       // O consentimento é obrigatório na tela de cadastro (checkbox trava o botão).
-      const r = await api.register({ email, nome, senha, aceitouTermos: true });
+      const r = await api.register({
+        email,
+        nome,
+        senha,
+        aceitouTermos: true,
+        ...(turnstileToken ? { turnstileToken } : {}),
+      });
       applyAuth(r.accessToken, r.user);
     },
     [applyAuth],

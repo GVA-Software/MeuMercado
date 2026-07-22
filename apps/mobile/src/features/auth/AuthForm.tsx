@@ -50,6 +50,12 @@ export function AuthForm() {
   const googleBtnRef = useRef<HTMLDivElement>(null); // botão real do GIS (invisível)
   const googleWrapRef = useRef<HTMLDivElement>(null); // container p/ medir a largura
 
+  // Turnstile (anti-robô) — apagado por padrão; só acende com VITE_TURNSTILE_SITE_KEY.
+  const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     const clientId = googleClientId ?? '';
     // Aparece no login E no cadastro (é login E cadastro: cria a conta se não existir),
@@ -104,6 +110,55 @@ export function AuthForm() {
     };
   }, [googleClientId, mode]);
 
+  // Turnstile: carrega o script (como o GIS) e renderiza o desafio no login/cadastro
+  // (não em "esqueci a senha" — aquela rota não tem o guard). Token é de uso único.
+  useEffect(() => {
+    const siteKey = turnstileSiteKey ?? '';
+    if (!siteKey || mode === 'forgot') return;
+    let cancelado = false;
+
+    function iniciar() {
+      const ts = window.turnstile;
+      if (cancelado || !ts || !turnstileRef.current) return;
+      turnstileRef.current.innerHTML = '';
+      widgetIdRef.current = ts.render(turnstileRef.current, {
+        sitekey: siteKey,
+        callback: (tok) => setTurnstileToken(tok),
+        'error-callback': () => setTurnstileToken(''),
+        'expired-callback': () => setTurnstileToken(''),
+        theme: 'auto',
+      });
+    }
+
+    const SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    if (window.turnstile) {
+      iniciar();
+    } else {
+      let s = document.querySelector<HTMLScriptElement>(`script[src="${SRC}"]`);
+      if (!s) {
+        s = document.createElement('script');
+        s.src = SRC;
+        s.async = true;
+        s.defer = true;
+        document.head.appendChild(s);
+      }
+      s.addEventListener('load', iniciar, { once: true });
+    }
+    return () => {
+      cancelado = true;
+      setTurnstileToken('');
+      const ts = window.turnstile;
+      if (ts && widgetIdRef.current) {
+        try {
+          ts.remove(widgetIdRef.current);
+        } catch {
+          /* widget já removido */
+        }
+        widgetIdRef.current = null;
+      }
+    };
+  }, [turnstileSiteKey, mode]);
+
   // Se o callback do Google (fluxo redirect) falhou, ele volta com ?login=google_erro.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -121,14 +176,23 @@ export function AuthForm() {
         await api.esqueciSenha(email);
         setEnviado(true);
       } else if (mode === 'login') {
-        await login(email, senha);
+        await login(email, senha, turnstileToken || undefined);
       } else {
-        await register(email, nome, senha);
+        await register(email, nome, senha, turnstileToken || undefined);
       }
     } catch (e) {
       setErro(mensagemDeErro(e));
     } finally {
       setBusy(false);
+      // Token do Turnstile é de uso único: zera e re-desafia pro próximo envio (ex.: senha errada).
+      if (turnstileSiteKey && window.turnstile && widgetIdRef.current) {
+        setTurnstileToken('');
+        try {
+          window.turnstile.reset(widgetIdRef.current);
+        } catch {
+          /* ignora */
+        }
+      }
     }
   }
 
@@ -292,11 +356,24 @@ export function AuthForm() {
             </label>
           )}
 
+          {turnstileSiteKey && (
+            <div
+              ref={turnstileRef}
+              style={{ display: 'flex', justifyContent: 'center', minHeight: 65 }}
+            />
+          )}
+
           {erro && <p style={{ color: T.danger, fontSize: 13, margin: 0 }}>{erro}</p>}
 
           <Btn
             full
-            disabled={busy || !email || !senha || (mode === 'register' && !aceito)}
+            disabled={
+              busy ||
+              !email ||
+              !senha ||
+              (mode === 'register' && !aceito) ||
+              (!!turnstileSiteKey && !turnstileToken)
+            }
             onClick={() => void submit()}
           >
             {busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}
