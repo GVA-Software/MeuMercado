@@ -68,7 +68,7 @@ describe('PricingService.tabela — tendência adaptativa', () => {
       [obs('p1', 'm1', 1690, 36), obs('p1', 'm1', 1750, 32)],
       [produto('p1', 'SACO LIXO')],
     );
-    const table = await service.tabela(undefined, undefined, AGORA);
+    const table = await service.tabela(undefined, undefined, undefined, AGORA);
     expect(table).toHaveLength(1);
     expect(table[0]!.trend).toBe('subiu');
     expect(table[0]!.trendPct).toBeGreaterThan(0);
@@ -79,7 +79,7 @@ describe('PricingService.tabela — tendência adaptativa', () => {
       [obs('p1', 'm1', 1690, 36, 'seed'), obs('p1', 'm1', 1750, 32, 'seed')],
       [produto('p1', 'SACO LIXO')],
     );
-    expect(await service.tabela(undefined, undefined, AGORA)).toHaveLength(0);
+    expect(await service.tabela(undefined, undefined, undefined, AGORA)).toHaveLength(0);
   });
 
   it('filtra por mercado', async () => {
@@ -87,7 +87,7 @@ describe('PricingService.tabela — tendência adaptativa', () => {
       [obs('p1', 'm1', 1000, 10), obs('p2', 'm2', 2000, 10)],
       [produto('p1', 'Arroz'), produto('p2', 'Feijão')],
     );
-    const soM2 = await service.tabela(undefined, 'Rossi', AGORA);
+    const soM2 = await service.tabela(undefined, 'Rossi', undefined, AGORA);
     expect(soM2.map((r) => r.produto.nome)).toEqual(['Feijão']);
   });
 });
@@ -165,7 +165,7 @@ describe('PricingService.estimativa — prévia da lista', () => {
     expect(r.mercados[0]).toMatchObject({ mercadoId: 'm1', itensCobertos: 2, totalCents: 2000 });
     expect(r.mercados[1]).toMatchObject({ mercadoId: 'm2', itensCobertos: 1, totalCents: 1200 });
     // média coberta em m1 = 1100×1 + 500×2 = 2100; total 2000 → economia 100.
-    expect(r.mercados[0].economiaVsMediaCents).toBe(100);
+    expect(r.mercados[0]!.economiaVsMediaCents).toBe(100);
   });
 
   it('colapsa linhas do mesmo produto: cobertura conta produto DISTINTO, soma a quantidade', async () => {
@@ -180,8 +180,8 @@ describe('PricingService.estimativa — prévia da lista', () => {
       { produtoId: 'p2', quantity: 1 },
     ]);
     expect(r.totalItens).toBe(2); // produtos distintos, não 3 linhas
-    expect(r.mercados[0].itensCobertos).toBe(2); // p1 não conta 2x
-    expect(r.mercados[0].totalCents).toBe(1000 * 3 + 500 * 1); // p1 qty somada = 3
+    expect(r.mercados[0]!.itensCobertos).toBe(2); // p1 não conta 2x
+    expect(r.mercados[0]!.totalCents).toBe(1000 * 3 + 500 * 1); // p1 qty somada = 3
   });
 
   it('usa o preço MAIS RECENTE por mercado (não a média) no total do mercado', async () => {
@@ -190,7 +190,7 @@ describe('PricingService.estimativa — prévia da lista', () => {
       [produto('p1', 'Arroz')],
     );
     const r = await service.estimativa([{ produtoId: 'p1', quantity: 1 }]);
-    expect(r.mercados[0].totalCents).toBe(800);
+    expect(r.mercados[0]!.totalCents).toBe(800);
   });
 });
 
@@ -201,10 +201,10 @@ describe('PricingService.tabela — proximidade', () => {
       [produto('p1', 'Arroz')],
     );
     const t = await service.tabela();
-    expect(t[0].distanciaMetros).toBeNull();
-    expect(t[0].distanciaMaisProximoMetros).toBeNull();
-    expect(t[0].menorPrecoLat).toBe(-23.5);
-    expect(t[0].menorPrecoLng).toBe(-46.6);
+    expect(t[0]!.distanciaMetros).toBeNull();
+    expect(t[0]!.distanciaMaisProximoMetros).toBeNull();
+    expect(t[0]!.menorPrecoLat).toBe(-23.5);
+    expect(t[0]!.menorPrecoLng).toBe(-46.6);
   });
 
   it('com posição: distância ao mais barato + a MENOR entre todas as observações', async () => {
@@ -216,17 +216,17 @@ describe('PricingService.tabela — proximidade', () => {
       [produto('p1', 'Arroz')],
     );
     const t = await service.tabela(undefined, undefined, { lat: -23.55, lng: -46.63 });
-    expect(t[0].distanciaMetros).toBeGreaterThan(0); // ao mais barato (m1, longe)
-    expect(t[0].distanciaMaisProximoMetros).toBeLessThan(100); // o mais próximo (m2) ~em cima
-    expect(t[0].distanciaMaisProximoMetros!).toBeLessThan(t[0].distanciaMetros!);
+    expect(t[0]!.distanciaMetros).toBeGreaterThan(0); // ao mais barato (m1, longe)
+    expect(t[0]!.distanciaMaisProximoMetros).toBeLessThan(100); // o mais próximo (m2) ~em cima
+    expect(t[0]!.distanciaMaisProximoMetros!).toBeLessThan(t[0]!.distanciaMetros!);
   });
 
   it('observação sem coord não quebra (distâncias null)', async () => {
     const service = makeService([obs('p1', 'm1', 1000, 5)], [produto('p1', 'Arroz')]);
     const t = await service.tabela(undefined, undefined, { lat: -23.5, lng: -46.6 });
-    expect(t[0].distanciaMetros).toBeNull();
-    expect(t[0].distanciaMaisProximoMetros).toBeNull();
-    expect(t[0].menorPrecoLat).toBeNull();
+    expect(t[0]!.distanciaMetros).toBeNull();
+    expect(t[0]!.distanciaMaisProximoMetros).toBeNull();
+    expect(t[0]!.menorPrecoLat).toBeNull();
   });
 });
 

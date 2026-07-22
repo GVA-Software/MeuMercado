@@ -1316,6 +1316,9 @@ function PriceEntrySheet({
   onDone: () => void;
 }) {
   const { T } = useTheme();
+  // O leitor de código de barras no "Registrar preço" (fluxo colaborativo) é só de
+  // admin — evita que qualquer usuário auto-cadastre produtos na base via OFF.
+  const { user } = useAuth();
   const [produto, setProduto] = useState<ProdutoDTO | null>(preselect ?? null);
   const [buscaProd, setBuscaProd] = useState('');
   const [criando, setCriando] = useState(false);
@@ -1558,25 +1561,27 @@ function PriceEntrySheet({
               onChange={(e) => setBuscaProd(e.target.value)}
               style={{ ...inputStyle, flex: 1, minWidth: 0 }}
             />
-            <button
-              onClick={() => {
-                setErro(null);
-                setScanOpen(true);
-              }}
-              title="Bipar o código de barras"
-              style={{
-                flexShrink: 0,
-                background: T.primaryBg,
-                color: T.primary,
-                border: 'none',
-                borderRadius: 12,
-                padding: '0 14px',
-                fontSize: 20,
-                cursor: 'pointer',
-              }}
-            >
-              📷
-            </button>
+            {user?.isAdmin && (
+              <button
+                onClick={() => {
+                  setErro(null);
+                  setScanOpen(true);
+                }}
+                title="Bipar o código de barras"
+                style={{
+                  flexShrink: 0,
+                  background: T.primaryBg,
+                  color: T.primary,
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '0 14px',
+                  fontSize: 20,
+                  cursor: 'pointer',
+                }}
+              >
+                📷
+              </button>
+            )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
             {filtrados.map((p) => (

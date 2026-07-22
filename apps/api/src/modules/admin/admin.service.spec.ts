@@ -69,6 +69,10 @@ function makeService(
       return Promise.resolve();
     },
     registrarAceitePolitica: () => Promise.resolve(),
+    findByGoogleSub: () => Promise.resolve(null),
+    vincularGoogle: () => Promise.resolve(),
+    atualizarFotoGoogle: () => Promise.resolve(),
+    invalidarSenha: () => Promise.resolve(),
   };
   const assinatura = Assinatura.free('x');
   const proAtivo = { isProAtivo: () => true } as unknown as Assinatura;
