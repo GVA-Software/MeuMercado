@@ -73,19 +73,38 @@ export class PricingService {
   }
 
   /**
-   * Prévia do gasto de uma lista pela MÉDIA da base (uma leitura só, agrupada em
-   * memória). Retorna a média por produto, o total estimado (só dos que têm
-   * preço) e a lista de produtos ainda sem preço na base.
+   * Prévia do gasto de uma lista (uma leitura só, agrupada em memória). Retorna:
+   * a média por produto, o total pela média, os produtos ainda sem preço, E o
+   * RANKING de mercados — onde a lista sai mais barata.
+   *
+   * Cobertura rasa tratada com HONESTIDADE: o total por mercado soma só os itens
+   * que ELE tem (preço mais recente × qtd) e devolvemos `itensCobertos` para o app
+   * mostrar "cobre k de N"; ordenamos por cobertura (mais completo) e depois preço
+   * (mais barato), pra um mercado incompleto não "ganhar" só por ter menos itens.
    */
   async estimativa(
     itens: readonly { produtoId: string; quantity: number }[],
   ): Promise<EstimativaListaResponse> {
+    const querido = new Set(itens.map((i) => i.produtoId));
     const porProduto = new Map<string, PriceObservation[]>();
+    // produtoId → mercadoId → observação MAIS RECENTE (o preço "de agora" naquele mercado).
+    const recentePorMercado = new Map<string, Map<string, PriceObservation>>();
     for (const o of this.reais(await this.repo.all())) {
+      if (!querido.has(o.produtoId)) continue;
       const arr = porProduto.get(o.produtoId);
       if (arr) arr.push(o);
       else porProduto.set(o.produtoId, [o]);
+      let byMkt = recentePorMercado.get(o.produtoId);
+      if (!byMkt) {
+        byMkt = new Map();
+        recentePorMercado.set(o.produtoId, byMkt);
+      }
+      const cur = byMkt.get(o.mercadoId);
+      if (!cur || o.observedAt.getTime() > cur.observedAt.getTime()) byMkt.set(o.mercadoId, o);
     }
+
+    // Média por produto + total pela média + itens sem preço (como antes).
+    const mediaPorProduto = new Map<string, number>();
     let totalEstimadoCents = 0;
     const semPreco: string[] = [];
     const linhas = itens.map((it) => {
@@ -93,10 +112,46 @@ export class PricingService {
       const mediaCents =
         obs && obs.length > 0 ? (new PriceStatistics(obs).average()?.cents ?? null) : null;
       if (mediaCents === null) semPreco.push(it.produtoId);
-      else totalEstimadoCents += Math.round(mediaCents * it.quantity);
+      else {
+        totalEstimadoCents += Math.round(mediaCents * it.quantity);
+        mediaPorProduto.set(it.produtoId, mediaCents);
+      }
       return { produtoId: it.produtoId, mediaCents };
     });
-    return { itens: linhas, totalEstimadoCents, semPreco };
+
+    // Agregação por mercado: total (preço recente × qtd) + média coberta + nº de itens.
+    const agg = new Map<
+      string,
+      { nome: string; total: number; mediaCoberta: number; cobertos: number }
+    >();
+    for (const it of itens) {
+      const byMkt = recentePorMercado.get(it.produtoId);
+      if (!byMkt) continue;
+      const media = mediaPorProduto.get(it.produtoId);
+      for (const [mid, o] of byMkt) {
+        let a = agg.get(mid);
+        if (!a) {
+          a = { nome: o.mercadoNome ?? mid, total: 0, mediaCoberta: 0, cobertos: 0 };
+          agg.set(mid, a);
+        }
+        a.total += o.price.cents * it.quantity;
+        if (media !== undefined) a.mediaCoberta += Math.round(media * it.quantity);
+        a.cobertos += 1;
+      }
+    }
+    const mercados = [...agg.entries()]
+      .map(([mercadoId, a]) => ({
+        mercadoId,
+        mercadoNome: a.nome,
+        totalCents: a.total,
+        itensCobertos: a.cobertos,
+        economiaVsMediaCents: Math.max(0, a.mediaCoberta - a.total),
+      }))
+      // Mais completo primeiro; empate → mais barato. (Incompleto não ganha por ter menos.)
+      .sort((x, y) => y.itensCobertos - x.itensCobertos || x.totalCents - y.totalCents)
+      .slice(0, 5);
+
+    return { itens: linhas, totalEstimadoCents, semPreco, totalItens: itens.length, mercados };
   }
 
   /**

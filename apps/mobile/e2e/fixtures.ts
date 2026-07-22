@@ -225,7 +225,13 @@ export async function installApiMocks(page: Page, opts: MockOpts = {}): Promise<
       if (path.endsWith('/prices/mercados')) return json([{ nome: 'Atacadao', count: 3 }]);
       // Estimativa da lista: default vazio (testes dedicados sobrescrevem).
       if (path.endsWith('/prices/estimativa'))
-        return json({ itens: [], totalEstimadoCents: 0, semPreco: [] });
+        return json({
+          itens: [],
+          totalEstimadoCents: 0,
+          semPreco: [],
+          totalItens: 0,
+          mercados: [],
+        });
       // Listas salvas: default vazio (testes dedicados sobrescrevem).
       if (path.endsWith('/listas')) return json({ listas: [] });
       // Histórico de compras: default vazio (testes dedicados sobrescrevem).

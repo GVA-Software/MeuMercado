@@ -115,12 +115,29 @@ export const EstimativaItemSchema = z.object({
 });
 export type EstimativaItemDTO = z.infer<typeof EstimativaItemSchema>;
 
+/** A lista inteira precificada NUM mercado (para "onde sai mais barato"). */
+export const EstimativaMercadoSchema = z.object({
+  mercadoId: z.string(),
+  mercadoNome: z.string(),
+  /** Total da lista neste mercado: soma do preço MAIS RECENTE × qtd, só dos itens que ele tem. */
+  totalCents: z.number().int().nonnegative(),
+  /** Quantos itens da lista este mercado tem preço (transparência da cobertura). */
+  itensCobertos: z.number().int().nonnegative(),
+  /** Quanto essa cesta (mesmos itens) sai mais barata que a MÉDIA da base. Sempre ≥ 0. */
+  economiaVsMediaCents: z.number().int().nonnegative(),
+});
+export type EstimativaMercadoDTO = z.infer<typeof EstimativaMercadoSchema>;
+
 export const EstimativaListaResponseSchema = z.object({
   itens: z.array(EstimativaItemSchema),
   /** Soma de média × quantidade, só dos itens que TÊM preço na base. */
   totalEstimadoCents: z.number().int().nonnegative(),
   /** IDs dos produtos sem preço na base (o front mostra os nomes). */
   semPreco: z.array(IdSchema),
+  /** Nº de itens da lista (para "cobre k de N"). */
+  totalItens: z.number().int().nonnegative(),
+  /** Ranking: onde a lista sai mais barata (mais completos e baratos primeiro). */
+  mercados: z.array(EstimativaMercadoSchema),
 });
 export type EstimativaListaResponse = z.infer<typeof EstimativaListaResponseSchema>;
 

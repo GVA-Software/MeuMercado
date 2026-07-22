@@ -143,6 +143,34 @@ describe('PricingService.estimativa — prévia da lista', () => {
     const r = await service.estimativa([{ produtoId: 'p1', quantity: 3 }]);
     expect(r.totalEstimadoCents).toBe(0);
     expect(r.semPreco).toEqual(['p1']);
+    expect(r.mercados).toEqual([]);
+  });
+
+  it('ranqueia mercados: mais completo primeiro, depois mais barato + economia vs média', async () => {
+    const service = makeService(
+      // p1 em m1=1000 e m2=1200 (média 1100); p2 só em m1=500 (média 500)
+      [obs('p1', 'm1', 1000, 5), obs('p1', 'm2', 1200, 5), obs('p2', 'm1', 500, 5)],
+      [produto('p1', 'Arroz'), produto('p2', 'Feijão')],
+    );
+    const r = await service.estimativa([
+      { produtoId: 'p1', quantity: 1 },
+      { produtoId: 'p2', quantity: 2 },
+    ]);
+    expect(r.totalItens).toBe(2);
+    // m1 cobre os 2 (1000 + 500×2 = 2000); m2 cobre só p1 (1200). Mais completo primeiro.
+    expect(r.mercados[0]).toMatchObject({ mercadoId: 'm1', itensCobertos: 2, totalCents: 2000 });
+    expect(r.mercados[1]).toMatchObject({ mercadoId: 'm2', itensCobertos: 1, totalCents: 1200 });
+    // média coberta em m1 = 1100×1 + 500×2 = 2100; total 2000 → economia 100.
+    expect(r.mercados[0].economiaVsMediaCents).toBe(100);
+  });
+
+  it('usa o preço MAIS RECENTE por mercado (não a média) no total do mercado', async () => {
+    const service = makeService(
+      [obs('p1', 'm1', 2000, 10), obs('p1', 'm1', 800, 1)], // recente = 800
+      [produto('p1', 'Arroz')],
+    );
+    const r = await service.estimativa([{ produtoId: 'p1', quantity: 1 }]);
+    expect(r.mercados[0].totalCents).toBe(800);
   });
 });
 

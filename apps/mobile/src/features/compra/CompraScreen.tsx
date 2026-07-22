@@ -829,6 +829,74 @@ export function CompraScreen() {
                     <p style={{ color: T.muted, fontSize: 11, margin: '4px 0 0', lineHeight: 1.4 }}>
                       Estimativa pela média da comunidade — o valor real você confirma ao riscar.
                     </p>
+                    {estimativa.mercados.length > 0 && (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          borderTop: `1px solid ${T.border}`,
+                          paddingTop: 10,
+                        }}
+                      >
+                        <p
+                          style={{
+                            color: T.text,
+                            fontSize: 12.5,
+                            fontWeight: 800,
+                            margin: '0 0 6px',
+                          }}
+                        >
+                          🏆 Onde sua lista sai mais barata
+                        </p>
+                        {estimativa.mercados.slice(0, 3).map((m, i) => (
+                          <div
+                            key={m.mercadoId}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 8,
+                              padding: '4px 0',
+                            }}
+                          >
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <span
+                                style={{
+                                  color: i === 0 ? T.primary : T.text,
+                                  fontSize: 13,
+                                  fontWeight: i === 0 ? 800 : 600,
+                                }}
+                              >
+                                {i === 0 ? '🥇 ' : ''}
+                                {m.mercadoNome}
+                              </span>
+                              <span style={{ color: T.muted, fontSize: 11, marginLeft: 6 }}>
+                                cobre {m.itensCobertos} de {estimativa.totalItens}
+                              </span>
+                            </div>
+                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                              <span style={{ color: T.text, fontSize: 13, fontWeight: 800 }}>
+                                ~{formatBRL(m.totalCents)}
+                              </span>
+                              {m.economiaVsMediaCents > 0 && (
+                                <div style={{ color: T.green, fontSize: 10.5, fontWeight: 700 }}>
+                                  −{formatBRL(m.economiaVsMediaCents)} vs média
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        <p
+                          style={{
+                            color: T.muted,
+                            fontSize: 10.5,
+                            margin: '6px 0 0',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          Total só dos itens que cada mercado tem preço na base.
+                        </p>
+                      </div>
+                    )}
                     {estimativa.semPreco.length > 0 && (
                       <>
                         <button
